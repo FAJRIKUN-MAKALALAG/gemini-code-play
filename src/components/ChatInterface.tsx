@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles, Loader2, Plus, History, X } from "lucide-react";
+import { Send, Sparkles, Loader2, Plus, History, X, Pencil, Check, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,7 +14,9 @@ export type ChatInterfaceHandle = {
   sendMessage: (content: string) => Promise<void>;
 };
 
-export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) => {
+type ChatProps = { getCurrentCode?: () => string; onLoadCode?: (code: string) => void };
+
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,9 +27,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) =
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [conversations, setConversations] = useState<Array<{ id: string; title: string; created_at: string }>>([]);
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string; created_at: string; last_code?: string | null }>>([]);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState("New Chat");
+  const [currentTitle, setCurrentTitle] = useState<string>("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [lastCodePreview, setLastCodePreview] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,19 +53,21 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) =
       setLoadingHistory(true);
       const { data: convs } = await supabase
         .from("conversations")
-        .select("id,title,created_at")
+        .select("id,title,created_at,last_code")
         .order("created_at", { ascending: false })
         .limit(1);
       // Load list of recent conversations for history panel
       const { data: convList } = await supabase
         .from("conversations")
-        .select("id,title,created_at")
+        .select("id,title,created_at,last_code")
         .order("created_at", { ascending: false })
         .limit(50);
       setConversations(convList || []);
 
       if (convs && convs.length > 0) {
         const cid = convs[0].id as string;
+        setCurrentTitle(convs[0].title || "Untitled");
+        setLastCodePreview((convs[0] as any).last_code ?? null);
         setConversationId(cid);
         const { data: msgs } = await supabase
           .from("chat_messages")
@@ -209,47 +217,82 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) =
           <Sparkles className="w-5 h-5 text-primary-foreground" />
           <h2 className="text-sm font-semibold text-primary-foreground">AI Assistant</h2>
         </div>
+        <div className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2 max-w-[50%]">
+          {!renaming ? (
+            <>
+              <div className="text-sm font-medium text-primary-foreground truncate">{currentTitle || "No chat selected"}</div>
+              {conversationId && (
+                <button
+                  className="text-primary-foreground/80 hover:text-primary-foreground"
+                  onClick={() => {
+                    setRenaming(true);
+                    setRenameTitle(currentTitle || "");
+                  }}
+                  title="Rename chat"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                className="text-xs px-2 py-1 rounded bg-white/20 text-primary-foreground placeholder:text-primary-foreground/60 outline-none"
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                autoFocus
+              />
+              <button
+                className="text-primary-foreground hover:opacity-90"
+                onClick={async () => {
+                  if (!conversationId) return;
+                  await supabase
+                    .from("conversations")
+                    .update({ title: renameTitle || "Untitled" })
+                    .eq("id", conversationId);
+                  setCurrentTitle(renameTitle || "Untitled");
+                  // refresh list
+                  const { data: convList } = await supabase
+                    .from("conversations")
+                    .select("id,title,created_at")
+                    .order("created_at", { ascending: false })
+                    .limit(50);
+                  setConversations(convList || []);
+                  setRenaming(false);
+                }}
+                title="Save title"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button className="text-primary-foreground/80 hover:text-primary-foreground" onClick={() => setRenaming(false)} title="Cancel">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="secondary"
             className="h-8"
-            onClick={async () => {
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) return;
-              const { data: conv, error } = await supabase
-                .from("conversations")
-                .insert({ user_id: session.user.id, title: newChatTitle || "New Chat" })
-                .select("id")
-                .single();
-              if (!error && conv) {
-                setConversationId(conv.id as string);
-                setMessages([]);
-                // refresh conversations list
-                const { data: convList } = await supabase
-                  .from("conversations")
-                  .select("id,title,created_at")
-                  .order("created_at", { ascending: false })
-                  .limit(50);
-                setConversations(convList || []);
-              }
-            }}
+            onClick={() => setShowNewModal(true)}
           >
             <Plus className="w-4 h-4 mr-1" /> New
           </Button>
           <Button size="sm" variant="secondary" className="h-8" onClick={() => setShowHistory((s) => !s)}>
             <History className="w-4 h-4 mr-1" /> History
           </Button>
-        </div>
-        {/* Title setting inline */}
-        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-2">
-          <span className="text-xs text-primary-foreground/80">New chat title:</span>
-          <input
-            className="text-xs px-2 py-1 rounded bg-white/20 text-primary-foreground placeholder:text-primary-foreground/60 outline-none"
-            value={newChatTitle}
-            onChange={(e) => setNewChatTitle(e.target.value)}
-            placeholder="New Chat"
-          />
+          {props.onLoadCode && lastCodePreview && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8"
+              onClick={() => props.onLoadCode?.(lastCodePreview)}
+              title="Load saved code into editor"
+            >
+              Load Code
+            </Button>
+          )}
         </div>
       </div>
       
@@ -330,28 +373,149 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) =
                 <div className="text-sm text-muted-foreground">No conversations yet</div>
               )}
               {conversations.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  onClick={async () => {
-                    setConversationId(c.id);
-                    setShowHistory(false);
-                    setLoadingHistory(true);
-                    const { data: msgs } = await supabase
-                      .from("chat_messages")
-                      .select("role, content, created_at")
-                      .eq("conversation_id", c.id)
-                      .order("created_at", { ascending: true });
+                  className={`w-full text-left border rounded p-2 hover:bg-muted ${
+                    c.id === conversationId ? "bg-primary/10 border-primary" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      onClick={async () => {
+                        // Save current code before switching
+                        try {
+                          if (conversationId && props.getCurrentCode) {
+                            const code = props.getCurrentCode();
+                            if (code != null) {
+                              await supabase
+                                .from("conversations")
+                                .update({ last_code: code })
+                                .eq("id", conversationId);
+                            }
+                          }
+                        } catch (e) {
+                          console.warn("Save previous code failed (is last_code column added?)", e);
+                        }
+                        setConversationId(c.id);
+                        setCurrentTitle(c.title || "Untitled");
+                        setShowHistory(false);
+                        setLoadingHistory(true);
+                        const { data: msgs } = await supabase
+                          .from("chat_messages")
+                          .select("role, content, created_at")
+                          .eq("conversation_id", c.id)
+                          .order("created_at", { ascending: true });
                     setMessages(
                       (msgs || []).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
                     );
+                    const { data: convRow } = await supabase
+                      .from("conversations")
+                      .select("last_code")
+                      .eq("id", c.id)
+                      .single();
+                    setLastCodePreview((convRow as any)?.last_code ?? null);
                     setLoadingHistory(false);
                   }}
-                  className="w-full text-left border border-border rounded p-2 hover:bg-muted"
-                >
-                  <div className="text-sm truncate">{c.title || "Untitled"}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
-                </button>
+                      className="flex-1 text-left"
+                    >
+                      <div className="text-sm truncate font-medium">
+                        {c.title || "Untitled"}
+                        {c.id === conversationId && <span className="ml-2 text-xs text-primary">(Active)</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
+                    </button>
+                    <button
+                      className="text-muted-foreground hover:text-destructive p-1"
+                      title="Delete conversation"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const ok = window.confirm("Delete this conversation? This cannot be undone.");
+                        if (!ok) return;
+                        const { error } = await supabase
+                          .from("conversations")
+                          .delete()
+                          .eq("id", c.id);
+                        if (!error) {
+                          // refresh list
+                          const { data: convList } = await supabase
+                            .from("conversations")
+                            .select("id,title,created_at")
+                            .order("created_at", { ascending: false })
+                            .limit(50);
+                          setConversations(convList || []);
+                          if (conversationId === c.id) {
+                            setConversationId(null);
+                            setCurrentTitle("");
+                            setMessages([]);
+                          }
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Chat Modal */}
+      {showNewModal && (
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <div className="bg-white border border-border rounded-lg shadow-card w-full max-w-sm p-4">
+            <div className="text-sm font-semibold mb-2">Create New Chat</div>
+            <label className="text-xs text-muted-foreground">Title</label>
+            <input
+              className="w-full mt-1 mb-3 px-3 py-2 border border-border rounded outline-none focus:border-primary"
+              value={newChatTitle}
+              onChange={(e) => setNewChatTitle(e.target.value)}
+              placeholder={`New Chat ${new Date().toLocaleDateString()}`}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowNewModal(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) return;
+                  // Save current editor code into previous conversation
+                  try {
+                    if (conversationId && props.getCurrentCode) {
+                      const code = props.getCurrentCode();
+                      if (code != null) {
+                        await supabase
+                          .from("conversations")
+                          .update({ last_code: code })
+                          .eq("id", conversationId);
+                      }
+                    }
+                  } catch (e) {
+                    console.warn("Save previous code failed (is last_code column added?)", e);
+                  }
+                  const { data: conv, error } = await supabase
+                    .from("conversations")
+                    .insert({ user_id: session.user.id, title: newChatTitle || "New Chat" })
+                    .select("id,title")
+                    .single();
+                  if (!error && conv) {
+                    setConversationId(conv.id as string);
+                    setCurrentTitle(conv.title || "Untitled");
+                    setMessages([]);
+                    const { data: convList } = await supabase
+                      .from("conversations")
+                      .select("id,title,created_at")
+                      .order("created_at", { ascending: false })
+                      .limit(50);
+                    setConversations(convList || []);
+                  }
+                  setShowNewModal(false);
+                }}
+              >
+                Create
+              </Button>
             </div>
           </div>
         </div>

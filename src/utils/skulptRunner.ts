@@ -34,7 +34,9 @@ export const loadSkulpt = (): Promise<void> => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      ok ? resolve() : reject(err || new Error("Failed to load Skulpt"));
+      ok
+        ? resolve()
+        : reject(err || new Error("Failed to load Skulpt retrying"));
     };
     const timer = window.setTimeout(() => {
       console.error("Timed out loading Skulpt");

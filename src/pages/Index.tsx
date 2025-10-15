@@ -199,7 +199,7 @@ print(greet("World"))
               <div className="h-full min-h-0 flex flex-col gap-3">
                 <AuthPanel />
                 <div className="flex-1 min-h-0">
-                  <ChatInterface ref={chatRef} />
+                  <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
                 </div>
               </div>
             </Panel>

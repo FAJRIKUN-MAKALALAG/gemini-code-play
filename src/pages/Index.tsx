@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Code2 } from "lucide-react";
 
 const Index = () => {
-  const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant!
+  const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant! GROUPFOX
 # Write your Python code here and click Run
 
 def greet(name):
@@ -160,7 +160,7 @@ print(greet("World"))
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                AI Python Coding Assistant
+                AI Python Coding Assistant Fajrikun
               </h1>
               <p className="text-sm text-muted-foreground">
                 Write, run, and improve Python code with AI assistance

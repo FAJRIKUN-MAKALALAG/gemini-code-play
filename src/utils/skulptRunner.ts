@@ -1,47 +1,68 @@
-declare const Skulpt: any;
+declare global {
+  interface Window {
+    Skulpt: any;
+  }
+}
 
 export const loadSkulpt = (): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (typeof Skulpt !== "undefined") {
+    if (window.Skulpt) {
+      console.log("Skulpt already loaded");
       resolve();
       return;
     }
 
+    console.log("Loading Skulpt...");
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js";
     script.onload = () => {
+      console.log("Skulpt core loaded");
       const scriptStdlib = document.createElement("script");
       scriptStdlib.src = "https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js";
-      scriptStdlib.onload = () => resolve();
-      scriptStdlib.onerror = () => reject(new Error("Failed to load Skulpt stdlib"));
+      scriptStdlib.onload = () => {
+        console.log("Skulpt stdlib loaded");
+        resolve();
+      };
+      scriptStdlib.onerror = (error) => {
+        console.error("Failed to load Skulpt stdlib:", error);
+        reject(new Error("Failed to load Skulpt stdlib"));
+      };
       document.head.appendChild(scriptStdlib);
     };
-    script.onerror = () => reject(new Error("Failed to load Skulpt"));
+    script.onerror = (error) => {
+      console.error("Failed to load Skulpt core:", error);
+      reject(new Error("Failed to load Skulpt"));
+    };
     document.head.appendChild(script);
   });
 };
 
 export const runPythonCode = (code: string): Promise<string[]> => {
   return new Promise((resolve) => {
+    if (!window.Skulpt) {
+      resolve(["Error: Skulpt is not loaded. Please refresh the page."]);
+      return;
+    }
+
     const output: string[] = [];
 
-    Skulpt.configure({
+    window.Skulpt.configure({
       output: (text: string) => {
         output.push(text);
       },
       read: (filename: string) => {
         if (
-          Skulpt.builtinFiles === undefined ||
-          Skulpt.builtinFiles["files"][filename] === undefined
+          window.Skulpt.builtinFiles === undefined ||
+          window.Skulpt.builtinFiles["files"][filename] === undefined
         ) {
           throw new Error(`File not found: ${filename}`);
         }
-        return Skulpt.builtinFiles["files"][filename];
+        return window.Skulpt.builtinFiles["files"][filename];
       },
     });
 
-    Skulpt.misceval
-      .asyncToPromise(() => Skulpt.importMainWithBody("<stdin>", false, code, true))
+    window.Skulpt.misceval
+      .asyncToPromise(() => window.Skulpt.importMainWithBody("<stdin>", false, code, true))
       .then(() => {
         resolve(output);
       })

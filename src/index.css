@@ -8,50 +8,51 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 220 25% 10%;
-    --foreground: 210 40% 98%;
+    /* Light theme */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 15%;
 
-    --card: 220 20% 12%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
 
-    --popover: 220 20% 12%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
 
     --primary: 262 83% 58%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 100%;
     --primary-glow: 262 83% 68%;
 
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 98%;
+    --secondary-foreground: 220 15% 20%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 220 10% 40%;
 
-    --accent: 158 64% 52%;
-    --accent-foreground: 220 25% 10%;
+    --accent: 158 64% 45%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 18%;
+    --border: 220 10% 85%;
+    --input: 0 0% 100%;
     --ring: 262 83% 58%;
 
     --radius: 0.75rem;
 
-    --terminal-bg: 220 25% 8%;
-    --terminal-text: 140 50% 65%;
-    --terminal-error: 0 84% 60%;
+    --terminal-bg: 0 0% 100%;
+    --terminal-text: 220 15% 20%;
+    --terminal-error: 0 70% 45%;
 
-    --editor-bg: 220 20% 14%;
-    --editor-line: 220 15% 22%;
+    --editor-bg: 0 0% 100%;
+    --editor-line: 0 0% 95%;
 
     --gradient-ai: linear-gradient(135deg, hsl(262 83% 58%), hsl(220 83% 58%));
-    --gradient-accent: linear-gradient(135deg, hsl(158 64% 52%), hsl(180 64% 52%));
+    --gradient-accent: linear-gradient(135deg, hsl(158 64% 45%), hsl(180 64% 45%));
     
-    --shadow-glow: 0 0 40px hsl(262 83% 58% / 0.3);
-    --shadow-glow-accent: 0 0 30px hsl(158 64% 52% / 0.3);
-    --shadow-card: 0 10px 30px -10px hsl(220 25% 5% / 0.5);
+    --shadow-glow: 0 0 30px hsl(262 83% 58% / 0.18);
+    --shadow-glow-accent: 0 0 22px hsl(158 64% 45% / 0.18);
+    --shadow-card: 0 6px 20px -10px hsl(220 15% 20% / 0.18);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }

@@ -1,24 +1,33 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles, Loader2 } from "lucide-react";
+import { Send, Sparkles, Loader2, Plus, History, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-interface ChatInterfaceProps {
-  onCodeGenerated: (code: string) => void;
-}
+export type ChatInterfaceHandle = {
+  sendMessage: (content: string) => Promise<void>;
+};
 
-export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
+export const ChatInterface = forwardRef<ChatInterfaceHandle, {}>((_props, ref) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  const geminiModel = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || "gemini-2.5-flash";
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string; created_at: string }>>([]);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newChatTitle, setNewChatTitle] = useState("New Chat");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,99 +37,138 @@ export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
     scrollToBottom();
   }, [messages]);
 
-  const streamChat = async (userMessage: Message) => {
-    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+  useEffect(() => {
+    // load latest conversation + messages when signed in
+    const init = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      setLoadingHistory(true);
+      const { data: convs } = await supabase
+        .from("conversations")
+        .select("id,title,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      // Load list of recent conversations for history panel
+      const { data: convList } = await supabase
+        .from("conversations")
+        .select("id,title,created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setConversations(convList || []);
 
-    try {
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
-      });
-
-      if (resp.status === 429) {
-        toast({
-          title: "Rate limit exceeded",
-          description: "Please try again later.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (resp.status === 402) {
-        toast({
-          title: "Payment required",
-          description: "Please add funds to your workspace.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!resp.ok || !resp.body) throw new Error("Failed to start stream");
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let streamDone = false;
-      let assistantContent = "";
-
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) =>
-                    i === prev.length - 1 ? { ...m, content: assistantContent } : m
-                  );
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
+      if (convs && convs.length > 0) {
+        const cid = convs[0].id as string;
+        setConversationId(cid);
+        const { data: msgs } = await supabase
+          .from("chat_messages")
+          .select("role, content, created_at")
+          .eq("conversation_id", cid)
+          .order("created_at", { ascending: true });
+        if (msgs) {
+          setMessages(msgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
         }
+      } else {
+        setMessages([]);
       }
+      setLoadingHistory(false);
+    };
+    init();
 
-      // Check if response contains code block and extract it
-      const codeMatch = assistantContent.match(/```python\n([\s\S]*?)```/);
-      if (codeMatch) {
-        onCodeGenerated(codeMatch[1]);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setConversationId(null);
+        setMessages([]);
+        setConversations([]);
+      } else {
+        // user signed in -> reload history
+        init();
       }
-    } catch (error) {
-      console.error("Chat error:", error);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const chatOnce = async (userMessage: Message) => {
+    if (!geminiKey) {
       toast({
-        title: "Error",
-        description: "Failed to get AI response",
+        title: "Missing API key",
+        description: "Set VITE_GEMINI_API_KEY in .env to call the AI",
         variant: "destructive",
       });
+      setIsLoading(false);
+      return;
+    }
+    try {
+      // ensure session (user must be logged in to save history)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Not logged in", description: "Please sign in to chat" });
+        return;
+      }
+
+      // ensure conversation exists
+      let convId = conversationId;
+      if (!convId) {
+        const { data: conv, error: convErr } = await supabase
+          .from("conversations")
+          .insert({ user_id: session?.user?.id, title: "New Chat" })
+          .select("id")
+          .single();
+        if (convErr) throw convErr;
+        convId = conv!.id as string;
+        setConversationId(convId);
+      }
+
+      // insert user message
+      await supabase.from("chat_messages").insert({
+        conversation_id: convId,
+        user_id: session?.user?.id,
+        role: "user",
+        content: userMessage.content,
+      });
+
+      // call Gemini generateContent (non-streaming simple call)
+      const contents = [...messages, userMessage].map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      const gemResp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: JSON.stringify({ contents }),
+        }
+      );
+      if (!gemResp.ok) {
+        const t = await gemResp.text();
+        throw new Error(`Gemini error ${gemResp.status}: ${t}`);
+      }
+      const gjson = await gemResp.json();
+      const candidate = gjson.candidates?.[0];
+      const assistantText: string = candidate?.content?.parts
+        ?.map((p: any) => p?.text || "")
+        .join("") || "";
+
+      // update UI
+      setMessages((prev) => [...prev, { role: "assistant", content: assistantText }]);
+
+      // insert assistant message
+      await supabase.from("chat_messages").insert({
+        conversation_id: convId,
+        user_id: session?.user?.id,
+        role: "assistant",
+        content: assistantText,
+      });
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast({ title: "Error", description: String(error), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -134,8 +182,18 @@ export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
     setInput("");
     setIsLoading(true);
 
-    await streamChat(userMessage);
+    await chatOnce(userMessage);
   };
+
+  useImperativeHandle(ref, () => ({
+    sendMessage: async (content: string) => {
+      if (isLoading) return;
+      const userMessage: Message = { role: "user", content };
+      setMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
+      await chatOnce(userMessage);
+    },
+  }));
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -146,12 +204,59 @@ export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
 
   return (
     <div className="flex flex-col h-full bg-card rounded-lg overflow-hidden border border-border shadow-card">
-      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-ai border-b border-border">
-        <Sparkles className="w-5 h-5 text-primary-foreground" />
-        <h2 className="text-sm font-semibold text-primary-foreground">AI Assistant</h2>
+      <div className="relative flex items-center justify-between px-4 py-3 bg-gradient-ai border-b border-border">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-primary-foreground" />
+          <h2 className="text-sm font-semibold text-primary-foreground">AI Assistant</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8"
+            onClick={async () => {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) return;
+              const { data: conv, error } = await supabase
+                .from("conversations")
+                .insert({ user_id: session.user.id, title: newChatTitle || "New Chat" })
+                .select("id")
+                .single();
+              if (!error && conv) {
+                setConversationId(conv.id as string);
+                setMessages([]);
+                // refresh conversations list
+                const { data: convList } = await supabase
+                  .from("conversations")
+                  .select("id,title,created_at")
+                  .order("created_at", { ascending: false })
+                  .limit(50);
+                setConversations(convList || []);
+              }
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" /> New
+          </Button>
+          <Button size="sm" variant="secondary" className="h-8" onClick={() => setShowHistory((s) => !s)}>
+            <History className="w-4 h-4 mr-1" /> History
+          </Button>
+        </div>
+        {/* Title setting inline */}
+        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-2">
+          <span className="text-xs text-primary-foreground/80">New chat title:</span>
+          <input
+            className="text-xs px-2 py-1 rounded bg-white/20 text-primary-foreground placeholder:text-primary-foreground/60 outline-none"
+            value={newChatTitle}
+            onChange={(e) => setNewChatTitle(e.target.value)}
+            placeholder="New Chat"
+          />
+        </div>
       </div>
       
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+        {loadingHistory && (
+          <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading chat history...</div>
+        )}
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center text-muted-foreground max-w-md">
@@ -168,13 +273,13 @@ export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
+                className={`max-w-[85%] rounded-lg px-4 py-2.5 border ${
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-gradient-to-r from-accent/10 to-primary/5 text-foreground border-accent/30"
                 }`}
               >
-                <div className="text-sm whitespace-pre-wrap break-words">{message.content}</div>
+                <ChatMessageContent role={message.role} content={message.content} />
               </div>
             </div>
           ))
@@ -208,6 +313,236 @@ export const ChatInterface = ({ onCodeGenerated }: ChatInterfaceProps) => {
           </Button>
         </div>
       </div>
+
+      {/* History Drawer */}
+      {showHistory && (
+        <div className="absolute inset-0 bg-black/10">
+          <div className="absolute right-0 top-0 h-full w-80 max-w-[85%] bg-white border-l border-border shadow-card p-3 flex flex-col">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold">Chat History</div>
+              <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowHistory(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-xs text-muted-foreground mb-2">Click to open a conversation</div>
+            <div className="flex-1 overflow-auto space-y-2">
+              {conversations.length === 0 && (
+                <div className="text-sm text-muted-foreground">No conversations yet</div>
+              )}
+              {conversations.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={async () => {
+                    setConversationId(c.id);
+                    setShowHistory(false);
+                    setLoadingHistory(true);
+                    const { data: msgs } = await supabase
+                      .from("chat_messages")
+                      .select("role, content, created_at")
+                      .eq("conversation_id", c.id)
+                      .order("created_at", { ascending: true });
+                    setMessages(
+                      (msgs || []).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+                    );
+                    setLoadingHistory(false);
+                  }}
+                  className="w-full text-left border border-border rounded p-2 hover:bg-muted"
+                >
+                  <div className="text-sm truncate">{c.title || "Untitled"}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});
+
+function ChatMessageContent({ role, content }: { role: "user" | "assistant"; content: string }) {
+  if (role === "user") {
+    return <div className="text-sm whitespace-pre-wrap break-words">{content}</div>;
+  }
+  return <MarkdownMessage content={content} />;
+}
+
+function MarkdownMessage({ content }: { content: string }) {
+  // Split by fenced code blocks ```lang\n...```
+  const segments: Array<{ type: "code" | "text"; lang?: string; text: string }> = [];
+  const regex = /```(\w+)?\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "text", text: content.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: "code", lang: match[1]?.toLowerCase(), text: match[2] });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < content.length) {
+    segments.push({ type: "text", text: content.slice(lastIndex) });
+  }
+
+  return (
+    <div className="space-y-3">
+      {segments.map((seg, i) =>
+        seg.type === "code" ? (
+          <CodeBlock key={i} lang={seg.lang} code={seg.text} />
+        ) : (
+          <RichText key={i} text={seg.text} />
+        )
+      )}
+    </div>
+  );
+}
+
+function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      // no-op
+    }
+  };
+  return (
+    <div className="relative">
+      <div className="absolute right-2 top-2 text-xs text-muted-foreground">
+        {lang ? lang.toUpperCase() : "CODE"}
+      </div>
+      <pre className="bg-background border border-accent/30 rounded p-3 overflow-auto text-sm whitespace-pre-wrap">
+        <code>{code}</code>
+      </pre>
+      <div className="mt-1 flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 px-2 text-xs">
+          Copy
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function RichText({ text }: { text: string }) {
+  // Basic markdown: headings, lists, paragraphs, inline code, bold, italics
+  const lines = text.replace(/\r/g, "").split("\n");
+  const blocks: Array<{ type: string; content: any }> = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // blank line -> paragraph separator
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+    // heading
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (h) {
+      blocks.push({ type: `h${h[1].length}`, content: h[2] });
+      i++;
+      continue;
+    }
+    // unordered list
+    if (/^\s*[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
+        i++;
+      }
+      blocks.push({ type: "ul", content: items });
+      continue;
+    }
+    // ordered list
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*\d+\.\s+/, ""));
+        i++;
+      }
+      blocks.push({ type: "ol", content: items });
+      continue;
+    }
+    // paragraph (collect until blank line or next block)
+    const para: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^\s*[-*]\s+/.test(lines[i]) &&
+      !/^\s*\d+\.\s+/.test(lines[i]) &&
+      !/^#{1,6}\s+/.test(lines[i])
+    ) {
+      para.push(lines[i]);
+      i++;
+    }
+    blocks.push({ type: "p", content: para.join("\n") });
+  }
+
+  const renderInline = (s: string) => {
+    // Handle inline code first
+    const codeSplit = s.split(/(`[^`]+`)/g);
+    return codeSplit.map((part, idx) => {
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code key={`code-${idx}`} className="bg-muted px-1 py-0.5 rounded border border-border">
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      // bold **text**
+      const boldSplit = part.split(/(\*\*[^*]+\*\*)/g);
+      return boldSplit.map((bp, bidx) => {
+        if (bp.startsWith("**") && bp.endsWith("**")) {
+          return <strong key={`b-${idx}-${bidx}`}>{bp.slice(2, -2)}</strong>;
+        }
+        // italics *text*
+        const italSplit = bp.split(/(\*[^*]+\*)/g);
+        return italSplit.map((ip, iidx) => {
+          if (ip.startsWith("*") && ip.endsWith("*")) {
+            return <em key={`i-${idx}-${bidx}-${iidx}`}>{ip.slice(1, -1)}</em>;
+          }
+          return <span key={`t-${idx}-${bidx}-${iidx}`}>{ip}</span>;
+        });
+      });
+    });
+  };
+
+  return (
+    <div className="text-sm break-words space-y-2">
+      {blocks.map((b, idx) => {
+        if (/^h[1-6]$/.test(b.type)) {
+          const level = Number(b.type.slice(1));
+          const sizes = ["text-2xl", "text-xl", "text-lg", "text-base", "text-sm", "text-xs"] as const;
+          const size = sizes[level - 1];
+          return (
+            <div key={idx} className={`font-semibold ${size}`}> 
+              {renderInline(b.content)}
+            </div>
+          );
+        }
+        if (b.type === "ul") {
+          return (
+            <ul key={idx} className="list-disc pl-5 space-y-1">
+              {(b.content as string[]).map((it, i2) => (
+                <li key={i2}>{renderInline(it)}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (b.type === "ol") {
+          return (
+            <ol key={idx} className="list-decimal pl-5 space-y-1">
+              {(b.content as string[]).map((it, i2) => (
+                <li key={i2}>{renderInline(it)}</li>
+              ))}
+            </ol>
+          );
+        }
+        return (
+          <p key={idx} className="whitespace-pre-wrap">
+            {renderInline(b.content as string)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}

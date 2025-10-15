@@ -49,7 +49,7 @@ export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat }: Cod
           defaultLanguage="python"
           value={code}
           onChange={(value) => onChange(value || "")}
-          theme="vs-dark"
+          theme="vs"
           options={{
             minimap: { enabled: false },
             fontSize: 14,

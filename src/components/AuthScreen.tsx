@@ -12,6 +12,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState("");
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -21,11 +22,14 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   const handleAuth = async () => {
     if (!email || !password) return;
     setLoading(true);
-    const fn =
+    const { data, error } =
       mode === "signin"
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
-    const { error } = await fn;
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { username } },
+          });
     setLoading(false);
     if (error) {
       alert(error.message);
@@ -72,6 +76,13 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          {mode === "signup" && (
+            <Input
+              placeholder="Username (display name)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          )}
           <Button onClick={handleAuth} disabled={loading || !email || !password} className="w-full">
             {mode === "signin" ? "Sign In" : "Create Account"}
           </Button>
@@ -80,4 +91,3 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     </div>
   );
 };
-

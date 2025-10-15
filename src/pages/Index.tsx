@@ -1,7 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { CodeEditor } from "@/components/CodeEditor";
 import { Terminal } from "@/components/Terminal";
-import { ChatInterface } from "@/components/ChatInterface";
+import { ChatInterface, ChatInterfaceHandle } from "@/components/ChatInterface";
+import { AuthPanel } from "@/components/AuthPanel";
+import { AuthScreen } from "@/components/AuthScreen";
+import { supabase } from "@/integrations/supabase/client";
 import { loadSkulpt, runPythonCode } from "@/utils/skulptRunner";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Code2 } from "lucide-react";
@@ -16,10 +20,20 @@ def greet(name):
 print(greet("World"))
 `);
   const [output, setOutput] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState<string | null>(null);
+  const inputResolverRef = useRef<((value: string) => void) | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [showStart, setShowStart] = useState(true);
+  const [startVisible, setStartVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const chatRef = useRef<ChatInterfaceHandle | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
+    // Trigger fade-in for start screen
+    setStartVisible(true);
+
     loadSkulpt()
       .then(() => {
         setIsLoading(false);
@@ -33,15 +47,56 @@ print(greet("World"))
         });
         setIsLoading(false);
       });
+    // When start screen dismissed and not logged in, show auth screen
+    const bootstrapAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) setShowAuth(true);
+    };
+    bootstrapAuth();
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setShowAuth(!session);
+    });
+    return () => sub.subscription.unsubscribe();
   }, [toast]);
 
   const handleRunCode = async () => {
     setOutput([]);
+    setPrompt(null);
+    setIsRunning(true);
     try {
-      const result = await runPythonCode(code);
-      setOutput(result);
+      const appendChunk = (chunk: string) => {
+        const normalized = chunk.replace(/\r/g, "");
+        const parts = normalized.split("\n");
+        setOutput((prev) => {
+          const out = [...prev];
+          if (out.length === 0) out.push("");
+          // append first part to current line
+          out[out.length - 1] = (out[out.length - 1] || "") + parts[0];
+          // push remaining parts as new lines
+          for (let i = 1; i < parts.length; i++) {
+            out.push(parts[i]);
+          }
+          return out;
+        });
+      };
+
+      await runPythonCode(code, {
+        inputProvider: (p?: string) =>
+          new Promise<string>((resolve) => {
+            setPrompt(p || "Input");
+            inputResolverRef.current = (val: string) => {
+              resolve(val);
+              inputResolverRef.current = null;
+              setPrompt(null);
+            };
+          }),
+        onStdout: appendChunk,
+        onStderr: appendChunk,
+      });
     } catch (error) {
-      setOutput([`Error: ${error}`]);
+      setOutput((prev) => [...prev, `Error: ${error}`]);
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -50,20 +105,13 @@ print(greet("World"))
   };
 
   const handleSendToChat = () => {
-    // This will be handled by the chat interface
-    toast({
-      title: "Code sent to AI",
-      description: "The AI will analyze your code",
-    });
+    const content = `Please review the following Python code and suggest improvements.\n\n\
+\u0060\u0060\u0060python\n${code}\n\u0060\u0060\u0060`;
+    chatRef.current?.sendMessage(content);
+    toast({ title: "Code sent", description: "Sent code to AI chat" });
   };
 
-  const handleCodeGenerated = (generatedCode: string) => {
-    setCode(generatedCode);
-    toast({
-      title: "Code generated",
-      description: "AI-generated code has been added to the editor",
-    });
-  };
+  // Removed auto-insert of AI code into editor; code is copyable from chat.
 
   if (isLoading) {
     return (
@@ -78,6 +126,31 @@ print(greet("World"))
 
   return (
     <div className="min-h-screen bg-background p-4">
+      {showStart && (
+        <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+          <div
+            className={`flex flex-col items-center transition-opacity duration-700 ease-out ${
+              startVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <img
+              src="/AicodeLogo.png"
+              alt="AIcode Logo"
+              className="w-36 h-36 mb-6 select-none"
+              draggable={false}
+            />
+            <button
+              onClick={() => setShowStart(false)}
+              className="px-6 py-2 rounded-md bg-black text-white font-medium shadow hover:opacity-90 active:opacity-80 transition"
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      )}
+      {showAuth && !showStart && (
+        <AuthScreen onAuthenticated={() => setShowAuth(false)} />
+      )}
       <div className="max-w-[1800px] mx-auto">
         {/* Header */}
         <header className="mb-6">
@@ -96,30 +169,41 @@ print(greet("World"))
           </div>
         </header>
 
-        {/* Main Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
-          {/* Left: Code Editor */}
-          <div className="lg:col-span-2 flex flex-col gap-4 h-full">
-            <div className="flex-[2] min-h-0">
-              <CodeEditor
-                code={code}
-                onChange={setCode}
-                onRun={handleRunCode}
-                onClear={handleClearTerminal}
-                onSendToChat={handleSendToChat}
-              />
-            </div>
-            
-            {/* Terminal */}
-            <div className="flex-1 min-h-0">
-              <Terminal output={output} />
-            </div>
-          </div>
-
-          {/* Right: AI Chat */}
-          <div className="h-full">
-            <ChatInterface onCodeGenerated={handleCodeGenerated} />
-          </div>
+        {/* Main Layout with resizable panels */}
+        <div className="h-[calc(100vh-180px)]">
+          <PanelGroup direction="horizontal" className="gap-4 h-full">
+            <Panel defaultSize={66} minSize={40} className="flex flex-col gap-4 min-w-0">
+              <PanelGroup direction="vertical" className="gap-4 flex-1 min-h-0">
+                <Panel defaultSize={60} minSize={30} className="min-h-0">
+                  <CodeEditor
+                    code={code}
+                    onChange={setCode}
+                    onRun={handleRunCode}
+                    onClear={handleClearTerminal}
+                    onSendToChat={handleSendToChat}
+                  />
+                </Panel>
+                <PanelResizeHandle className="h-1 bg-border rounded hover:bg-primary transition cursor-row-resize" />
+                <Panel minSize={20} className="min-h-0">
+                  <Terminal
+                    output={output}
+                    prompt={prompt}
+                    disabled={!prompt || !isRunning}
+                    onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
+                  />
+                </Panel>
+              </PanelGroup>
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-border rounded hover:bg-primary transition cursor-col-resize" />
+            <Panel minSize={20} defaultSize={34} className="min-w-0">
+              <div className="h-full min-h-0 flex flex-col gap-3">
+                <AuthPanel />
+                <div className="flex-1 min-h-0">
+                  <ChatInterface ref={chatRef} />
+                </div>
+              </div>
+            </Panel>
+          </PanelGroup>
         </div>
       </div>
     </div>

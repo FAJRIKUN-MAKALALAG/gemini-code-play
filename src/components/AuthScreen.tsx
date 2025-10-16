@@ -46,9 +46,15 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
         }`}
       >
         <div className="text-center mb-6">
-          <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-16 h-16 mx-auto mb-3" />
-          <h2 className="text-xl font-semibold">Welcome to AIcode</h2>
-          <p className="text-sm text-muted-foreground">Sign in to save your chats and continue where you left off.</p>
+          <img
+            src="/AicodeLogo.png"
+            alt="AIcode Logo"
+            className="w-16 h-16 mx-auto mb-3"
+          />
+          <h2 className="text-xl font-semibold">Welcome to AIcode Groupfox</h2>
+          <p className="text-sm text-muted-foreground">
+            Sign in to save your chats and continue where you left off 011.
+          </p>
         </div>
         <div className="flex gap-2 mb-4">
           <Button
@@ -69,7 +75,11 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           </Button>
         </div>
         <div className="space-y-3">
-          <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
           <Input
             placeholder="Password"
             type="password"
@@ -83,7 +93,11 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
               onChange={(e) => setUsername(e.target.value)}
             />
           )}
-          <Button onClick={handleAuth} disabled={loading || !email || !password} className="w-full">
+          <Button
+            onClick={handleAuth}
+            disabled={loading || !email || !password}
+            className="w-full"
+          >
             {mode === "signin" ? "Sign In" : "Create Account"}
           </Button>
         </div>

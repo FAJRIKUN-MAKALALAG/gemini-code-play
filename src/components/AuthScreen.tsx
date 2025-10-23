@@ -51,7 +51,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             alt="AIcode Logo"
             className="w-16 h-16 mx-auto mb-3"
           />
-          <h2 className="text-xl font-semibold">Welcome to AIcode Fajrikun</h2>
+          <h2 className="text-xl font-semibold">Welcome to AIcode GroupFox</h2>
           <p className="text-sm text-muted-foreground">
             Sign in to save your chats and continue where you left off 011.
           </p>

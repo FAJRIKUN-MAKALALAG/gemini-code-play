@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { mockAuth } from "@/services/mockAuthService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -24,8 +24,8 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     setLoading(true);
     const { data, error } =
       mode === "signin"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({
+        ? await mockAuth.signInWithPassword({ email, password })
+        : await mockAuth.signUp({
             email,
             password,
             options: { data: { username } },

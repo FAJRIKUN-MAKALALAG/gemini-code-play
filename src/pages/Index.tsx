@@ -3,12 +3,12 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { CodeEditor } from "@/components/CodeEditor";
 import { Terminal } from "@/components/Terminal";
 import { ChatInterface, ChatInterfaceHandle } from "@/components/ChatInterface";
-import { AuthPanel } from "@/components/AuthPanel";
+import { Navbar } from "@/components/Navbar";
 import { AuthScreen } from "@/components/AuthScreen";
-import { supabase } from "@/integrations/supabase/client";
+import { mockAuth } from "@/services/mockAuthService";
 import { loadSkulpt, runPythonCode } from "@/utils/skulptRunner";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Code2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const Index = () => {
   const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant! GROUPFOX
@@ -49,11 +49,11 @@ print(greet("World"))
       });
     // When start screen dismissed and not logged in, show auth screen
     const bootstrapAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await mockAuth.getSessionAsync();
       if (!session) setShowAuth(true);
     };
     bootstrapAuth();
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = mockAuth.onAuthStateChange((_evt, session) => {
       setShowAuth(!session);
     });
     return () => sub.subscription.unsubscribe();
@@ -125,7 +125,7 @@ print(greet("World"))
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen bg-background">
       {showStart && (
         <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
           <div
@@ -151,26 +151,13 @@ print(greet("World"))
       {showAuth && !showStart && (
         <AuthScreen onAuthenticated={() => setShowAuth(false)} />
       )}
-      <div className="max-w-[1800px] mx-auto">
-        {/* Header */}
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-ai rounded-lg shadow-glow">
-              <Code2 className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                AI Python Coding Assistant Fajrikun
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Write, run, and improve Python code with AI assistance
-              </p>
-            </div>
-          </div>
-        </header>
-
+      
+      {/* Navbar */}
+      <Navbar />
+      
+      <div className="max-w-[1800px] mx-auto p-4">
         {/* Main Layout with resizable panels */}
-        <div className="h-[calc(100vh-180px)]">
+        <div className="h-[calc(100vh-100px)]">
           <PanelGroup direction="horizontal" className="gap-4 h-full">
             <Panel defaultSize={66} minSize={40} className="flex flex-col gap-4 min-w-0">
               <PanelGroup direction="vertical" className="gap-4 flex-1 min-h-0">
@@ -196,12 +183,7 @@ print(greet("World"))
             </Panel>
             <PanelResizeHandle className="w-1 bg-border rounded hover:bg-primary transition cursor-col-resize" />
             <Panel minSize={20} defaultSize={34} className="min-w-0">
-              <div className="h-full min-h-0 flex flex-col gap-3">
-                <AuthPanel />
-                <div className="flex-1 min-h-0">
-                  <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
-                </div>
-              </div>
+              <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
             </Panel>
           </PanelGroup>
         </div>

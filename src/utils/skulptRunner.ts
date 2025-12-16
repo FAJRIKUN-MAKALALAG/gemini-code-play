@@ -121,7 +121,7 @@ export const runPythonCode = async (
         }
         return window.Sk.builtinFiles["files"][filename];
       },
-      execLimit: 10000, // batas waktu eksekusi (opsional)
+      // batas waktu eksekusi (opsional)
       inputfun: async (prompt?: string) => {
         if (opts?.inputProvider) {
           try {

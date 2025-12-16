@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Sparkles, Loader2, Plus, History, X, Pencil, Check, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { mockAuth } from "@/services/mockAuthService";
+import { localStorageService } from "@/services/localStorageService";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,6 +22,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const geminiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
   const geminiModel = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || "gemini-2.5-flash";
@@ -34,6 +36,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [renaming, setRenaming] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
   const [lastCodePreview, setLastCodePreview] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,39 +46,42 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     scrollToBottom();
   }, [messages]);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to auto to get accurate scrollHeight
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const minHeight = 60;
+      const maxHeight = 200;
+      // Set height between min and max
+      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+      textareaRef.current.style.height = newHeight + 'px';
+    }
+  }, [input]);
+
   useEffect(() => {
     // load latest conversation + messages when signed in
     const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await mockAuth.getSessionAsync();
       if (!session) return;
+      
+      const userId = session.user.id;
+      setCurrentUserId(userId);
       setLoadingHistory(true);
-      const { data: convs } = await supabase
-        .from("conversations")
-        .select("id,title,created_at,last_code")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      // Load list of recent conversations for history panel
-      const { data: convList } = await supabase
-        .from("conversations")
-        .select("id,title,created_at,last_code")
-        .order("created_at", { ascending: false })
-        .limit(50);
+      
+      const { data: convList } = await localStorageService.getConversations(userId, 50);
       setConversations(convList || []);
 
-      if (convs && convs.length > 0) {
-        const cid = convs[0].id as string;
-        setCurrentTitle(convs[0].title || "Untitled");
-        setLastCodePreview((convs[0] as any).last_code ?? null);
-        setConversationId(cid);
-        const { data: msgs } = await supabase
-          .from("chat_messages")
-          .select("role, content, created_at")
-          .eq("conversation_id", cid)
-          .order("created_at", { ascending: true });
+      if (convList && convList.length > 0) {
+        const latestConv = convList[0];
+        setCurrentTitle(latestConv.title || "Untitled");
+        setLastCodePreview(latestConv.last_code ?? null);
+        setConversationId(latestConv.id);
+        
+        const { data: msgs } = await localStorageService.getMessages(latestConv.id);
         if (msgs) {
-          setMessages(msgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
+          setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
         }
       } else {
         setMessages([]);
@@ -84,11 +90,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     };
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = mockAuth.onAuthStateChange((_event, session) => {
       if (!session) {
         setConversationId(null);
         setMessages([]);
         setConversations([]);
+        setCurrentUserId(null);
       } else {
         // user signed in -> reload history
         init();
@@ -98,82 +105,178 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   }, []);
 
   const chatOnce = async (userMessage: Message) => {
-    if (!geminiKey) {
-      toast({
-        title: "Missing API key",
-        description: "Set VITE_GEMINI_API_KEY in .env to call the AI",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
     try {
       // ensure session (user must be logged in to save history)
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await mockAuth.getSessionAsync();
       if (!session) {
         toast({ title: "Not logged in", description: "Please sign in to chat" });
+        setIsLoading(false);
+        return;
+      }
+
+      const userId = session.user.id;
+
+      // Get user's API key from localStorage or fallback to env
+      const userApiKey = localStorage.getItem(`gemini_api_key_${userId}`);
+      const activeGeminiKey = userApiKey || geminiKey;
+
+      if (!activeGeminiKey) {
+        toast({
+          title: "Missing API key",
+          description: "Please add your Gemini API key in your profile settings",
+          variant: "destructive",
+        });
+        setIsLoading(false);
         return;
       }
 
       // ensure conversation exists
       let convId = conversationId;
       if (!convId) {
-        const { data: conv, error: convErr } = await supabase
-          .from("conversations")
-          .insert({ user_id: session?.user?.id, title: "New Chat" })
-          .select("id")
-          .single();
+        const { data: conv, error: convErr } = await localStorageService.createConversation(userId, "New Chat");
         if (convErr) throw convErr;
-        convId = conv!.id as string;
+        convId = conv!.id;
         setConversationId(convId);
+        setCurrentTitle("New Chat");
       }
 
       // insert user message
-      await supabase.from("chat_messages").insert({
-        conversation_id: convId,
-        user_id: session?.user?.id,
-        role: "user",
-        content: userMessage.content,
-      });
+      await localStorageService.addMessage(convId, userId, "user", userMessage.content);
 
-      // call Gemini generateContent (non-streaming simple call)
-      const contents = [...messages, userMessage].map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
+      // call Gemini generateContent with educational system prompt
+      const systemPrompt = {
+        role: "user",
+        parts: [{
+          text: `Kamu adalah asisten AI Python yang ramah dan edukatif, dirancang khusus untuk membantu pemula belajar pemrograman Python. 
+
+PRINSIP MENGAJAR:
+1. **Jelaskan dengan Sederhana**: Gunakan bahasa yang mudah dipahami, hindari jargon teknis yang rumit
+2. **Berikan Contoh Konkret**: Selalu sertakan contoh kode yang jelas dan bisa langsung dicoba
+3. **Langkah demi Langkah**: Pecah konsep rumit menjadi langkah-langkah kecil yang mudah diikuti
+4. **Dorong Pemahaman**: Jelaskan "mengapa" dan "bagaimana", bukan hanya "apa"
+5. **Positif dan Mendukung**: Berikan motivasi dan pujian untuk usaha belajar mereka
+
+FORMAT JAWABAN:
+- Gunakan **markdown** untuk formatting (bold, italic, code blocks, lists)
+- Gunakan \`\`\`python untuk code blocks
+- Gunakan bullet points atau numbered lists untuk langkah-langkah
+- Highlight konsep penting dengan **bold**
+- Berikan penjelasan singkat di atas kode
+
+GAYA KOMUNIKASI:
+- Ramah dan sabar seperti guru yang baik
+- Gunakan emoji sesekali untuk membuat lebih menarik 😊
+- Berikan analogi sederhana untuk konsep yang sulit
+- Tanyakan apakah mereka mengerti jika konsepnya rumit
+
+SAAT MEMBANTU DEBUG:
+1. Identifikasi error dengan jelas
+2. Jelaskan penyebab error dengan bahasa sederhana
+3. Berikan solusi dengan kode yang diperbaiki
+4. Jelaskan mengapa solusi tersebut bekerja
+
+SAAT MENGAJARKAN KONSEP BARU:
+1. Mulai dengan definisi sederhana
+2. Berikan contoh dunia nyata
+3. Tunjukkan kode contoh yang simpel
+4. Jelaskan setiap bagian kode
+5. Berikan latihan atau tantangan kecil
+
+Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemula! 🚀`
+        }]
+      };
+
+      const modelResponse = {
+        role: "model",
+        parts: [{ text: "Baik, saya siap membantu Anda belajar Python dengan cara yang mudah dipahami! Silakan tanyakan apa saja. 😊" }]
+      };
+
+      const contents = [
+        systemPrompt,
+        modelResponse,
+        ...messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        {
+          role: "user",
+          parts: [{ text: userMessage.content }]
+        }
+      ];
+
+      // Call Gemini with streaming enabled - use user's API key
       const gemResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${activeGeminiKey}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": geminiKey,
           },
           body: JSON.stringify({ contents }),
         }
       );
+
       if (!gemResp.ok) {
         const t = await gemResp.text();
         throw new Error(`Gemini error ${gemResp.status}: ${t}`);
       }
-      const gjson = await gemResp.json();
-      const candidate = gjson.candidates?.[0];
-      const assistantText: string = candidate?.content?.parts
-        ?.map((p: any) => p?.text || "")
-        .join("") || "";
 
-      // update UI
-      setMessages((prev) => [...prev, { role: "assistant", content: assistantText }]);
+      // Add empty assistant message that will be updated
+      const assistantMessageIndex = messages.length + 1; // +1 because user message was already added
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      // insert assistant message
-      await supabase.from("chat_messages").insert({
-        conversation_id: convId,
-        user_id: session?.user?.id,
-        role: "assistant",
-        content: assistantText,
-      });
+      let fullText = "";
+      const reader = gemResp.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const jsonStr = line.slice(6); // Remove "data: " prefix
+                if (jsonStr.trim() === "[DONE]") continue;
+                
+                try {
+                  const data = JSON.parse(jsonStr);
+                  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                  
+                  if (text) {
+                    fullText += text;
+                    // Update the assistant message in real-time
+                    setMessages((prev) => {
+                      const newMessages = [...prev];
+                      newMessages[assistantMessageIndex] = {
+                        role: "assistant",
+                        content: fullText,
+                      };
+                      return newMessages;
+                    });
+                  }
+                } catch (e) {
+                  // Skip invalid JSON lines
+                  console.debug("Skipping invalid JSON:", jsonStr);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      // Save the complete message to localStorage
+      if (fullText) {
+        await localStorageService.addMessage(convId, userId, "assistant", fullText);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       toast({ title: "Error", description: String(error), variant: "destructive" });
@@ -245,18 +348,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <button
                 className="text-primary-foreground hover:opacity-90"
                 onClick={async () => {
-                  if (!conversationId) return;
-                  await supabase
-                    .from("conversations")
-                    .update({ title: renameTitle || "Untitled" })
-                    .eq("id", conversationId);
+                  if (!conversationId || !currentUserId) return;
+                  await localStorageService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
                   setCurrentTitle(renameTitle || "Untitled");
                   // refresh list
-                  const { data: convList } = await supabase
-                    .from("conversations")
-                    .select("id,title,created_at")
-                    .order("created_at", { ascending: false })
-                    .limit(50);
+                  const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
                   setConversations(convList || []);
                   setRenaming(false);
                 }}
@@ -316,10 +412,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-4 py-2.5 border ${
+                className={`${
+                  message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"
+                } rounded-lg px-4 py-2.5 ${
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-gradient-to-r from-accent/10 to-primary/5 text-foreground border-accent/30"
+                    ? "bg-primary text-primary-foreground border border-primary"
+                    : "bg-transparent text-foreground border-none"
                 }`}
               >
                 <ChatMessageContent role={message.role} content={message.content} />
@@ -338,19 +436,22 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       </div>
 
       <div className="p-4 border-t border-border bg-secondary/50">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-end">
           <Textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask about Python code..."
-            className="min-h-[60px] max-h-[120px] resize-none bg-input border-border"
+            className="resize-none bg-input border-border transition-all duration-200 overflow-y-auto"
+            style={{ minHeight: '60px', maxHeight: '200px' }}
             disabled={isLoading}
+            rows={1}
           />
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="bg-primary hover:bg-primary/90 hover:shadow-glow transition-all self-end"
+            className="bg-primary hover:bg-primary/90 hover:shadow-glow transition-all"
           >
             <Send className="w-4 h-4" />
           </Button>
@@ -387,33 +488,22 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                           if (conversationId && props.getCurrentCode) {
                             const code = props.getCurrentCode();
                             if (code != null) {
-                              await supabase
-                                .from("conversations")
-                                .update({ last_code: code })
-                                .eq("id", conversationId);
+                              await localStorageService.updateConversation(conversationId, { last_code: code });
                             }
                           }
                         } catch (e) {
-                          console.warn("Save previous code failed (is last_code column added?)", e);
+                          console.warn("Save previous code failed", e);
                         }
                         setConversationId(c.id);
                         setCurrentTitle(c.title || "Untitled");
                         setShowHistory(false);
                         setLoadingHistory(true);
-                        const { data: msgs } = await supabase
-                          .from("chat_messages")
-                          .select("role, content, created_at")
-                          .eq("conversation_id", c.id)
-                          .order("created_at", { ascending: true });
+                        const { data: msgs } = await localStorageService.getMessages(c.id);
                     setMessages(
-                      (msgs || []).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+                      (msgs || []).map((m) => ({ role: m.role, content: m.content }))
                     );
-                    const { data: convRow } = await supabase
-                      .from("conversations")
-                      .select("last_code")
-                      .eq("id", c.id)
-                      .single();
-                    setLastCodePreview((convRow as any)?.last_code ?? null);
+                    const { data: convRow } = await localStorageService.getConversation(c.id);
+                    setLastCodePreview(convRow?.last_code ?? null);
                     setLoadingHistory(false);
                   }}
                       className="flex-1 text-left"
@@ -431,17 +521,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                         e.stopPropagation();
                         const ok = window.confirm("Delete this conversation? This cannot be undone.");
                         if (!ok) return;
-                        const { error } = await supabase
-                          .from("conversations")
-                          .delete()
-                          .eq("id", c.id);
-                        if (!error) {
+                        const { error } = await localStorageService.deleteConversation(c.id);
+                        if (!error && currentUserId) {
                           // refresh list
-                          const { data: convList } = await supabase
-                            .from("conversations")
-                            .select("id,title,created_at")
-                            .order("created_at", { ascending: false })
-                            .limit(50);
+                          const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
                           setConversations(convList || []);
                           if (conversationId === c.id) {
                             setConversationId(null);
@@ -479,36 +562,26 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <Button
                 size="sm"
                 onClick={async () => {
-                  const { data: { session } } = await supabase.auth.getSession();
+                  const { data: { session } } = await mockAuth.getSessionAsync();
                   if (!session) return;
+                  const userId = session.user.id;
                   // Save current editor code into previous conversation
                   try {
                     if (conversationId && props.getCurrentCode) {
                       const code = props.getCurrentCode();
                       if (code != null) {
-                        await supabase
-                          .from("conversations")
-                          .update({ last_code: code })
-                          .eq("id", conversationId);
+                        await localStorageService.updateConversation(conversationId, { last_code: code });
                       }
                     }
                   } catch (e) {
-                    console.warn("Save previous code failed (is last_code column added?)", e);
+                    console.warn("Save previous code failed", e);
                   }
-                  const { data: conv, error } = await supabase
-                    .from("conversations")
-                    .insert({ user_id: session.user.id, title: newChatTitle || "New Chat" })
-                    .select("id,title")
-                    .single();
+                  const { data: conv, error } = await localStorageService.createConversation(userId, newChatTitle || "New Chat");
                   if (!error && conv) {
-                    setConversationId(conv.id as string);
+                    setConversationId(conv.id);
                     setCurrentTitle(conv.title || "Untitled");
                     setMessages([]);
-                    const { data: convList } = await supabase
-                      .from("conversations")
-                      .select("id,title,created_at")
-                      .order("created_at", { ascending: false })
-                      .limit(50);
+                    const { data: convList } = await localStorageService.getConversations(userId, 50);
                     setConversations(convList || []);
                   }
                   setShowNewModal(false);
@@ -671,7 +744,7 @@ function RichText({ text }: { text: string }) {
   };
 
   return (
-    <div className="text-sm break-words space-y-2">
+    <div className="text-sm break-words space-y-2" style={{ lineHeight: '1.5' }}>
       {blocks.map((b, idx) => {
         if (/^h[1-6]$/.test(b.type)) {
           const level = Number(b.type.slice(1));

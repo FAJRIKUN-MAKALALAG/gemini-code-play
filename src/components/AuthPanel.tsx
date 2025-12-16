@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { mockAuth } from "@/services/mockAuthService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -10,8 +10,8 @@ export const AuthPanel = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    mockAuth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+    const { data: sub } = mockAuth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null);
     });
     return () => sub.subscription.unsubscribe();
@@ -20,7 +20,7 @@ export const AuthPanel = () => {
   const signIn = async () => {
     if (!email || !password) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await mockAuth.signInWithPassword({ email, password });
     if (error) alert(error.message);
     setLoading(false);
   };
@@ -28,14 +28,14 @@ export const AuthPanel = () => {
   const signUp = async () => {
     if (!email || !password) return;
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await mockAuth.signUp({ email, password });
     if (error) alert(error.message);
     setLoading(false);
   };
 
   const signOut = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
+    await mockAuth.signOut();
     setLoading(false);
   };
 
@@ -66,3 +66,4 @@ export const AuthPanel = () => {
     </div>
   );
 };
+

@@ -20,7 +20,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const [userId, setUserId] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
 
@@ -37,11 +37,11 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
     try {
       const response = await fetch(`http://localhost:3000/api/keys/${userId}`);
       if (response.ok) {
-        const { apiKey } = await response.json();
-        if (apiKey) setApiKey(apiKey);
+        const data = await response.json();
+        setHasApiKey(data.hasKey || false);
       }
     } catch (error) {
-      console.error("Failed to load API key from backend:", error);
+      console.error("Failed to load API key status from backend:", error);
     }
   };
 
@@ -55,7 +55,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
         });
         
         if (response.ok) {
-          setApiKey(tempApiKey.trim());
+          setHasApiKey(true);
           setEditingApiKey(false);
           setTempApiKey("");
         } else {
@@ -68,7 +68,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   };
 
   const startEditApiKey = () => {
-    setTempApiKey(apiKey);
+    setTempApiKey("");
     setEditingApiKey(true);
   };
 
@@ -83,11 +83,6 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
     setLoading(false);
     setShowDropdown(false);
     window.location.reload(); // Reload to show auth screen
-  };
-
-  const maskApiKey = (key: string) => {
-    if (key.length <= 8) return key;
-    return key.substring(0, 4) + "•".repeat(key.length - 8) + key.substring(key.length - 4);
   };
 
   return (
@@ -230,10 +225,11 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                       
                       {!editingApiKey ? (
                         <div className="space-y-2">
-                          {apiKey ? (
+                          {hasApiKey ? (
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 text-xs font-mono bg-muted px-3 py-2 rounded border border-border">
-                                {maskApiKey(apiKey)}
+                              <div className="flex-1 text-xs font-mono bg-muted px-3 py-2 rounded border border-border flex items-center justify-between">
+                                <span>••••••••••••••••</span>
+                                <Check className="w-3 h-3 text-green-500" />
                               </div>
                               <Button
                                 size="sm"
@@ -256,7 +252,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                             </Button>
                           )}
                           <p className="text-xs text-muted-foreground">
-                            Your API key is stored locally and never shared
+                            Your API key is stored securely in the database
                           </p>
                         </div>
                       ) : (

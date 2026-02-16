@@ -5,15 +5,17 @@ import { Terminal } from "@/components/Terminal";
 import { ChatInterface, ChatInterfaceHandle } from "@/components/ChatInterface";
 import { Navbar } from "@/components/Navbar";
 import { AuthScreen } from "@/components/AuthScreen";
-import { mockAuth } from "@/services/mockAuthService";
+import { authService } from "@/services/authService";
 import { loadSkulpt, runPythonCode } from "@/utils/skulptRunner";
 import { useToast } from "@/hooks/use-toast";
 import { LandingPage } from "@/components/LandingPage";
 import { Loader2 } from "lucide-react";
-
 import { Particles } from "@/components/ui/Particles";
 
+import { useLocation } from "react-router-dom";
+
 const Index = () => {
+  const location = useLocation();
   const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant! GROUPFOX
 # Write your Python code here and click Run
 
@@ -37,6 +39,14 @@ print(greet("World"))
   const [showTerminal, setShowTerminal] = useState(true);
 
   useEffect(() => {
+    if (location.state?.showLanding) {
+      setShowStart(true);
+      // Construct a new history entry so we don't get stuck in a loop if we back button
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  useEffect(() => {
     // Trigger fade-in for start screen
     setStartVisible(true);
 
@@ -53,16 +63,7 @@ print(greet("World"))
         });
         setIsLoading(false);
       });
-    // When start screen dismissed and not logged in, show auth screen
-    const bootstrapAuth = async () => {
-      const { data: { session } } = await mockAuth.getSessionAsync();
-      if (!session) setShowAuth(true);
-    };
-    bootstrapAuth();
-    const { data: sub } = mockAuth.onAuthStateChange((_evt, session) => {
-      setShowAuth(!session);
-    });
-    return () => sub.subscription.unsubscribe();
+    // Auth is now optional - users can access code editor without login
   }, [toast]);
 
   const handleRunCode = async () => {
@@ -134,7 +135,6 @@ print(greet("World"))
   return (
     <div className="h-screen flex flex-col overflow-hidden relative">
       <Particles />
-      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} />
       {showStart ? (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
           <LandingPage onGetStarted={() => setShowStart(false)} />
@@ -145,7 +145,7 @@ print(greet("World"))
       )}
       
       {/* Navbar */}
-      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} />
+      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} onSignInClick={() => setShowAuth(true)} />
       
       <div className="w-full px-4 py-4">
         {/* Main Layout with resizable panels */}
@@ -182,7 +182,7 @@ print(greet("World"))
                     </Panel>
                     <PanelResizeHandle className="w-1 bg-border rounded hover:bg-primary transition cursor-col-resize" />
                     <Panel minSize={20} defaultSize={34} className="min-w-0">
-                    <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
+                    <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} onSignInClick={() => setShowAuth(true)} />
                     </Panel>
                 </PanelGroup>
             ) : viewMode === "code" ? (
@@ -215,7 +215,7 @@ print(greet("World"))
             ) : (
                 <div className="h-full flex justify-center">
                     <div className="w-full max-w-7xl h-full border border-border rounded-lg overflow-hidden shadow-sm">
-                         <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
+                         <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} onSignInClick={() => setShowAuth(true)} />
                     </div>
                 </div>
             )}

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { mockAuth } from "@/services/mockAuthService";
+import { authService } from "@/services/authService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthScreenProps {
   onAuthenticated?: () => void;
@@ -17,6 +18,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setVisible(true);
@@ -26,24 +28,21 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-    
-    // Simulate API delay for effect
-    await new Promise(r => setTimeout(r, 800));
 
-    const { data, error } =
+    const { session, error } =
       mode === "signin"
-        ? await mockAuth.signInWithPassword({ email, password })
-        : await mockAuth.signUp({
-            email,
-            password,
-            options: { data: { username } },
-          });
+        ? await authService.login(email, password)
+        : await authService.signup(email, password, username);
           
     setLoading(false);
     
     if (error) {
-      // In a real app, use toast here
-      alert(error.message);
+      console.error("Auth Error:", error);
+      toast({
+        title: mode === "signin" ? "Sign In Failed" : "Sign Up Failed",
+        description: error.message,
+        variant: "destructive",
+      });
       return;
     }
     

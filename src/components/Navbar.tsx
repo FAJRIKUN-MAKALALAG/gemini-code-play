@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { mockAuth } from "@/services/mockAuthService";
+import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun } from "lucide-react";
+import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -11,9 +11,10 @@ export type ViewMode = "code" | "chat" | "both";
 interface NavbarProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
+  onSignInClick?: () => void;
 }
 
-export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
+export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProps) => {
   const { theme, setTheme } = useTheme();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -24,38 +25,45 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
   const [tempApiKey, setTempApiKey] = useState("");
 
   useEffect(() => {
-    mockAuth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-      setUserId(data.user?.id ?? null);
-      if (data.user?.id) {
-        loadApiKey(data.user.id);
-      }
-    });
-    const { data: sub } = mockAuth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
-      setUserId(session?.user?.id ?? null);
-      if (session?.user?.id) {
-        loadApiKey(session.user.id);
-      } else {
-        setApiKey("");
-      }
-    });
-    return () => sub.subscription.unsubscribe();
+    const user = authService.getUser();
+    if (user) {
+      setUserEmail(user.email);
+      setUserId(user.id);
+      loadApiKey(user.id);
+    }
   }, []);
 
-  const loadApiKey = (userId: string) => {
-    const stored = localStorage.getItem(`gemini_api_key_${userId}`);
-    if (stored) {
-      setApiKey(stored);
+  const loadApiKey = async (userId: string) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/keys/${userId}`);
+      if (response.ok) {
+        const { apiKey } = await response.json();
+        if (apiKey) setApiKey(apiKey);
+      }
+    } catch (error) {
+      console.error("Failed to load API key from backend:", error);
     }
   };
 
-  const saveApiKey = () => {
+  const saveApiKey = async () => {
     if (userId && tempApiKey.trim()) {
-      localStorage.setItem(`gemini_api_key_${userId}`, tempApiKey.trim());
-      setApiKey(tempApiKey.trim());
-      setEditingApiKey(false);
-      setTempApiKey("");
+      try {
+        const response = await fetch('http://localhost:3000/api/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, apiKey: tempApiKey.trim() })
+        });
+        
+        if (response.ok) {
+          setApiKey(tempApiKey.trim());
+          setEditingApiKey(false);
+          setTempApiKey("");
+        } else {
+          console.error("Failed to save API key");
+        }
+      } catch (error) {
+        console.error("Failed to save API key:", error);
+      }
     }
   };
 
@@ -71,9 +79,10 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
 
   const handleSignOut = async () => {
     setLoading(true);
-    await mockAuth.signOut();
+    await authService.logout();
     setLoading(false);
     setShowDropdown(false);
+    window.location.reload(); // Reload to show auth screen
   };
 
   const maskApiKey = (key: string) => {
@@ -86,7 +95,7 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
       <div className="max-w-[1800px] mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and Title */}
-          <div className="flex items-center gap-3">
+          <Link to="/" state={{ showLanding: true }} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <img
               src="/AicodeLogo.png"
               alt="AIcode Logo"
@@ -100,7 +109,7 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
                 Write, run, and improve Python code with AI assistance
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* View Mode Toggles */}
           {onViewModeChange && viewMode && (
@@ -139,7 +148,7 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
           )}
 
           {/* Profile Dropdown */}
-          {userEmail && (
+          {userEmail ? (
             <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
@@ -150,10 +159,10 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
                 </div>
                 <div className="text-left hidden md:block">
                   <div className="text-sm font-medium text-foreground">
-                    {userEmail.split('@')[0]}
+                    {userEmail ? userEmail.split('@')[0] : 'User'}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {userEmail}
+                    {userEmail || 'Loading...'}
                   </div>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
@@ -309,6 +318,13 @@ export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
                 </>
               )}
             </div>
+          ) : (
+             <div className="flex gap-2">
+                <Button variant="default" size="sm" onClick={onSignInClick} className="shadow-lg shadow-primary/20">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In
+                </Button>
+             </div>
           )}
         </div>
       </div>

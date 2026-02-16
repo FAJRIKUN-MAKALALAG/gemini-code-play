@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft, LogIn, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { mockAuth } from "@/services/mockAuthService";
-import { localStorageService } from "@/services/localStorageService";
+import { authService } from "@/services/authService";
+import { backendService } from "@/services/backendService";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
+import { v4 as uuidv4 } from "uuid";
 
 interface Message {
   role: "user" | "assistant";
@@ -19,7 +21,11 @@ export type ChatInterfaceHandle = {
   sendMessage: (content: string) => Promise<void>;
 };
 
-type ChatProps = { getCurrentCode?: () => string; onLoadCode?: (code: string) => void };
+type ChatProps = { 
+  getCurrentCode?: () => string; 
+  onLoadCode?: (code: string) => void;
+  onSignInClick?: () => void;
+};
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,7 +34,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
   const geminiModel = (import.meta.env.VITE_GEMINI_MODEL as string | undefined) || "gemini-2.5-flash";
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -54,236 +59,150 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   // Auto-resize textarea based on content
   useEffect(() => {
     if (textareaRef.current) {
-      // Reset height to auto to get accurate scrollHeight
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
       const minHeight = 60;
       const maxHeight = 200;
-      // Set height between min and max
       const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
       textareaRef.current.style.height = newHeight + 'px';
     }
   }, [input]);
 
   useEffect(() => {
-    // load latest conversation + messages when signed in
     const init = async () => {
-      const { data: { session } } = await mockAuth.getSessionAsync();
-      if (!session) return;
+      const user = authService.getUser();
+      if (!user) return;
       
-      const userId = session.user.id;
+      const userId = user.id;
       setCurrentUserId(userId);
       setLoadingHistory(true);
       
-      const { data: convList } = await localStorageService.getConversations(userId, 50);
+      const { data: convList } = await backendService.getConversations(userId, 50);
       setConversations(convList || []);
 
       if (convList && convList.length > 0) {
         const latestConv = convList[0];
         setCurrentTitle(latestConv.title || "Untitled");
-        setLastCodePreview(latestConv.last_code ?? null);
         setConversationId(latestConv.id);
         
-        const { data: msgs } = await localStorageService.getMessages(latestConv.id);
+        const { data: msgs } = await backendService.getMessages(latestConv.id);
         if (msgs) {
           setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
         }
-      } else {
-        setMessages([]);
+
+        const { data: snippets } = await backendService.getCodeByConversation(latestConv.id);
+        let restoredCode = null;
+        
+        if (snippets && snippets.length > 0) {
+          // Index 0 is the newest because backend orders by created_at DESC
+          const latestSnippet = snippets[0];
+          restoredCode = latestSnippet.code_content;
+          console.log(`[Init] Restoring code from snippets[0] for ${latestConv.id}`);
+        } else if (latestConv.last_code) {
+          // Fallback to old last_code field
+          restoredCode = latestConv.last_code;
+          console.log(`[Init] Restoring code from last_code fallback for ${latestConv.id}`);
+        }
+
+        if (restoredCode) {
+          setLastCodePreview(restoredCode);
+          if (props.onLoadCode) {
+            props.onLoadCode(restoredCode);
+          }
+        }
       }
       setLoadingHistory(false);
     };
     init();
-
-    const { data: sub } = mockAuth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setConversationId(null);
-        setMessages([]);
-        setConversations([]);
-        setCurrentUserId(null);
-      } else {
-        // user signed in -> reload history
-        init();
-      }
-    });
-    return () => sub.subscription.unsubscribe();
   }, []);
 
   const chatOnce = async (userMessage: Message) => {
     try {
-      // ensure session (user must be logged in to save history)
-      const {
-        data: { session },
-      } = await mockAuth.getSessionAsync();
-      if (!session) {
+      const user = authService.getUser();
+      if (!user) {
         toast({ title: "Not logged in", description: "Please sign in to chat" });
         setIsLoading(false);
         return;
       }
 
-      const userId = session.user.id;
-
-      // Get user's API key from localStorage or fallback to env
-      const userApiKey = localStorage.getItem(`gemini_api_key_${userId}`);
-      const activeGeminiKey = userApiKey || geminiKey;
-
-      if (!activeGeminiKey) {
-        toast({
-          title: "Missing API key",
-          description: "Please add your Gemini API key in your profile settings",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // ensure conversation exists
+      const userId = user.id;
       let convId = conversationId;
       if (!convId) {
-        const { data: conv, error: convErr } = await localStorageService.createConversation(userId, "New Chat");
+        const { data: conv, error: convErr } = await backendService.createConversation(userId, "New Chat");
         if (convErr) throw convErr;
         convId = conv!.id;
         setConversationId(convId);
         setCurrentTitle("New Chat");
+        // Update list
+        const { data: convList } = await backendService.getConversations(userId, 50);
+        setConversations(convList || []);
       }
 
-      // insert user message
-      await localStorageService.addMessage(convId, userId, "user", userMessage.content);
+      await backendService.addMessage(convId, userId, "user", userMessage.content);
 
-      // call Gemini generateContent with educational system prompt
-      const systemPrompt = {
-        role: "user",
-        parts: [{
-          text: `Kamu adalah asisten AI Python yang ramah dan edukatif, dirancang khusus untuk membantu pemula belajar pemrograman Python. 
-
-PRINSIP MENGAJAR:
-1. **Jelaskan dengan Sederhana**: Gunakan bahasa yang mudah dipahami, hindari jargon teknis yang rumit
-2. **Berikan Contoh Konkret**: Selalu sertakan contoh kode yang jelas dan bisa langsung dicoba
-3. **Langkah demi Langkah**: Pecah konsep rumit menjadi langkah-langkah kecil yang mudah diikuti
-4. **Dorong Pemahaman**: Jelaskan "mengapa" dan "bagaimana", bukan hanya "apa"
-5. **Positif dan Mendukung**: Berikan motivasi dan pujian untuk usaha belajar mereka
-
-FORMAT JAWABAN:
-- Gunakan **markdown** untuk formatting (bold, italic, code blocks, lists)
-- Gunakan \`\`\`python untuk code blocks
-- Gunakan bullet points atau numbered lists untuk langkah-langkah
-- Highlight konsep penting dengan **bold**
-- Berikan penjelasan singkat di atas kode
-
-GAYA KOMUNIKASI:
-- Ramah dan sabar seperti guru yang baik
-- Gunakan emoji sesekali untuk membuat lebih menarik 😊
-- Berikan analogi sederhana untuk konsep yang sulit
-- Tanyakan apakah mereka mengerti jika konsepnya rumit
-
-SAAT MEMBANTU DEBUG:
-1. Identifikasi error dengan jelas
-2. Jelaskan penyebab error dengan bahasa sederhana
-3. Berikan solusi dengan kode yang diperbaiki
-4. Jelaskan mengapa solusi tersebut bekerja
-
-SAAT MENGAJARKAN KONSEP BARU:
-1. Mulai dengan definisi sederhana
-2. Berikan contoh dunia nyata
-3. Tunjukkan kode contoh yang simpel
-4. Jelaskan setiap bagian kode
-5. Berikan latihan atau tantangan kecil
-
-Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemula! 🚀`
-        }]
-      };
-
-      const modelResponse = {
-        role: "model",
-        parts: [{ text: "Baik, saya siap membantu Anda belajar Python dengan cara yang mudah dipahami! Silakan tanyakan apa saja. 😊" }]
-      };
-
-      const contents = [
-        systemPrompt,
-        modelResponse,
-        ...messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-        {
-          role: "user",
-          parts: [{ text: userMessage.content }]
-        }
+      const messageHistory = [
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMessage.content }
       ];
 
-      // Call Gemini with streaming enabled - use user's API key
-      const gemResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${activeGeminiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ contents }),
+      const gemResp = await fetch("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: messageHistory, userId: userId }),
+      });
+
+      if (!gemResp.ok) throw new Error(`Gemini error ${gemResp.status}`);
+
+      const contentType = gemResp.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        const data = await gemResp.json();
+        const assistantMessage = data.response || data.text || "";
+        if (assistantMessage) {
+          setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+          await backendService.addMessage(convId, userId, "assistant", assistantMessage);
         }
-      );
+      } else {
+        const assistantMessageIndex = messages.length + 1;
+        setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      if (!gemResp.ok) {
-        const t = await gemResp.text();
-        throw new Error(`Gemini error ${gemResp.status}: ${t}`);
-      }
+        let fullText = "";
+        const reader = gemResp.body?.getReader();
+        const decoder = new TextDecoder();
 
-      // Add empty assistant message that will be updated
-      const assistantMessageIndex = messages.length + 1; // +1 because user message was already added
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+        if (reader) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split("\n");
 
-      let fullText = "";
-      const reader = gemResp.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const jsonStr = line.slice(6); // Remove "data: " prefix
-                if (jsonStr.trim() === "[DONE]") continue;
-                
-                try {
-                  const data = JSON.parse(jsonStr);
-                  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                  
-                  if (text) {
-                    fullText += text;
-                    // Update the assistant message in real-time
-                    setMessages((prev) => {
-                      const newMessages = [...prev];
-                      newMessages[assistantMessageIndex] = {
-                        role: "assistant",
-                        content: fullText,
-                      };
-                      return newMessages;
-                    });
-                  }
-                } catch (e) {
-                  // Skip invalid JSON lines
-                  console.debug("Skipping invalid JSON:", jsonStr);
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const jsonStr = line.slice(6);
+                  if (jsonStr.trim() === "[DONE]") continue;
+                  try {
+                    const data = JSON.parse(jsonStr);
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                      fullText += text;
+                      setMessages((prev) => {
+                        const newMessages = [...prev];
+                        newMessages[assistantMessageIndex] = { role: "assistant", content: fullText };
+                        return newMessages;
+                      });
+                    }
+                  } catch (e) {}
                 }
               }
             }
+          } finally {
+            reader.releaseLock();
           }
-        } finally {
-          reader.releaseLock();
         }
-      }
-
-      // Save the complete message to localStorage
-      if (fullText) {
-        await localStorageService.addMessage(convId, userId, "assistant", fullText);
+        if (fullText) await backendService.addMessage(convId, userId, "assistant", fullText);
       }
     } catch (error) {
-      console.error("Chat error:", error);
       toast({ title: "Error", description: String(error), variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -292,12 +211,10 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { role: "user", content: input };
+    const userMessage: Message = { role: "user", content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-
     await chatOnce(userMessage);
   };
 
@@ -318,120 +235,137 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
     }
   };
 
+  const handleSwitchConversation = async (id: string) => {
+    const user = authService.getUser();
+    if (!user) return;
+    const userId = user.id;
+
+    // 1. Save current code to OLD conversation
+    try {
+      if (conversationId && props.getCurrentCode) {
+        const code = props.getCurrentCode();
+        if (code && code.trim()) {
+           console.log(`[AutoSave] Saving current code to ${conversationId}`);
+           await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`);
+        }
+      }
+    } catch (e) {
+      console.warn("Auto-save failed", e);
+    }
+
+    // 2. Switch UI
+    setConversationId(id);
+    const c = conversations.find(x => x.id === id);
+    if (c) setCurrentTitle(c.title);
+    setLoadingHistory(true);
+
+    // 3. Load messages
+    const { data: msgs } = await backendService.getMessages(id);
+    setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
+
+    // 4. Restore code from NEW conversation
+    const { data: snippets } = await backendService.getCodeByConversation(id);
+    let restoredCode = null;
+    
+    if (snippets && snippets.length > 0) {
+      // Index 0 is the newest because backend orders by created_at DESC
+      restoredCode = snippets[0].code_content;
+      console.log(`[Restoration] Found ${snippets.length} snippets, using snippets[0]`);
+    } else {
+      console.log(`[Restoration] No snippets found for ${id}, checking fallback...`);
+      const { data: convData } = await backendService.getConversation(id);
+      if (convData && convData.last_code) {
+        restoredCode = convData.last_code;
+      }
+    }
+
+    if (restoredCode !== null) {
+      console.log(`[Restoration] Restoring code for ${id}, length: ${restoredCode.length}`);
+      setLastCodePreview(restoredCode);
+      if (props.onLoadCode) {
+        props.onLoadCode(restoredCode);
+        toast({ 
+          title: "Code Restored", 
+          description: `Loaded code for "${c?.title || 'this chat'}"`,
+          duration: 2000 
+        });
+      }
+    } else {
+      console.log(`[Restoration] No code history to restore for ${id}`);
+      setLastCodePreview(null);
+    }
+
+    setLoadingHistory(false);
+    setShowHistory(false);
+  };
+
+  if (!authService.isAuthenticated()) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 h-full bg-background/50 backdrop-blur-sm">
+        <Card className="w-full max-w-sm border-dashed border-2">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <MessageSquare className="w-6 h-6 text-primary" />
+            </div>
+            <CardTitle>AI Chat Locked</CardTitle>
+            <CardDescription>Sign in to save your history and chat with the AI assistant.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Button className="w-full" onClick={props.onSignInClick}><LogIn className="w-4 h-4 mr-2" />Sign In</Button>
+            <p className="text-[10px] text-center text-muted-foreground uppercase tracking-wider font-semibold">Code execution is available without login</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full bg-transparent rounded-lg overflow-hidden border border-border">
-      {/* Sidebar - Desktop */}
-      <div className={`hidden md:block transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'} overflow-hidden border-r border-border bg-card`}>
-        <ChatSidebar
+    <div className="flex h-full bg-background/50 backdrop-blur-sm overflow-hidden border border-border/50 shadow-inner group">
+      <div className={`hidden md:block border-r border-border/50 h-full transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+         <ChatSidebar
             conversations={conversations}
             currentId={conversationId}
-            onSelect={async (id) => {
-                // Save current code
-                 try {
-                    if (conversationId && props.getCurrentCode) {
-                    const code = props.getCurrentCode();
-                    if (code != null) {
-                        await localStorageService.updateConversation(conversationId, { last_code: code });
-                    }
-                    }
-                } catch (e) {
-                    console.warn("Save previous code failed", e);
-                }
-                setConversationId(id);
-                // find title
-                const c = conversations.find(x => x.id === id);
-                if (c) setCurrentTitle(c.title);
-                
-                setLoadingHistory(true);
-                const { data: msgs } = await localStorageService.getMessages(id);
-                setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
-                 const { data: convRow } = await localStorageService.getConversation(id);
-                setLastCodePreview(convRow?.last_code ?? null);
-                setLoadingHistory(false);
-            }}
+            onSelect={handleSwitchConversation}
             onNewChat={() => setShowNewModal(true)}
             onDelete={async (id) => {
-                 const ok = window.confirm("Delete this conversation? This cannot be undone.");
-                 if (!ok) return;
-                 const { error } = await localStorageService.deleteConversation(id);
-                 if (!error && currentUserId) {
-                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
-                    setConversations(convList || []);
-                    if (conversationId === id) {
-                        setConversationId(null);
-                        setCurrentTitle("");
-                        setMessages([]);
-                    }
-                 }
+              if (!window.confirm("Delete this conversation?")) return;
+              const { error } = await backendService.deleteConversation(id);
+              if (!error && currentUserId) {
+                const { data: convList } = await backendService.getConversations(currentUserId, 50);
+                setConversations(convList || []);
+                if (conversationId === id) { setConversationId(null); setCurrentTitle(""); setMessages([]); }
+              }
             }}
             isOpen={true}
         />
       </div>
       
-      {/* Mobile Sidebar Overlay */}
-       <div className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setShowHistory(false)} />
-       <div className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card transform transition-transform duration-300 ${showHistory ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setShowHistory(false)} />
+      <div className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card transform transition-transform duration-300 ${showHistory ? 'translate-x-0' : '-translate-x-full'}`}>
          <ChatSidebar
             conversations={conversations}
             currentId={conversationId}
-            onSelect={async (id) => {
-                 // Save current code
-                 try {
-                    if (conversationId && props.getCurrentCode) {
-                    const code = props.getCurrentCode();
-                    if (code != null) {
-                        await localStorageService.updateConversation(conversationId, { last_code: code });
-                    }
-                    }
-                } catch (e) {
-                    console.warn("Save previous code failed", e);
-                }
-                setConversationId(id);
-                const c = conversations.find(x => x.id === id);
-                if (c) setCurrentTitle(c.title);
-
-                setLoadingHistory(true);
-                const { data: msgs } = await localStorageService.getMessages(id);
-                setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
-                 const { data: convRow } = await localStorageService.getConversation(id);
-                 setLastCodePreview(convRow?.last_code ?? null);
-                setLoadingHistory(false);
-                setShowHistory(false); 
-            }}
-            onNewChat={() => {
-                setShowNewModal(true);
-                setShowHistory(false);
-            }}
+            onSelect={handleSwitchConversation}
+            onNewChat={() => { setShowNewModal(true); setShowHistory(false); }}
             onDelete={async (id) => {
-                 const ok = window.confirm("Delete this conversation? This cannot be undone.");
-                 if (!ok) return;
-                 const { error } = await localStorageService.deleteConversation(id);
-                 if (!error && currentUserId) {
-                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
-                    setConversations(convList || []);
-                    if (conversationId === id) {
-                        setConversationId(null);
-                        setCurrentTitle("");
-                        setMessages([]);
-                    }
-                 }
+              if (!window.confirm("Delete this conversation?")) return;
+              const { error } = await backendService.deleteConversation(id);
+              if (!error && currentUserId) {
+                const { data: convList } = await backendService.getConversations(currentUserId, 50);
+                setConversations(convList || []);
+                if (conversationId === id) { setConversationId(null); setCurrentTitle(""); setMessages([]); }
+              }
             }}
             isOpen={true}
             onClose={() => setShowHistory(false)}
         />
-       </div>
-
+      </div>
 
       <div className="flex-1 flex flex-col h-full min-w-0 bg-transparent">
         <div className="relative flex items-center justify-between px-4 py-3 bg-background border-b border-border">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowHistory(true)}>
-                <PanelLeft className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                <PanelLeft className="w-5 h-5" />
-            </Button>
-            
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowHistory(true)}><PanelLeft className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSidebarOpen(!sidebarOpen)}><PanelLeft className="w-5 h-5" /></Button>
             <div className="flex items-center gap-2 ml-2">
                  <img src="/AicodeLogo.png" alt="AI Logo" className="w-6 h-6 dark-invert" />
                  <h2 className="text-sm font-semibold text-foreground">AI Assistant</h2>
@@ -442,180 +376,93 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
             {!renaming ? (
               <>
                 <div className="text-sm font-medium text-foreground truncate max-w-[200px] lg:max-w-md text-center">{currentTitle || "New Chat"}</div>
-                {conversationId && (
-                  <button
-                    className="text-muted-foreground hover:text-foreground shrink-0"
-                    onClick={() => {
-                      setRenaming(true);
-                      setRenameTitle(currentTitle || "");
-                    }}
-                    title="Rename chat"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
+                {conversationId && <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => { setRenaming(true); setRenameTitle(currentTitle || ""); }}><Pencil className="w-4 h-4" /></button>}
               </>
             ) : (
               <div className="flex items-center gap-2 max-w-full">
-                <input
-                  className="text-xs px-2 py-1 rounded bg-muted text-foreground placeholder:text-muted-foreground outline-none border border-border min-w-[100px]"
-                  value={renameTitle}
-                  onChange={(e) => setRenameTitle(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  className="text-foreground hover:opacity-90 shrink-0"
-                  onClick={async () => {
-                    if (!conversationId || !currentUserId) return;
-                    await localStorageService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
-                    setCurrentTitle(renameTitle || "Untitled");
-                    // refresh list
-                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
-                    setConversations(convList || []);
-                    setRenaming(false);
-                  }}
-                  title="Save title"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => setRenaming(false)} title="Cancel">
-                  <X className="w-4 h-4" />
-                </button>
+                <input className="text-xs px-2 py-1 rounded bg-muted text-foreground outline-none border border-border min-w-[100px]" value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} autoFocus />
+                <button className="text-foreground hover:opacity-90 shrink-0" onClick={async () => {
+                  if (!conversationId || !currentUserId) return;
+                  await backendService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
+                  setCurrentTitle(renameTitle || "Untitled");
+                  const { data: convList } = await backendService.getConversations(currentUserId, 50);
+                  setConversations(convList || []);
+                  setRenaming(false);
+                }}><Check className="w-4 h-4" /></button>
+                <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => setRenaming(false)}><X className="w-4 h-4" /></button>
               </div>
             )}
           </div>
           
           <div className="flex items-center gap-2">
-            {props.onLoadCode && lastCodePreview && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-8"
-                onClick={() => props.onLoadCode?.(lastCodePreview)}
-                title="Load saved code into editor"
-              >
-                Load Code
-              </Button>
-            )}
+            {/* Automatic restoration enabled, manual button removed per user request */}
           </div>
         </div>
         
         <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
-          {loadingHistory && (
-            <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading chat history...</div>
-          )}
+          {loadingHistory && <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading history...</div>}
           {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground max-w-md">
+            <div className="h-full flex items-center justify-center text-center text-muted-foreground max-w-md mx-auto">
+              <div>
                 <img src="/AicodeLogo.png" alt="AI Agent" className="w-12 h-12 mx-auto mb-3 opacity-50 dark-invert" />
-                <p className="text-sm">
-                  Ask me anything about Python! I can help you write code, debug errors, or explain concepts.
-                </p>
+                <p className="text-sm">Ask me anything about Python!</p>
               </div>
             </div>
           ) : (
             messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`${
-                    message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"
-                  } rounded-lg px-4 py-2.5 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground border border-primary"
-                      : "bg-transparent text-foreground border-none"
-                  }`}
-                >
-                  <ChatMessageContent 
-                    role={message.role} 
-                    content={message.content} 
-                    animate={isLoading && index === messages.length - 1 && message.role === "assistant"}
-                  />
+              <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`${message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"} rounded-lg px-4 py-2.5 ${message.role === "user" ? "bg-primary text-primary-foreground border border-primary" : "text-foreground"}`}>
+                  <ChatMessageContent role={message.role} content={message.content} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
                 </div>
               </div>
             ))
           )}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5">
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </div>
-            </div>
-          )}
+          {isLoading && <div className="flex justify-start"><div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
           <div ref={messagesEndRef} />
         </div>
   
         <div className="p-4 border-t border-border bg-secondary/50">
           <div className="flex gap-2 items-end">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about Python code..."
-              className="resize-none bg-input border-border transition-all duration-200 overflow-y-auto"
-              style={{ minHeight: '60px', maxHeight: '200px' }}
-              disabled={isLoading}
-              rows={1}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className="bg-primary hover:bg-primary/90 hover:shadow-glow transition-all"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            <Textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Ask about Python code..." className="resize-none bg-input border-border" style={{ minHeight: '60px', maxHeight: '200px' }} disabled={isLoading} rows={1} />
+            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="bg-primary hover:shadow-glow"><Send className="w-4 h-4" /></Button>
           </div>
         </div>
       </div>
   
-      {/* New Chat Modal */}
       {showNewModal && (
         <div className="absolute inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="bg-white border border-border rounded-lg shadow-card w-full max-w-sm p-4">
+          <div className="bg-white border border-border rounded-lg shadow-card w-full max-w-sm p-4 text-black">
             <div className="text-sm font-semibold mb-2">Create New Chat</div>
             <label className="text-xs text-muted-foreground">Title</label>
-            <input
-              className="w-full mt-1 mb-3 px-3 py-2 border border-border rounded outline-none focus:border-primary"
-              value={newChatTitle}
-              onChange={(e) => setNewChatTitle(e.target.value)}
-              placeholder={`New Chat ${new Date().toLocaleDateString()}`}
-              autoFocus
-            />
+            <input className="w-full mt-1 mb-3 px-3 py-2 border border-border rounded outline-none" value={newChatTitle} onChange={(e) => setNewChatTitle(e.target.value)} placeholder={`New Chat ${new Date().toLocaleDateString()}`} autoFocus />
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowNewModal(false)}>Cancel</Button>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  const { data: { session } } = await mockAuth.getSessionAsync();
-                  if (!session) return;
-                  const userId = session.user.id;
-                  // Save current editor code into previous conversation
-                  try {
-                    if (conversationId && props.getCurrentCode) {
-                      const code = props.getCurrentCode();
-                      if (code != null) {
-                        await localStorageService.updateConversation(conversationId, { last_code: code });
-                      }
+              <Button size="sm" onClick={async () => {
+                const user = authService.getUser();
+                if (!user) return;
+                const userId = user.id;
+
+                // Save current code to previous conversation
+                try {
+                  if (conversationId && props.getCurrentCode) {
+                    const code = props.getCurrentCode();
+                    if (code && code.trim()) {
+                      await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save before new chat ${new Date().toLocaleTimeString()}`);
                     }
-                  } catch (e) {
-                    console.warn("Save previous code failed", e);
                   }
-                  const { data: conv, error } = await localStorageService.createConversation(userId, newChatTitle || "New Chat");
-                  if (!error && conv) {
-                    setConversationId(conv.id);
-                    setCurrentTitle(conv.title || "Untitled");
-                    setMessages([]);
-                    const { data: convList } = await localStorageService.getConversations(userId, 50);
-                    setConversations(convList || []);
-                  }
-                  setShowNewModal(false);
-                }}
-              >
-                Create
-              </Button>
+                } catch (e) {}
+
+                const { data: conv, error } = await backendService.createConversation(userId, newChatTitle || "New Chat");
+                if (!error && conv) {
+                  setConversationId(conv.id);
+                  setCurrentTitle(conv.title || "Untitled");
+                  setMessages([]);
+                  setLastCodePreview(null);
+                  const { data: convList } = await backendService.getConversations(userId, 50);
+                  setConversations(convList || []);
+                }
+                setShowNewModal(false);
+              }}>Create</Button>
             </div>
           </div>
         </div>
@@ -626,200 +473,84 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
 
 function ChatMessageContent({ role, content, animate = false }: { role: "user" | "assistant"; content: string; animate?: boolean }) {
   const displayedContent = useTypewriter(content, animate);
-
-  if (role === "user") {
-    return <div className="text-sm whitespace-pre-wrap break-words">{content}</div>;
-  }
+  if (role === "user") return <div className="text-sm whitespace-pre-wrap break-words">{content}</div>;
   return <MarkdownMessage content={displayedContent} />;
 }
 
 function MarkdownMessage({ content }: { content: string }) {
-  // Split by fenced code blocks ```lang\n...```
   const segments: Array<{ type: "code" | "text"; lang?: string; text: string }> = [];
   const regex = /```(\w+)?\n([\s\S]*?)```/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ type: "text", text: content.slice(lastIndex, match.index) });
-    }
+    if (match.index > lastIndex) segments.push({ type: "text", text: content.slice(lastIndex, match.index) });
     segments.push({ type: "code", lang: match[1]?.toLowerCase(), text: match[2] });
     lastIndex = regex.lastIndex;
   }
-  if (lastIndex < content.length) {
-    segments.push({ type: "text", text: content.slice(lastIndex) });
-  }
-
-  return (
-    <div className="space-y-3">
-      {segments.map((seg, i) =>
-        seg.type === "code" ? (
-          <CodeBlock key={i} lang={seg.lang} code={seg.text} />
-        ) : (
-          <RichText key={i} text={seg.text} />
-        )
-      )}
-    </div>
-  );
+  if (lastIndex < content.length) segments.push({ type: "text", text: content.slice(lastIndex) });
+  return <div className="space-y-3">{segments.map((seg, i) => seg.type === "code" ? <CodeBlock key={i} lang={seg.lang} code={seg.text} /> : <RichText key={i} text={seg.text} />)}</div>;
 }
 
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch {
-      // no-op
-    }
-  };
+  const handleCopy = async () => { try { await navigator.clipboard.writeText(code); } catch {} };
   return (
     <div className="relative">
-      <div className="absolute right-2 top-2 text-xs text-muted-foreground">
-        {lang ? lang.toUpperCase() : "CODE"}
-      </div>
+      <div className="absolute right-2 top-2 text-xs text-muted-foreground">{lang ? lang.toUpperCase() : "CODE"}</div>
       <div className="rounded overflow-hidden border border-zinc-800">
-        <SyntaxHighlighter
-          language={lang || 'text'}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            fontSize: '0.875rem', // text-sm
-          }}
-          wrapLines={true}
-          wrapLongLines={true}
-        >
-          {code}
-        </SyntaxHighlighter>
+        <SyntaxHighlighter language={lang || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1rem', fontSize: '0.875rem' }} wrapLines={true} wrapLongLines={true}>{code}</SyntaxHighlighter>
       </div>
-      <div className="mt-1 flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 px-2 text-xs">
-          Copy
-        </Button>
-      </div>
+      <div className="mt-1 flex justify-end"><Button variant="outline" size="sm" onClick={handleCopy} className="h-7 px-2 text-xs">Copy</Button></div>
     </div>
   );
 }
 
 function RichText({ text }: { text: string }) {
-  // Basic markdown: headings, lists, paragraphs, inline code, bold, italics
   const lines = text.replace(/\r/g, "").split("\n");
   const blocks: Array<{ type: string; content: any }> = [];
-
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    // blank line -> paragraph separator
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-    // heading
+    if (!line.trim()) { i++; continue; }
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (h) {
-      blocks.push({ type: `h${h[1].length}`, content: h[2] });
-      i++;
-      continue;
-    }
-    // unordered list
+    if (h) { blocks.push({ type: `h${h[1].length}`, content: h[2] }); i++; continue; }
     if (/^\s*[-*]\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
-        i++;
-      }
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*]\s+/, "")); i++; }
       blocks.push({ type: "ul", content: items });
       continue;
     }
-    // ordered list
     if (/^\s*\d+\.\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*\d+\.\s+/, ""));
-        i++;
-      }
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
       blocks.push({ type: "ol", content: items });
       continue;
     }
-    // paragraph (collect until blank line or next block)
     const para: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i]) &&
-      !/^#{1,6}\s+/.test(lines[i])
-    ) {
-      para.push(lines[i]);
-      i++;
-    }
+    while (i < lines.length && lines[i].trim() && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i]) && !/^#{1,6}\s+/.test(lines[i])) { para.push(lines[i]); i++; }
     blocks.push({ type: "p", content: para.join("\n") });
   }
-
   const renderInline = (s: string) => {
-    // Handle inline code first
     const codeSplit = s.split(/(`[^`]+`)/g);
     return codeSplit.map((part, idx) => {
-      if (part.startsWith("`") && part.endsWith("`")) {
-        return (
-          <code key={`code-${idx}`} className="bg-muted px-1 py-0.5 rounded border border-border">
-            {part.slice(1, -1)}
-          </code>
-        );
-      }
-      // bold **text**
+      if (part.startsWith("`") && part.endsWith("`")) return <code key={idx} className="bg-muted px-1 py-0.5 rounded border border-border">{part.slice(1, -1)}</code>;
       const boldSplit = part.split(/(\*\*[^*]+\*\*)/g);
       return boldSplit.map((bp, bidx) => {
-        if (bp.startsWith("**") && bp.endsWith("**")) {
-          return <strong key={`b-${idx}-${bidx}`}>{bp.slice(2, -2)}</strong>;
-        }
-        // italics *text*
+        if (bp.startsWith("**") && bp.endsWith("**")) return <strong key={bidx}>{bp.slice(2, -2)}</strong>;
         const italSplit = bp.split(/(\*[^*]+\*)/g);
         return italSplit.map((ip, iidx) => {
-          if (ip.startsWith("*") && ip.endsWith("*")) {
-            return <em key={`i-${idx}-${bidx}-${iidx}`}>{ip.slice(1, -1)}</em>;
-          }
-          return <span key={`t-${idx}-${bidx}-${iidx}`}>{ip}</span>;
+          if (ip.startsWith("*") && ip.endsWith("*")) return <em key={iidx}>{ip.slice(1, -1)}</em>;
+          return <span key={iidx}>{ip}</span>;
         });
       });
     });
   };
-
   return (
-    <div className="text-sm break-words space-y-2" style={{ lineHeight: '1.5' }}>
+    <div className="text-sm space-y-2">
       {blocks.map((b, idx) => {
-        if (/^h[1-6]$/.test(b.type)) {
-          const level = Number(b.type.slice(1));
-          const sizes = ["text-2xl", "text-xl", "text-lg", "text-base", "text-sm", "text-xs"] as const;
-          const size = sizes[level - 1];
-          return (
-            <div key={idx} className={`font-semibold ${size}`}> 
-              {renderInline(b.content)}
-            </div>
-          );
-        }
-        if (b.type === "ul") {
-          return (
-            <ul key={idx} className="list-disc pl-5 space-y-1">
-              {(b.content as string[]).map((it, i2) => (
-                <li key={i2}>{renderInline(it)}</li>
-              ))}
-            </ul>
-          );
-        }
-        if (b.type === "ol") {
-          return (
-            <ol key={idx} className="list-decimal pl-5 space-y-1">
-              {(b.content as string[]).map((it, i2) => (
-                <li key={i2}>{renderInline(it)}</li>
-              ))}
-            </ol>
-          );
-        }
-        return (
-          <p key={idx} className="whitespace-pre-wrap">
-            {renderInline(b.content as string)}
-          </p>
-        );
+        if (/^h[1-6]$/.test(b.type)) return <div key={idx} className={`font-semibold text-foreground ${b.type === 'h1' ? 'text-xl' : 'text-lg'}`}>{renderInline(b.content)}</div>;
+        if (b.type === "ul") return <ul key={idx} className="list-disc pl-5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ul>;
+        if (b.type === "ol") return <ol key={idx} className="list-decimal pl-5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ol>;
+        return <p key={idx} className="whitespace-pre-wrap">{renderInline(b.content as string)}</p>;
       })}
     </div>
   );

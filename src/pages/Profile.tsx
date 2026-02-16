@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
-import { mockAuth } from "@/services/mockAuthService";
+import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Key, LogOut, User, Mail, Shield, Smartphone, Sun, Moon } from "lucide-react";
+import { Key, LogOut, User, Mail, Shield, Smartphone, Sun, Moon, ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
@@ -14,7 +14,7 @@ import { useTheme } from "@/components/ThemeProvider";
 const Profile = () => {
   const { theme, setTheme } = useTheme();
   const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
-  const [apiKey, setApiKey] = useState("");
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [tempKey, setTempKey] = useState("");
   const navigate = useNavigate();
@@ -22,15 +22,19 @@ const Profile = () => {
 
   useEffect(() => {
     const loadUser = async () => {
-        const { data } = await mockAuth.getUser();
-        if (data.user) {
-            setUser({
-                email: data.user.email,
-                id: data.user.id,
-                username: data.user.username
-            });
-            const storedKey = localStorage.getItem(`gemini_api_key_${data.user.id}`);
-            if (storedKey) setApiKey(storedKey);
+        const user = authService.getUser();
+        if (user) {
+            setUser(user);
+            // Check if API key exists in backend
+            try {
+                const response = await fetch(`http://localhost:3000/api/keys/${user.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setHasApiKey(data.hasKey || false);
+                }
+            } catch (error) {
+                console.error("Failed to check API key status:", error);
+            }
         } else {
             navigate("/"); // Redirect if not logged in
         }
@@ -38,18 +42,33 @@ const Profile = () => {
     loadUser();
   }, [navigate]);
 
-  const handleSaveKey = () => {
+  const handleSaveKey = async () => {
     if (user && tempKey.trim()) {
-        localStorage.setItem(`gemini_api_key_${user.id}`, tempKey.trim());
-        setApiKey(tempKey.trim());
-        setIsEditingKey(false);
-        setTempKey("");
-        toast({ title: "API Key Saved", description: "Your Gemini API key has been updated." });
+        try {
+            const response = await fetch('http://localhost:3000/api/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, apiKey: tempKey.trim() })
+            });
+            
+            if (response.ok) {
+                setHasApiKey(true);
+                setIsEditingKey(false);
+                setTempKey("");
+                toast({ title: "API Key Saved", description: "Your Gemini API key has been saved to the database." });
+            } else {
+                const error = await response.text();
+                toast({ title: "Save Failed", description: error, variant: "destructive" });
+            }
+        } catch (error) {
+            console.error("Failed to save API key:", error);
+            toast({ title: "Error", description: "Failed to connect to backend", variant: "destructive" });
+        }
     }
   };
 
   const handleLogout = async () => {
-    await mockAuth.signOut();
+    await authService.logout();
     navigate("/");
   };
 
@@ -59,9 +78,14 @@ const Profile = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="max-w-4xl mx-auto p-6 md:p-10 space-y-8">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-            <p className="text-muted-foreground">Manage your account settings and preferences.</p>
+        <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
+                <ChevronLeft className="w-6 h-6" />
+            </Button>
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
+                <p className="text-muted-foreground">Manage your account settings and preferences.</p>
+            </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
@@ -137,12 +161,13 @@ const Profile = () => {
                     <CardContent className="space-y-4">
                         {!isEditingKey ? (
                             <div className="space-y-4">
-                                <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all">
-                                    {apiKey ? apiKey.substring(0, 8) + "••••••••••••" : "No API Key Set"}
+                                <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all flex items-center justify-between">
+                                    <span>{hasApiKey ? "••••••••••••••••••••••••••••••••" : "No API Key Set"}</span>
+                                    {hasApiKey && <span className="text-green-600 text-xs ml-2">✓ Saved</span>}
                                 </div>
-                                <Button onClick={() => { setTempKey(apiKey); setIsEditingKey(true); }} className="w-full" variant="outline">
+                                <Button onClick={() => { setTempKey(""); setIsEditingKey(true); }} className="w-full" variant="outline">
                                     <Key className="w-4 h-4 mr-2" />
-                                    {apiKey ? "Update Key" : "Add Key"}
+                                    {hasApiKey ? "Update Key" : "Add Key"}
                                 </Button>
                             </div>
                         ) : (

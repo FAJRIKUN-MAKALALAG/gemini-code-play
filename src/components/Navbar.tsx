@@ -2,9 +2,19 @@ import { useState, useEffect } from "react";
 import { mockAuth } from "@/services/mockAuthService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, User, ChevronDown, Key, Check, X } from "lucide-react";
+import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useTheme } from "@/components/ThemeProvider";
 
-export const Navbar = () => {
+export type ViewMode = "code" | "chat" | "both";
+
+interface NavbarProps {
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
+}
+
+export const Navbar = ({ viewMode, onViewModeChange }: NavbarProps) => {
+  const { theme, setTheme } = useTheme();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -72,7 +82,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white border-b border-border shadow-sm">
+    <nav className="bg-background border-b border-border shadow-sm">
       <div className="max-w-[1800px] mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and Title */}
@@ -80,7 +90,7 @@ export const Navbar = () => {
             <img
               src="/AicodeLogo.png"
               alt="AIcode Logo"
-              className="w-10 h-10"
+              className="w-10 h-10 dark-invert"
             />
             <div>
               <h1 className="text-xl font-bold text-foreground">
@@ -91,6 +101,42 @@ export const Navbar = () => {
               </p>
             </div>
           </div>
+
+          {/* View Mode Toggles */}
+          {onViewModeChange && viewMode && (
+             <div className="hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border absolute left-1/2 transform -translate-x-1/2">
+                <Button
+                  variant={viewMode === "code" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => onViewModeChange("code")}
+                  title="Code Only"
+                >
+                  <Code className="w-4 h-4 mr-2" />
+                  Code
+                </Button>
+                <Button
+                  variant={viewMode === "both" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => onViewModeChange("both")}
+                  title="Split View"
+                >
+                  <Columns className="w-4 h-4 mr-2" />
+                  Split
+                </Button>
+                <Button
+                  variant={viewMode === "chat" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => onViewModeChange("chat")}
+                  title="Chat Only"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Chat
+                </Button>
+             </div>
+          )}
 
           {/* Profile Dropdown */}
           {userEmail && (
@@ -122,7 +168,7 @@ export const Navbar = () => {
                     onClick={() => setShowDropdown(false)}
                   />
                   
-                  <div className="absolute right-0 mt-2 w-80 bg-white border border-border rounded-lg shadow-lg z-20 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg z-20 overflow-hidden">
                     {/* User Info */}
                     <div className="px-4 py-3 border-b border-border bg-muted/50">
                       <div className="text-sm font-medium text-foreground">
@@ -131,6 +177,37 @@ export const Navbar = () => {
                       <div className="text-sm text-muted-foreground truncate">
                         {userEmail}
                       </div>
+                    </div>
+                    
+                    {/* Profile Link */}
+                    <div className="p-2 border-b border-border">
+                        <Link to="/profile" onClick={() => setShowDropdown(false)}>
+                            <Button variant="ghost" className="w-full justify-start">
+                                <Settings className="w-4 h-4 mr-2" />
+                                Profile Settings
+                            </Button>
+                        </Link>
+                    </div>
+
+                    {/* Theme Toggle */}
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            {theme === 'dark' ? <Moon className="w-4 h-4 text-muted-foreground" /> : <Sun className="w-4 h-4 text-muted-foreground" />}
+                            <span className="text-sm font-medium text-foreground">Appearance</span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 px-0"
+                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        >
+                            {theme === 'dark' ? (
+                                <Sun className="h-4 w-4" />
+                            ) : (
+                                <Moon className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">Toggle theme</span>
+                        </Button>
                     </div>
 
                     {/* API Key Section */}

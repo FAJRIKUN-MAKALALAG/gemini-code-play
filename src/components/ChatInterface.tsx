@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles, Loader2, Plus, History, X, Pencil, Check, Trash2 } from "lucide-react";
+import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mockAuth } from "@/services/mockAuthService";
 import { localStorageService } from "@/services/localStorageService";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { ChatSidebar } from "./ChatSidebar";
+import { useTypewriter } from "@/hooks/useTypewriter";
 
 interface Message {
   role: "user" | "assistant";
@@ -37,6 +41,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [renameTitle, setRenameTitle] = useState("");
   const [lastCodePreview, setLastCodePreview] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -314,239 +319,261 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
   };
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg overflow-hidden border border-border shadow-card">
-      <div className="relative flex items-center justify-between px-4 py-3 bg-gradient-ai border-b border-border">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary-foreground" />
-          <h2 className="text-sm font-semibold text-primary-foreground">AI Assistant</h2>
-        </div>
-        <div className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2 max-w-[50%]">
-          {!renaming ? (
-            <>
-              <div className="text-sm font-medium text-primary-foreground truncate">{currentTitle || "No chat selected"}</div>
-              {conversationId && (
-                <button
-                  className="text-primary-foreground/80 hover:text-primary-foreground"
-                  onClick={() => {
-                    setRenaming(true);
-                    setRenameTitle(currentTitle || "");
-                  }}
-                  title="Rename chat"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              )}
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <input
-                className="text-xs px-2 py-1 rounded bg-white/20 text-primary-foreground placeholder:text-primary-foreground/60 outline-none"
-                value={renameTitle}
-                onChange={(e) => setRenameTitle(e.target.value)}
-                autoFocus
-              />
-              <button
-                className="text-primary-foreground hover:opacity-90"
-                onClick={async () => {
-                  if (!conversationId || !currentUserId) return;
-                  await localStorageService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
-                  setCurrentTitle(renameTitle || "Untitled");
-                  // refresh list
-                  const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
-                  setConversations(convList || []);
-                  setRenaming(false);
-                }}
-                title="Save title"
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button className="text-primary-foreground/80 hover:text-primary-foreground" onClick={() => setRenaming(false)} title="Cancel">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-8"
-            onClick={() => setShowNewModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-1" /> New
-          </Button>
-          <Button size="sm" variant="secondary" className="h-8" onClick={() => setShowHistory((s) => !s)}>
-            <History className="w-4 h-4 mr-1" /> History
-          </Button>
-          {props.onLoadCode && lastCodePreview && (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-8"
-              onClick={() => props.onLoadCode?.(lastCodePreview)}
-              title="Load saved code into editor"
-            >
-              Load Code
-            </Button>
-          )}
-        </div>
+    <div className="flex h-full bg-transparent rounded-lg overflow-hidden border border-border">
+      {/* Sidebar - Desktop */}
+      <div className={`hidden md:block transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0'} overflow-hidden border-r border-border bg-card`}>
+        <ChatSidebar
+            conversations={conversations}
+            currentId={conversationId}
+            onSelect={async (id) => {
+                // Save current code
+                 try {
+                    if (conversationId && props.getCurrentCode) {
+                    const code = props.getCurrentCode();
+                    if (code != null) {
+                        await localStorageService.updateConversation(conversationId, { last_code: code });
+                    }
+                    }
+                } catch (e) {
+                    console.warn("Save previous code failed", e);
+                }
+                setConversationId(id);
+                // find title
+                const c = conversations.find(x => x.id === id);
+                if (c) setCurrentTitle(c.title);
+                
+                setLoadingHistory(true);
+                const { data: msgs } = await localStorageService.getMessages(id);
+                setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
+                 const { data: convRow } = await localStorageService.getConversation(id);
+                setLastCodePreview(convRow?.last_code ?? null);
+                setLoadingHistory(false);
+            }}
+            onNewChat={() => setShowNewModal(true)}
+            onDelete={async (id) => {
+                 const ok = window.confirm("Delete this conversation? This cannot be undone.");
+                 if (!ok) return;
+                 const { error } = await localStorageService.deleteConversation(id);
+                 if (!error && currentUserId) {
+                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
+                    setConversations(convList || []);
+                    if (conversationId === id) {
+                        setConversationId(null);
+                        setCurrentTitle("");
+                        setMessages([]);
+                    }
+                 }
+            }}
+            isOpen={true}
+        />
       </div>
       
-      <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
-        {loadingHistory && (
-          <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading chat history...</div>
-        )}
-        {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center text-muted-foreground max-w-md">
-              <Sparkles className="w-12 h-12 mx-auto mb-3 text-primary opacity-50" />
-              <p className="text-sm">
-                Ask me anything about Python! I can help you write code, debug errors, or explain concepts.
-              </p>
+      {/* Mobile Sidebar Overlay */}
+       <div className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setShowHistory(false)} />
+       <div className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card transform transition-transform duration-300 ${showHistory ? 'translate-x-0' : '-translate-x-full'}`}>
+         <ChatSidebar
+            conversations={conversations}
+            currentId={conversationId}
+            onSelect={async (id) => {
+                 // Save current code
+                 try {
+                    if (conversationId && props.getCurrentCode) {
+                    const code = props.getCurrentCode();
+                    if (code != null) {
+                        await localStorageService.updateConversation(conversationId, { last_code: code });
+                    }
+                    }
+                } catch (e) {
+                    console.warn("Save previous code failed", e);
+                }
+                setConversationId(id);
+                const c = conversations.find(x => x.id === id);
+                if (c) setCurrentTitle(c.title);
+
+                setLoadingHistory(true);
+                const { data: msgs } = await localStorageService.getMessages(id);
+                setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
+                 const { data: convRow } = await localStorageService.getConversation(id);
+                 setLastCodePreview(convRow?.last_code ?? null);
+                setLoadingHistory(false);
+                setShowHistory(false); 
+            }}
+            onNewChat={() => {
+                setShowNewModal(true);
+                setShowHistory(false);
+            }}
+            onDelete={async (id) => {
+                 const ok = window.confirm("Delete this conversation? This cannot be undone.");
+                 if (!ok) return;
+                 const { error } = await localStorageService.deleteConversation(id);
+                 if (!error && currentUserId) {
+                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
+                    setConversations(convList || []);
+                    if (conversationId === id) {
+                        setConversationId(null);
+                        setCurrentTitle("");
+                        setMessages([]);
+                    }
+                 }
+            }}
+            isOpen={true}
+            onClose={() => setShowHistory(false)}
+        />
+       </div>
+
+
+      <div className="flex-1 flex flex-col h-full min-w-0 bg-transparent">
+        <div className="relative flex items-center justify-between px-4 py-3 bg-background border-b border-border">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowHistory(true)}>
+                <PanelLeft className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSidebarOpen(!sidebarOpen)}>
+                <PanelLeft className="w-5 h-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2 ml-2">
+                 <img src="/AicodeLogo.png" alt="AI Logo" className="w-6 h-6 dark-invert" />
+                 <h2 className="text-sm font-semibold text-foreground">AI Assistant</h2>
             </div>
           </div>
-        ) : (
-          messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`${
-                  message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"
-                } rounded-lg px-4 py-2.5 ${
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground border border-primary"
-                    : "bg-transparent text-foreground border-none"
-                }`}
+          
+          <div className="flex flex-1 items-center justify-center gap-2 min-w-0 mx-4 hidden sm:flex">
+            {!renaming ? (
+              <>
+                <div className="text-sm font-medium text-foreground truncate max-w-[200px] lg:max-w-md text-center">{currentTitle || "New Chat"}</div>
+                {conversationId && (
+                  <button
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                    onClick={() => {
+                      setRenaming(true);
+                      setRenameTitle(currentTitle || "");
+                    }}
+                    title="Rename chat"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2 max-w-full">
+                <input
+                  className="text-xs px-2 py-1 rounded bg-muted text-foreground placeholder:text-muted-foreground outline-none border border-border min-w-[100px]"
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  className="text-foreground hover:opacity-90 shrink-0"
+                  onClick={async () => {
+                    if (!conversationId || !currentUserId) return;
+                    await localStorageService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
+                    setCurrentTitle(renameTitle || "Untitled");
+                    // refresh list
+                    const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
+                    setConversations(convList || []);
+                    setRenaming(false);
+                  }}
+                  title="Save title"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => setRenaming(false)} title="Cancel">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {props.onLoadCode && lastCodePreview && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8"
+                onClick={() => props.onLoadCode?.(lastCodePreview)}
+                title="Load saved code into editor"
               >
-                <ChatMessageContent role={message.role} content={message.content} />
+                Load Code
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+          {loadingHistory && (
+            <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading chat history...</div>
+          )}
+          {messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center text-muted-foreground max-w-md">
+                <img src="/AicodeLogo.png" alt="AI Agent" className="w-12 h-12 mx-auto mb-3 opacity-50 dark-invert" />
+                <p className="text-sm">
+                  Ask me anything about Python! I can help you write code, debug errors, or explain concepts.
+                </p>
               </div>
             </div>
-          ))
-        )}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5">
-              <Loader2 className="w-4 h-4 animate-spin" />
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="p-4 border-t border-border bg-secondary/50">
-        <div className="flex gap-2 items-end">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask about Python code..."
-            className="resize-none bg-input border-border transition-all duration-200 overflow-y-auto"
-            style={{ minHeight: '60px', maxHeight: '200px' }}
-            disabled={isLoading}
-            rows={1}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="bg-primary hover:bg-primary/90 hover:shadow-glow transition-all"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* History Drawer */}
-      {showHistory && (
-        <div className="absolute inset-0 bg-black/10">
-          <div className="absolute right-0 top-0 h-full w-80 max-w-[85%] bg-white border-l border-border shadow-card p-3 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold">Chat History</div>
-              <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowHistory(false)}>
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="text-xs text-muted-foreground mb-2">Click to open a conversation</div>
-            <div className="flex-1 overflow-auto space-y-2">
-              {conversations.length === 0 && (
-                <div className="text-sm text-muted-foreground">No conversations yet</div>
-              )}
-              {conversations.map((c) => (
+          ) : (
+            messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div
-                  key={c.id}
-                  className={`w-full text-left border rounded p-2 hover:bg-muted ${
-                    c.id === conversationId ? "bg-primary/10 border-primary" : "border-border"
+                  className={`${
+                    message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"
+                  } rounded-lg px-4 py-2.5 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground border border-primary"
+                      : "bg-transparent text-foreground border-none"
                   }`}
                 >
-                  <div className="flex items-start gap-2">
-                    <button
-                      onClick={async () => {
-                        // Save current code before switching
-                        try {
-                          if (conversationId && props.getCurrentCode) {
-                            const code = props.getCurrentCode();
-                            if (code != null) {
-                              await localStorageService.updateConversation(conversationId, { last_code: code });
-                            }
-                          }
-                        } catch (e) {
-                          console.warn("Save previous code failed", e);
-                        }
-                        setConversationId(c.id);
-                        setCurrentTitle(c.title || "Untitled");
-                        setShowHistory(false);
-                        setLoadingHistory(true);
-                        const { data: msgs } = await localStorageService.getMessages(c.id);
-                    setMessages(
-                      (msgs || []).map((m) => ({ role: m.role, content: m.content }))
-                    );
-                    const { data: convRow } = await localStorageService.getConversation(c.id);
-                    setLastCodePreview(convRow?.last_code ?? null);
-                    setLoadingHistory(false);
-                  }}
-                      className="flex-1 text-left"
-                    >
-                      <div className="text-sm truncate font-medium">
-                        {c.title || "Untitled"}
-                        {c.id === conversationId && <span className="ml-2 text-xs text-primary">(Active)</span>}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
-                    </button>
-                    <button
-                      className="text-muted-foreground hover:text-destructive p-1"
-                      title="Delete conversation"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const ok = window.confirm("Delete this conversation? This cannot be undone.");
-                        if (!ok) return;
-                        const { error } = await localStorageService.deleteConversation(c.id);
-                        if (!error && currentUserId) {
-                          // refresh list
-                          const { data: convList } = await localStorageService.getConversations(currentUserId, 50);
-                          setConversations(convList || []);
-                          if (conversationId === c.id) {
-                            setConversationId(null);
-                            setCurrentTitle("");
-                            setMessages([]);
-                          }
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <ChatMessageContent 
+                    role={message.role} 
+                    content={message.content} 
+                    animate={isLoading && index === messages.length - 1 && message.role === "assistant"}
+                  />
                 </div>
-              ))}
+              </div>
+            ))
+          )}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5">
+                <Loader2 className="w-4 h-4 animate-spin" />
+              </div>
             </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+  
+        <div className="p-4 border-t border-border bg-secondary/50">
+          <div className="flex gap-2 items-end">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask about Python code..."
+              className="resize-none bg-input border-border transition-all duration-200 overflow-y-auto"
+              style={{ minHeight: '60px', maxHeight: '200px' }}
+              disabled={isLoading}
+              rows={1}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="bg-primary hover:bg-primary/90 hover:shadow-glow transition-all"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-      )}
-
+      </div>
+  
       {/* New Chat Modal */}
       {showNewModal && (
-        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+        <div className="absolute inset-0 z-50 bg-black/30 flex items-center justify-center">
           <div className="bg-white border border-border rounded-lg shadow-card w-full max-w-sm p-4">
             <div className="text-sm font-semibold mb-2">Create New Chat</div>
             <label className="text-xs text-muted-foreground">Title</label>
@@ -597,11 +624,13 @@ Ingat: Tujuanmu adalah membuat Python menyenangkan dan mudah dipahami untuk pemu
   );
 });
 
-function ChatMessageContent({ role, content }: { role: "user" | "assistant"; content: string }) {
+function ChatMessageContent({ role, content, animate = false }: { role: "user" | "assistant"; content: string; animate?: boolean }) {
+  const displayedContent = useTypewriter(content, animate);
+
   if (role === "user") {
     return <div className="text-sm whitespace-pre-wrap break-words">{content}</div>;
   }
-  return <MarkdownMessage content={content} />;
+  return <MarkdownMessage content={displayedContent} />;
 }
 
 function MarkdownMessage({ content }: { content: string }) {
@@ -647,9 +676,21 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
       <div className="absolute right-2 top-2 text-xs text-muted-foreground">
         {lang ? lang.toUpperCase() : "CODE"}
       </div>
-      <pre className="bg-background border border-accent/30 rounded p-3 overflow-auto text-sm whitespace-pre-wrap">
-        <code>{code}</code>
-      </pre>
+      <div className="rounded overflow-hidden border border-zinc-800">
+        <SyntaxHighlighter
+          language={lang || 'text'}
+          style={vscDarkPlus}
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            fontSize: '0.875rem', // text-sm
+          }}
+          wrapLines={true}
+          wrapLongLines={true}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
       <div className="mt-1 flex justify-end">
         <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 px-2 text-xs">
           Copy

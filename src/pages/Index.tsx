@@ -8,7 +8,10 @@ import { AuthScreen } from "@/components/AuthScreen";
 import { mockAuth } from "@/services/mockAuthService";
 import { loadSkulpt, runPythonCode } from "@/utils/skulptRunner";
 import { useToast } from "@/hooks/use-toast";
+import { LandingPage } from "@/components/LandingPage";
 import { Loader2 } from "lucide-react";
+
+import { Particles } from "@/components/ui/Particles";
 
 const Index = () => {
   const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant! GROUPFOX
@@ -29,6 +32,9 @@ print(greet("World"))
   const { toast } = useToast();
   const chatRef = useRef<ChatInterfaceHandle | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+
+  const [viewMode, setViewMode] = useState<"code" | "chat" | "both">("both");
+  const [showTerminal, setShowTerminal] = useState(true);
 
   useEffect(() => {
     // Trigger fade-in for start screen
@@ -109,6 +115,7 @@ print(greet("World"))
 \u0060\u0060\u0060python\n${code}\n\u0060\u0060\u0060`;
     chatRef.current?.sendMessage(content);
     toast({ title: "Code sent", description: "Sent code to AI chat" });
+    setViewMode("chat"); // Switch to chat view if not already
   };
 
   // Removed auto-insert of AI code into editor; code is copyable from chat.
@@ -125,67 +132,93 @@ print(greet("World"))
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {showStart && (
-        <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
-          <div
-            className={`flex flex-col items-center transition-opacity duration-700 ease-out ${
-              startVisible ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <img
-              src="/AicodeLogo.png"
-              alt="AIcode Logo"
-              className="w-36 h-36 mb-6 select-none"
-              draggable={false}
-            />
-            <button
-              onClick={() => setShowStart(false)}
-              className="px-6 py-2 rounded-md bg-black text-white font-medium shadow hover:opacity-90 active:opacity-80 transition"
-            >
-              Get Started
-            </button>
-          </div>
+    <div className="h-screen flex flex-col overflow-hidden relative">
+      <Particles />
+      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} />
+      {showStart ? (
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+          <LandingPage onGetStarted={() => setShowStart(false)} />
         </div>
-      )}
+      ) : null}
       {showAuth && !showStart && (
         <AuthScreen onAuthenticated={() => setShowAuth(false)} />
       )}
       
       {/* Navbar */}
-      <Navbar />
+      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} />
       
-      <div className="max-w-[1800px] mx-auto p-4">
+      <div className="w-full px-4 py-4">
         {/* Main Layout with resizable panels */}
         <div className="h-[calc(100vh-100px)]">
-          <PanelGroup direction="horizontal" className="gap-4 h-full">
-            <Panel defaultSize={66} minSize={40} className="flex flex-col gap-4 min-w-0">
-              <PanelGroup direction="vertical" className="gap-4 flex-1 min-h-0">
-                <Panel defaultSize={60} minSize={30} className="min-h-0">
-                  <CodeEditor
-                    code={code}
-                    onChange={setCode}
-                    onRun={handleRunCode}
-                    onClear={handleClearTerminal}
-                    onSendToChat={handleSendToChat}
-                  />
-                </Panel>
-                <PanelResizeHandle className="h-1 bg-border rounded hover:bg-primary transition cursor-row-resize" />
-                <Panel minSize={20} className="min-h-0">
-                  <Terminal
-                    output={output}
-                    prompt={prompt}
-                    disabled={!prompt || !isRunning}
-                    onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
-                  />
-                </Panel>
-              </PanelGroup>
-            </Panel>
-            <PanelResizeHandle className="w-1 bg-border rounded hover:bg-primary transition cursor-col-resize" />
-            <Panel minSize={20} defaultSize={34} className="min-w-0">
-              <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
-            </Panel>
-          </PanelGroup>
+            {viewMode === "both" ? (
+                <PanelGroup direction="horizontal" className="gap-4 h-full">
+                    <Panel defaultSize={66} minSize={40} className="flex flex-col gap-4 min-w-0">
+                    <PanelGroup direction="vertical" className="gap-4 flex-1 min-h-0">
+                        <Panel defaultSize={showTerminal ? 60 : 100} minSize={30} className="min-h-0">
+                        <CodeEditor
+                            code={code}
+                            onChange={setCode}
+                            onRun={handleRunCode}
+                            onClear={handleClearTerminal}
+                            onSendToChat={handleSendToChat}
+                            showTerminal={showTerminal}
+                            onToggleTerminal={() => setShowTerminal(prev => !prev)}
+                        />
+                        </Panel>
+                        {showTerminal && (
+                            <>
+                                <PanelResizeHandle className="h-1 bg-border rounded hover:bg-primary transition cursor-row-resize" />
+                                <Panel minSize={20} className="min-h-0">
+                                <Terminal
+                                    output={output}
+                                    prompt={prompt}
+                                    disabled={!prompt || !isRunning}
+                                    onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
+                                />
+                                </Panel>
+                            </>
+                        )}
+                    </PanelGroup>
+                    </Panel>
+                    <PanelResizeHandle className="w-1 bg-border rounded hover:bg-primary transition cursor-col-resize" />
+                    <Panel minSize={20} defaultSize={34} className="min-w-0">
+                    <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
+                    </Panel>
+                </PanelGroup>
+            ) : viewMode === "code" ? (
+                <PanelGroup direction="vertical" className="gap-4 h-full">
+                    <Panel defaultSize={showTerminal ? 70 : 100} minSize={30} className="min-h-0">
+                        <CodeEditor
+                            code={code}
+                            onChange={setCode}
+                            onRun={handleRunCode}
+                            onClear={handleClearTerminal}
+                            onSendToChat={handleSendToChat}
+                            showTerminal={showTerminal}
+                            onToggleTerminal={() => setShowTerminal(prev => !prev)}
+                        />
+                    </Panel>
+                    {showTerminal && (
+                        <>
+                            <PanelResizeHandle className="h-1 bg-border rounded hover:bg-primary transition cursor-row-resize" />
+                            <Panel minSize={20} className="min-h-0">
+                                <Terminal
+                                    output={output}
+                                    prompt={prompt}
+                                    disabled={!prompt || !isRunning}
+                                    onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
+                                />
+                            </Panel>
+                        </>
+                    )}
+                </PanelGroup>
+            ) : (
+                <div className="h-full flex justify-center">
+                    <div className="w-full max-w-7xl h-full border border-border rounded-lg overflow-hidden shadow-sm">
+                         <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} />
+                    </div>
+                </div>
+            )}
         </div>
       </div>
     </div>

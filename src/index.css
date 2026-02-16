@@ -8,53 +8,79 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Light theme */
+    /* Light theme (Default) */
     --background: 0 0% 100%;
-    --foreground: 220 15% 15%;
-
+    --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
-
+    --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
-
+    --popover-foreground: 0 0% 3.9%;
     --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 98%;
     --primary-glow: 262 83% 68%;
-
-    --secondary: 0 0% 98%;
-    --secondary-foreground: 220 15% 20%;
-
-    --muted: 0 0% 96%;
-    --muted-foreground: 220 10% 40%;
-
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
     --accent: 158 64% 45%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 10% 85%;
-    --input: 0 0% 100%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
     --ring: 262 83% 58%;
-
     --radius: 0.75rem;
 
-    --terminal-bg: 0 0% 100%;
-    --terminal-text: 220 15% 20%;
-    --terminal-error: 0 70% 45%;
-
+    --terminal-bg: 0 0% 98%;
+    --terminal-text: 0 0% 9%;
+    --terminal-error: 0 84.2% 60.2%;
     --editor-bg: 0 0% 100%;
-    --editor-line: 0 0% 95%;
+    --editor-line: 0 0% 96%;
 
     --gradient-ai: linear-gradient(135deg, hsl(262 83% 58%), hsl(220 83% 58%));
     --gradient-accent: linear-gradient(135deg, hsl(158 64% 45%), hsl(180 64% 45%));
     
     --shadow-glow: 0 0 30px hsl(262 83% 58% / 0.18);
     --shadow-glow-accent: 0 0 22px hsl(158 64% 45% / 0.18);
-    --shadow-card: 0 6px 20px -10px hsl(220 15% 20% / 0.18);
+    --shadow-card: 0 6px 20px -10px hsl(0 0% 0% / 0.1);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Dark theme (Black Background) */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 262 83% 68%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 158 64% 45%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 262 83% 58%;
+    
+    --terminal-bg: 0 0% 5%;
+    --terminal-text: 0 0% 98%;
+    --terminal-error: 0 62.8% 30.6%;
+    --editor-bg: 0 0% 2%;
+    --editor-line: 0 0% 10%;
+
+    --gradient-ai: linear-gradient(135deg, hsl(262 83% 58%), hsl(220 83% 58%));
+    --gradient-accent: linear-gradient(135deg, hsl(158 64% 45%), hsl(180 64% 45%));
+    --shadow-glow: 0 0 30px hsl(262 83% 58% / 0.18);
+    --shadow-glow-accent: 0 0 22px hsl(158 64% 45% / 0.18);
+    --shadow-card: 0 6px 20px -10px hsl(0 0% 0% / 0.5);
   }
 }
 
@@ -64,6 +90,15 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+  .dark-invert {
+    @apply transition-[filter] duration-300;
+  }
+  .dark .dark-invert {
+    filter: invert(1) brightness(100);
   }
 }

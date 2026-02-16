@@ -1,6 +1,7 @@
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Trash2, ArrowRight } from "lucide-react";
+import { Play, Trash2, ArrowRight, SquareTerminal } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface CodeEditorProps {
   code: string;
@@ -8,14 +9,41 @@ interface CodeEditorProps {
   onRun: () => void;
   onClear: () => void;
   onSendToChat: () => void;
+  showTerminal?: boolean;
+  onToggleTerminal?: () => void;
 }
 
-export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat }: CodeEditorProps) => {
+export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat, showTerminal = true, onToggleTerminal }: CodeEditorProps) => {
+  const { resolvedTheme } = useTheme();
+
+  const handleEditorWillMount = (monaco: any) => {
+    monaco.editor.defineTheme('custom-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#000000',
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-full bg-editor-bg rounded-lg overflow-hidden border border-border shadow-card">
       <div className="flex items-center justify-between px-4 py-3 bg-secondary border-b border-border">
         <h2 className="text-sm font-semibold text-foreground">Python Editor</h2>
         <div className="flex gap-2">
+          {onToggleTerminal && (
+            <Button
+                size="sm"
+                variant="ghost"
+                onClick={onToggleTerminal}
+                className={`h-8 px-3 ${showTerminal ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                title={showTerminal ? "Hide Terminal" : "Show Terminal"}
+            >
+                <SquareTerminal className="w-4 h-4 mr-1.5" />
+                Terminal
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -49,7 +77,8 @@ export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat }: Cod
           defaultLanguage="python"
           value={code}
           onChange={(value) => onChange(value || "")}
-          theme="vs"
+          theme={resolvedTheme === 'dark' ? 'custom-dark' : 'light'}
+          beforeMount={handleEditorWillMount}
           options={{
             minimap: { enabled: false },
             fontSize: 14,

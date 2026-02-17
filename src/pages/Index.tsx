@@ -11,12 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { LandingPage } from "@/components/LandingPage";
 import { Loader2 } from "lucide-react";
 import { Particles } from "@/components/ui/Particles";
+import { Helmet } from "react-helmet-async";
 
 import { useLocation } from "react-router-dom";
 
 const Index = () => {
   const location = useLocation();
-  const [code, setCode] = useState(`# Welcome to AI Python Coding Assistant! GROUPFOX
+  const [code, setCode] = useState(`# Welcome to AI Coding Assistant!
 # Write your Python code here and click Run
 
 def greet(name):
@@ -134,6 +135,18 @@ print(greet("World"))
 
   return (
     <div className="h-screen flex flex-col overflow-hidden relative">
+      <Helmet>
+        <title>UNKLAB AI Code - AI-Powered Python Coding Assistant</title>
+        <meta 
+          name="description" 
+          content="UNKLAB AI Code (unklab-aicode) - Interactive Python coding environment with AI chatbot assistance. Write, execute, and improve Python code with instant AI feedback." 
+        />
+        <meta 
+          name="keywords" 
+          content="unklab-aicode, unklab ai code, UNKLAB, AI coding assistant, Python IDE, online Python editor, AI programming help, code debugging" 
+        />
+        <link rel="canonical" href="https://unklab-aicode.online/" />
+      </Helmet>
       <Particles />
       {showStart ? (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">

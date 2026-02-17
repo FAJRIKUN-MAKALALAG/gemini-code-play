@@ -6,6 +6,8 @@ import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns,
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+
 export type ViewMode = "code" | "chat" | "both";
 
 interface NavbarProps {
@@ -35,7 +37,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
   const loadApiKey = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/keys/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/keys/${userId}`);
       if (response.ok) {
         const data = await response.json();
         setHasApiKey(data.hasKey || false);
@@ -48,7 +50,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const saveApiKey = async () => {
     if (userId && tempApiKey.trim()) {
       try {
-        const response = await fetch('http://localhost:3000/api/keys', {
+        const response = await fetch(`${API_BASE_URL}/keys`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, apiKey: tempApiKey.trim() })

@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+
 const Profile = () => {
   const { theme, setTheme } = useTheme();
   const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
@@ -27,7 +29,7 @@ const Profile = () => {
             setUser(user);
             // Check if API key exists in backend
             try {
-                const response = await fetch(`http://localhost:3000/api/keys/${user.id}`);
+                const response = await fetch(`${API_BASE_URL}/keys/${user.id}`);
                 if (response.ok) {
                     const data = await response.json();
                     setHasApiKey(data.hasKey || false);
@@ -45,7 +47,7 @@ const Profile = () => {
   const handleSaveKey = async () => {
     if (user && tempKey.trim()) {
         try {
-            const response = await fetch('http://localhost:3000/api/keys', {
+            const response = await fetch(`${API_BASE_URL}/keys`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: user.id, apiKey: tempKey.trim() })

@@ -12,6 +12,8 @@ import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { v4 as uuidv4 } from "uuid";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -145,7 +147,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         { role: "user", content: userMessage.content }
       ];
 
-      const gemResp = await fetch("http://localhost:3000/api/chat", {
+      const gemResp = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: messageHistory, userId: userId }),

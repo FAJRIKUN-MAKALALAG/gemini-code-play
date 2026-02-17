@@ -1,3 +1,4 @@
+// Build triggered: Fix API URL connection issue - Force rebuild with correct production API
 pipeline {
     agent any
     

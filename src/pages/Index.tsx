@@ -136,7 +136,7 @@ print(greet("World"))
   return (
     <div className="h-screen flex flex-col overflow-hidden relative">
       <Helmet>
-        <title>UNKLAB AI Code - AI-Powered Python Coding Assistant</title>
+        <title>AI Coding Assistant</title>
         <meta 
           name="description" 
           content="UNKLAB AI Code (unklab-aicode) - Interactive Python coding environment with AI chatbot assistance. Write, execute, and improve Python code with instant AI feedback." 

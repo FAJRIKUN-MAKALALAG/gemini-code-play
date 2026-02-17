@@ -1,66 +1,76 @@
 pipeline {
-  agent any
-  options {
-    timestamps()
-    buildDiscarder(logRotator(numToKeepStr: '10'))
-  }
-
-  triggers {
-    githubPush()
-    pollSCM('H/5 * * * *')
-  }
-
-  environment {
-    // === CONFIGURATION ===
-    FRONTEND_DOMAIN = 'unklab-aicode.online'
+    agent any
     
-    // Directories on VPS
-    FRONTEND_DIR = "/var/www/frontend"
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
     }
 
-    // ======================
-    // FRONTEND DEPLOYMENT
-    // ======================
-    stage('Build & Deploy Frontend') {
-      steps {
-        script {
-           echo "🚀 Building Frontend for ${FRONTEND_DOMAIN}..."
-           
-           // Inject Secrets & Config
-             // Note: API is now hosted at https://api.unklab-aicode.online
-             sh """
-               cat > .env << EOF
-VITE_API_BASE_URL="https://api.unklab-aicode.online/api"
-EOF
-             """
-           }
+    // Gunakan tool NodeJS yang sudah kita daftarkan di Jenkins
+    tools {
+        nodejs "node"
+    }
 
-           // Install & Build
-           sh """
-             npm ci
-             npm run build
-           """
+    triggers {
+        githubPush()
+    }
 
-           // Deploy to Nginx
-           echo "🚀 Deploying Frontend Files..."
-           sh "rsync -av --delete ./dist/ ${FRONTEND_DIR}/"
+    environment {
+        FRONTEND_DOMAIN = 'unklab-aicode.online'
+        FRONTEND_DIR    = "/var/www/frontend"
+        // Memastikan Jenkins bisa menemukan binari npm
+        PATH = "/usr/local/bin:/usr/bin:/bin:$PATH"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
         }
-      }
-    }
-  }
 
-  post {
-    success { 
-      echo "✅ DEPLOYMENT SUCCESSFUL!"
-      echo "Frontend: https://${FRONTEND_DOMAIN}"
+        stage('Build Frontend') {
+            steps {
+                script {
+                    echo "🚀 Building Frontend for ${FRONTEND_DOMAIN}..."
+                    
+                    // Inject API URL ke dalam .env Vite
+                    sh """
+                        echo 'VITE_API_BASE_URL="https://api.unklab-aicode.online/api"' > .env
+                    """
+
+                    // Install & Build (menggunakan ci agar lebih bersih)
+                    sh """
+                        npm ci
+                        npm run build
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Nginx') {
+            steps {
+                echo "🚀 Deploying Frontend Files to ${FRONTEND_DIR}..."
+                sh """
+                    # Pastikan folder ada
+                    mkdir -p ${FRONTEND_DIR}
+                    
+                    # RSync hasil build (folder dist) ke folder Nginx
+                    # Pastikan folder /dist ada (Vite defaultnya dist)
+                    rsync -av --delete ./dist/ ${FRONTEND_DIR}/
+                """
+            }
+        }
     }
-    failure { 
-      echo "❌ DEPLOYMENT FAILED" 
+
+    post {
+        success { 
+            echo "✅ DEPLOYMENT SUCCESSFUL!"
+            echo "Frontend aktif di: https://${FRONTEND_DOMAIN}"
+        }
+        failure { 
+            echo "❌ DEPLOYMENT FAILED - Cek log build npm di atas." 
+        }
     }
-  }
 }

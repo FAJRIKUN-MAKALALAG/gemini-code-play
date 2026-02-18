@@ -164,89 +164,78 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         body: JSON.stringify({ 
           messages: messageHistory, 
           userId: userId,
-          mode: modelMode // Include selected mode
+          mode: modelMode 
         }),
       });
 
       if (!gemResp.ok) throw new Error(`Gemini error ${gemResp.status}`);
 
-      const contentType = gemResp.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
-        const data = await gemResp.json();
-        const assistantMessage = data.response || data.text || "";
-        
-        // Show "Done" state before showing message
-        setAiStage('done');
-        setTimeout(async () => {
-          setAiStage('idle');
-          if (assistantMessage) {
-            const messageWithMode = `${assistantMessage}---model-mode:${modelMode}---`;
-            setMessages((prev) => [...prev, { role: "assistant", content: messageWithMode }]);
-            await backendService.addMessage(convId, userId, "assistant", messageWithMode);
-          }
-        }, 1000); // 1 second delay for "Done" state
+      // NEW STREAMING LOGIC
+      const assistantMessageIndex = messages.length + 1;
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]); 
 
-      } else {
-        const assistantMessageIndex = messages.length + 1;
-        setMessages((prev) => [...prev, { role: "assistant", content: "" }]); 
+      const reader = gemResp.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let isFirstChunk = true;
+      let buffer = ""; // Buffer for incomplete JSON chunks
 
-        let fullText = "";
-        let isFirstChunk = true;
+      if (!reader) throw new Error("No reader found");
 
-        const reader = gemResp.body?.getReader();
-        const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        if (reader) {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split("\n");
-              
-              if (isFirstChunk) {
-                 isFirstChunk = false;
-                 setAiStage('done');
-                 // We don't await here because we want to keep reading the stream
-                 setTimeout(() => {
-                    setAiStage('idle');
-                 }, 1000);
-              }
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
 
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  const jsonStr = line.slice(6);
-                  if (jsonStr.trim() === "[DONE]") continue;
-                  try {
-                    const data = JSON.parse(jsonStr);
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) {
-                      fullText += text;
-                      setMessages((prev) => {
-                        const newMessages = [...prev];
-                        newMessages[assistantMessageIndex] = { role: "assistant", content: fullText };
-                        return newMessages;
-                      });
-                    }
-                  } catch (e) {}
+          const lines = buffer.split("\n");
+          // Keep the last partial line in the buffer
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr);
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (text) {
+                  if (isFirstChunk) {
+                    isFirstChunk = false;
+                    setAiStage('done');
+                    setTimeout(() => setAiStage('idle'), 1000);
+                  }
+
+                  fullText += text;
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    newMessages[assistantMessageIndex] = { role: "assistant", content: fullText };
+                    return newMessages;
+                  });
                 }
+              } catch (e) {
+                console.warn("Malformed JSON chunk", line, e);
+                // Keep moving, don't crash the stream
               }
             }
-          } finally {
-            reader.releaseLock();
           }
         }
-        
-        if (fullText) {
-          const messageWithMode = `${fullText}---model-mode:${modelMode}---`;
-          // Update the last message with the metadata for persistence
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            newMessages[assistantMessageIndex] = { role: "assistant", content: messageWithMode };
-            return newMessages;
-          });
-          await backendService.addMessage(convId, userId, "assistant", messageWithMode);
-        }
+      } finally {
+        reader.releaseLock();
+      }
+      
+      if (fullText) {
+        const messageWithMode = `${fullText}---model-mode:${modelMode}---`;
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          newMessages[assistantMessageIndex] = { role: "assistant", content: messageWithMode };
+          return newMessages;
+        });
+        await backendService.addMessage(convId, userId, "assistant", messageWithMode);
       }
     } catch (error) {
       toast({ title: "Error", description: String(error), variant: "destructive" });

@@ -2,7 +2,13 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft, LogIn, MessageSquare } from "lucide-react";
+import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft, LogIn, MessageSquare, Zap, Brain, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { backendService } from "@/services/backendService";
@@ -435,28 +441,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           </div>
           
           <div className="flex flex-1 items-center justify-center gap-2 min-w-0 mx-4 hidden sm:flex">
-            <div className="bg-secondary/50 p-1 rounded-full flex items-center gap-1 border border-border/50">
-              <button
-                onClick={() => setModelMode('fast')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                  modelMode === 'fast' 
-                    ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)] scale-105' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span>⚡</span> Fast
-              </button>
-              <button
-                onClick={() => setModelMode('reasoning')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                  modelMode === 'reasoning' 
-                    ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.4)] scale-105' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span>🧠</span> Reasoning
-              </button>
-            </div>
+            {/* Model switcher moved to input bar */}
           </div>
           
           <div className="flex items-center gap-2">
@@ -517,10 +502,63 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           <div ref={messagesEndRef} />
         </div>
   
-        <div className="p-4 border-t border-border bg-secondary/50">
-          <div className="flex gap-2 items-end">
-            <Textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Ask about Python code..." className="resize-none bg-input border-border" style={{ minHeight: '60px', maxHeight: '200px' }} disabled={isLoading} rows={1} />
-            <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="bg-primary hover:shadow-glow"><Send className="w-4 h-4" /></Button>
+        <div className="p-4 bg-transparent">
+          <div className="relative max-w-3xl mx-auto">
+            <div className="bg-secondary/70 backdrop-blur-md rounded-[28px] border border-border/50 shadow-lg p-2 flex items-end gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 text-muted-foreground hover:text-foreground transition-all">
+                    {modelMode === 'fast' ? <Zap className="w-4 h-4 text-blue-500" /> : <Brain className="w-4 h-4 text-purple-500" />}
+                    <span className="text-xs font-bold hidden sm:inline">{modelMode === 'fast' ? 'Fast' : 'Reasoning'}</span>
+                    <ChevronDown className="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48 rounded-xl border-border/50 bg-popover/90 backdrop-blur-lg">
+                  <DropdownMenuItem onClick={() => setModelMode('fast')} className="gap-3 cursor-pointer py-3">
+                    <div className={`p-2 rounded-lg ${modelMode === 'fast' ? 'bg-blue-500/10' : 'bg-muted'}`}>
+                      <Zap className={`w-4 h-4 ${modelMode === 'fast' ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">Fast Mode</span>
+                      <span className="text-[10px] text-muted-foreground">Responsive & optimized</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setModelMode('reasoning')} className="gap-3 cursor-pointer py-3">
+                    <div className={`p-2 rounded-lg ${modelMode === 'reasoning' ? 'bg-purple-500/10' : 'bg-muted'}`}>
+                      <Brain className={`w-4 h-4 ${modelMode === 'reasoning' ? 'text-purple-500' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">Reasoning Mode</span>
+                      <span className="text-[10px] text-muted-foreground">Complex problem solving</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Textarea 
+                ref={textareaRef} 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                onKeyPress={handleKeyPress} 
+                placeholder="Ask UNKLAB AI..." 
+                className="flex-1 min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-3 resize-none text-sm placeholder:text-muted-foreground/60" 
+                disabled={isLoading} 
+                rows={1} 
+              />
+              
+              <Button 
+                onClick={handleSend} 
+                disabled={!input.trim() || isLoading} 
+                className={`w-10 h-10 rounded-full p-0 flex items-center justify-center transition-all duration-300 shrink-0 ${
+                  input.trim() ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-[10px] text-center text-muted-foreground/50 mt-2 px-4 italic">
+              AI models can make mistakes. Always verify important information.
+            </p>
           </div>
         </div>
       </div>

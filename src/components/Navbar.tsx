@@ -3,7 +3,16 @@ import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun, LogIn } from "lucide-react";
+import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun, LogIn, ExternalLink, Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -143,176 +152,132 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
           {/* Profile Dropdown */}
           {userEmail ? (
-            <div className="relative">
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-ai flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="text-left hidden md:block">
-                  <div className="text-sm font-medium text-foreground">
-                    {userEmail ? userEmail.split('@')[0] : 'User'}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {userEmail || 'Loading...'}
-                  </div>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showDropdown && (
-                <>
-                  {/* Backdrop to close dropdown */}
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowDropdown(false)}
-                  />
-                  
-                  <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg z-20 overflow-hidden">
-                    {/* User Info */}
-                    <div className="px-4 py-3 border-b border-border bg-muted/50">
-                      <div className="text-sm font-medium text-foreground">
-                        Signed in as
-                      </div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        {userEmail}
-                      </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 group p-1.5 rounded-full border border-border/50 hover:bg-muted/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <Avatar className="h-8 w-8 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                    <AvatarFallback className="bg-gradient-ai text-white text-xs font-bold">
+                      {userEmail ? userEmail.substring(0, 2).toUpperCase() : 'AI'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="text-left hidden md:block px-1">
+                    <div className="text-xs font-semibold text-foreground line-clamp-1">
+                      {userEmail?.split('@')[0]}
                     </div>
-                    
-                    {/* Profile Link */}
-                    <div className="p-2 border-b border-border">
-                        <Link to="/profile" onClick={() => setShowDropdown(false)}>
-                            <Button variant="ghost" className="w-full justify-start">
-                                <Settings className="w-4 h-4 mr-2" />
-                                Profile Settings
-                            </Button>
-                        </Link>
-                    </div>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform group-hover:text-foreground" />
+                </button>
+              </DropdownMenuTrigger>
 
-                    {/* Theme Toggle */}
-                    <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <DropdownMenuContent align="end" className="w-72 p-0 rounded-xl overflow-hidden shadow-2xl border-border/50 bg-popover/95 backdrop-blur-xl">
+                {/* User Info Header */}
+                <div className="bg-secondary/30 px-4 py-4 space-y-1">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Signed in as</p>
+                  <p className="text-sm font-semibold truncate text-foreground">{userEmail}</p>
+                </div>
+
+                <div className="p-1.5 space-y-0.5">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
+                      <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors">
+                        <Settings className="w-4 h-4 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium">Profile Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="flex items-center justify-between cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-muted p-2 rounded-lg group-hover:bg-accent transition-colors">
+                        {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                      </div>
+                      <span className="text-sm font-medium">Appearance</span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1">{theme}</span>
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator className="bg-border/50" />
+
+                {/* API Key Section */}
+                <div className="px-4 py-4 space-y-3 bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                       <Key className="w-3.5 h-3.5 text-primary" />
+                       <span className="text-xs font-bold text-foreground">Gemini API Key</span>
+                    </div>
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                    >
+                      Get Key <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+
+                  {!editingApiKey ? (
+                    <div className="space-y-2">
+                      {hasApiKey ? (
                         <div className="flex items-center gap-2">
-                            {theme === 'dark' ? <Moon className="w-4 h-4 text-muted-foreground" /> : <Sun className="w-4 h-4 text-muted-foreground" />}
-                            <span className="text-sm font-medium text-foreground">Appearance</span>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 px-0"
-                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        >
-                            {theme === 'dark' ? (
-                                <Sun className="h-4 w-4" />
-                            ) : (
-                                <Moon className="h-4 w-4" />
-                            )}
-                            <span className="sr-only">Toggle theme</span>
-                        </Button>
-                    </div>
-
-                    {/* API Key Section */}
-                    <div className="px-4 py-3 border-b border-border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Key className="w-4 h-4 text-muted-foreground" />
-                        <div className="text-sm font-medium text-foreground">
-                          Gemini API Key
-                        </div>
-                      </div>
-                      
-                      {!editingApiKey ? (
-                        <div className="space-y-2">
-                          {hasApiKey ? (
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 text-xs font-mono bg-muted px-3 py-2 rounded border border-border flex items-center justify-between">
-                                <span>••••••••••••••••</span>
-                                <Check className="w-3 h-3 text-green-500" />
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={startEditApiKey}
-                                className="h-8"
-                              >
-                                Edit
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={startEditApiKey}
-                              className="w-full"
-                            >
-                              <Key className="w-4 h-4 mr-2" />
-                              Add API Key
-                            </Button>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            Your API key is stored securely in the database
-                          </p>
+                          <div className="flex-1 text-[10px] font-mono bg-background/50 backdrop-blur-sm px-3 py-2 rounded-lg border border-border/50 flex items-center justify-between">
+                            <span className="text-muted-foreground opacity-50">••••••••••••••••</span>
+                            <Check className="w-3 h-3 text-green-500" />
+                          </div>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); startEditApiKey(); }} className="h-8 text-[10px] border-border/50 font-bold hover:bg-background">
+                            EDIT
+                          </Button>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          <Input
-                            type="password"
-                            placeholder="Enter your Gemini API key"
-                            value={tempApiKey}
-                            onChange={(e) => setTempApiKey(e.target.value)}
-                            className="text-xs"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={saveApiKey}
-                              disabled={!tempApiKey.trim()}
-                              className="flex-1"
-                            >
-                              <Check className="w-4 h-4 mr-1" />
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={cancelEditApiKey}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Get your API key from{" "}
-                            <a
-                              href="https://aistudio.google.com/app/apikey"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              Google AI Studio
-                            </a>
-                          </p>
-                        </div>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); startEditApiKey(); }} className="w-full h-9 border-dashed border-primary/30 text-primary hover:bg-primary/5 font-bold">
+                          <Plus className="w-3.5 h-3.5 mr-2" /> ADD API KEY
+                        </Button>
                       )}
                     </div>
-
-                    {/* Logout Button */}
-                    <div className="p-2">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={handleSignOut}
-                        disabled={loading}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        {loading ? "Signing out..." : "Sign out"}
-                      </Button>
+                  ) : (
+                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <Input
+                        type="password"
+                        placeholder="Enter Key..."
+                        value={tempApiKey}
+                        onChange={(e) => setTempApiKey(e.target.value)}
+                        className="h-8 text-xs bg-background"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={saveApiKey} disabled={!tempApiKey.trim()} className="flex-1 h-8 text-[10px] font-bold">
+                          SAVE
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelEditApiKey} className="h-8 w-8 p-0">
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
+                  )}
+                </div>
+
+                <DropdownMenuSeparator className="bg-border/50" />
+
+                {/* Logout Button */}
+                <div className="p-1.5">
+                  <DropdownMenuItem 
+                    onClick={handleSignOut}
+                    disabled={loading}
+                    className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg text-destructive focus:bg-destructive/10 focus:text-destructive group"
+                  >
+                    <div className="bg-destructive/5 p-2 rounded-lg group-hover:bg-destructive/10 transition-colors">
+                      <LogOut className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold">{loading ? "Signing out..." : "Sign Out"}</span>
+                  </DropdownMenuItem>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
              <div className="flex gap-2">
                 <Button variant="default" size="sm" onClick={onSignInClick} className="shadow-lg shadow-primary/20">

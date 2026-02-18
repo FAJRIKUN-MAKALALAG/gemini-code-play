@@ -507,10 +507,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             <div className="bg-secondary/70 backdrop-blur-md rounded-[28px] border border-border/50 shadow-lg p-2 flex items-end gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-10 px-3 rounded-2xl gap-2 text-muted-foreground hover:text-foreground transition-all">
-                    {modelMode === 'fast' ? <Zap className="w-4 h-4 text-blue-500" /> : <Brain className="w-4 h-4 text-purple-500" />}
-                    <span className="text-xs font-bold hidden sm:inline">{modelMode === 'fast' ? 'Fast' : 'Reasoning'}</span>
-                    <ChevronDown className="w-3 h-3 opacity-50" />
+                  <Button variant="ghost" size="sm" className="h-10 px-2 rounded-xl flex items-center gap-1 text-muted-foreground hover:text-foreground transition-all">
+                    <span className="text-xs font-medium lowercase tracking-tight">{modelMode}</span>
+                    <ChevronDown className="w-3 h-3 opacity-30" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48 rounded-xl border-border/50 bg-popover/90 backdrop-blur-lg">

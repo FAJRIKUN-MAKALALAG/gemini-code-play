@@ -1,6 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Trash2, ArrowRight, SquareTerminal } from "lucide-react";
+import { Play, Trash2, SquareTerminal } from "lucide-react";
 import { useTheme } from "next-themes";
 import { DebugButton } from "./DebugButton";
 
@@ -9,7 +9,6 @@ interface CodeEditorProps {
   onChange: (value: string) => void;
   onRun: () => void;
   onClear: () => void;
-  onSendToChat: () => void;
   showTerminal?: boolean;
   onToggleTerminal?: () => void;
   // Debug feature
@@ -22,7 +21,6 @@ export const CodeEditor = ({
   onChange,
   onRun,
   onClear,
-  onSendToChat,
   showTerminal = true,
   onToggleTerminal,
   lastError,
@@ -74,14 +72,6 @@ export const CodeEditor = ({
           >
             <Play className="w-4 h-4 mr-1.5" />
             Run
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onSendToChat}
-            className="h-8 px-3 border-primary/50 hover:bg-primary/10 hover:border-primary transition-all"
-          >
-            <ArrowRight className="w-4 h-4" />
           </Button>
 
           {/* Debug Button — only visible when there's an error */}

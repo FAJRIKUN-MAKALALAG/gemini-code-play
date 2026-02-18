@@ -186,12 +186,10 @@ print(greet("World"))
                             onChange={setCode}
                             onRun={handleRunCode}
                             onClear={handleClearTerminal}
-                            onSendToChat={handleSendToChat}
                             showTerminal={showTerminal}
                             onToggleTerminal={() => setShowTerminal(prev => !prev)}
                             lastError={lastError}
                             onDebug={handleDebug}
-                            onSwitchToChat={() => setViewMode("chat")}
                         />
                         </Panel>
                         {showTerminal && (
@@ -222,12 +220,10 @@ print(greet("World"))
                             onChange={setCode}
                             onRun={handleRunCode}
                             onClear={handleClearTerminal}
-                            onSendToChat={handleSendToChat}
                             showTerminal={showTerminal}
                             onToggleTerminal={() => setShowTerminal(prev => !prev)}
                             lastError={lastError}
                             onDebug={handleDebug}
-                            onSwitchToChat={() => setViewMode("chat")}
                         />
                     </Panel>
                     {showTerminal && (

@@ -122,6 +122,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   }, []);
 
   const chatOnce = async (userMessage: Message) => {
+    // 1. STYRICT REQUEST LOCKING: Source of Truth
+    if (isLoading) return;
+    setIsLoading(true);
+
     try {
       const user = authService.getUser();
       if (!user) {
@@ -158,7 +162,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         { role: "user", content: userMessage.content }
       ];
 
-      const gemResp = await fetch(`${API_BASE_URL}/chat`, {
+      const targetUrl = `${API_BASE_URL}/chat`;
+      // 3. LOGGING API URL: Debugging target
+      console.log('🚀 Target API:', targetUrl);
+
+      const gemResp = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -168,7 +176,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         }),
       });
 
-      if (!gemResp.ok) throw new Error(`Gemini error ${gemResp.status}`);
+      // 4. ERROR HANDLING: Capture specific codes
+      if (!gemResp.ok) {
+        if (gemResp.status === 429) {
+          throw new Error("Antrian terlalu padat (429). Mohon tunggu sebentar.");
+        }
+        if (gemResp.status === 500) {
+          throw new Error("Terjadi masalah pada Server backend (500).");
+        }
+        throw new Error(`Gemini error ${gemResp.status}`);
+      }
 
       // NEW STREAMING LOGIC
       const assistantMessageIndex = messages.length + 1;
@@ -246,11 +263,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   };
 
   const handleSend = async () => {
+    // UI PROTECTION: Check isLoading immediately
     if (!input.trim() || isLoading) return;
+    
     const userMessage: Message = { role: "user", content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setIsLoading(true);
+    // chatOnce will set isLoading to true and check it again internally
     await chatOnce(userMessage);
   };
 

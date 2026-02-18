@@ -2,6 +2,7 @@ import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Play, Trash2, ArrowRight, SquareTerminal } from "lucide-react";
 import { useTheme } from "next-themes";
+import { DebugButton } from "./DebugButton";
 
 interface CodeEditorProps {
   code: string;
@@ -11,9 +12,24 @@ interface CodeEditorProps {
   onSendToChat: () => void;
   showTerminal?: boolean;
   onToggleTerminal?: () => void;
+  // Debug feature
+  lastError?: string | null;
+  onDebug?: (message: string) => void;
+  onSwitchToChat?: () => void;
 }
 
-export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat, showTerminal = true, onToggleTerminal }: CodeEditorProps) => {
+export const CodeEditor = ({
+  code,
+  onChange,
+  onRun,
+  onClear,
+  onSendToChat,
+  showTerminal = true,
+  onToggleTerminal,
+  lastError,
+  onDebug,
+  onSwitchToChat,
+}: CodeEditorProps) => {
   const { resolvedTheme } = useTheme();
 
   const handleEditorWillMount = (monaco: any) => {
@@ -31,7 +47,7 @@ export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat, showT
     <div className="flex flex-col h-full bg-editor-bg rounded-lg overflow-hidden border border-border shadow-card">
       <div className="flex items-center justify-between px-4 py-3 bg-secondary border-b border-border">
         <h2 className="text-sm font-semibold text-foreground">Python Editor</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {onToggleTerminal && (
             <Button
                 size="sm"
@@ -69,6 +85,16 @@ export const CodeEditor = ({ code, onChange, onRun, onClear, onSendToChat, showT
           >
             <ArrowRight className="w-4 h-4" />
           </Button>
+
+          {/* Debug Button — only visible when there's an error */}
+          {onDebug && (
+            <DebugButton
+              code={code}
+              lastError={lastError ?? null}
+              onSendMessage={onDebug}
+              onSwitchToChat={onSwitchToChat}
+            />
+          )}
         </div>
       </div>
       <div className="flex-1 overflow-hidden">

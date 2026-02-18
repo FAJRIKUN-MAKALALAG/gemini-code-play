@@ -38,6 +38,7 @@ print(greet("World"))
 
   const [viewMode, setViewMode] = useState<"code" | "chat" | "both">("both");
   const [showTerminal, setShowTerminal] = useState(true);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     if (location.state?.showLanding) {
@@ -71,6 +72,7 @@ print(greet("World"))
     setOutput([]);
     setPrompt(null);
     setIsRunning(true);
+    setLastError(null); // Reset error on every new run
     try {
       const appendChunk = (chunk: string) => {
         const normalized = chunk.replace(/\r/g, "");
@@ -99,10 +101,16 @@ print(greet("World"))
             };
           }),
         onStdout: appendChunk,
-        onStderr: appendChunk,
+        onStderr: (errChunk: string) => {
+          // Capture error output for the Debug button
+          setLastError((prev) => (prev ? prev + "\n" + errChunk : errChunk));
+          appendChunk(errChunk);
+        },
       });
     } catch (error) {
-      setOutput((prev) => [...prev, `Error: ${error}`]);
+      const errMsg = `Error: ${error}`;
+      setLastError(errMsg);
+      setOutput((prev) => [...prev, errMsg]);
     } finally {
       setIsRunning(false);
     }
@@ -118,6 +126,11 @@ print(greet("World"))
     chatRef.current?.sendMessage(content);
     toast({ title: "Code sent", description: "Sent code to AI chat" });
     setViewMode("chat"); // Switch to chat view if not already
+  };
+
+  const handleDebug = (message: string) => {
+    chatRef.current?.sendMessage(message);
+    toast({ title: "🐛 Debugging...", description: "Mengirim error ke AI untuk dianalisis" });
   };
 
   // Removed auto-insert of AI code into editor; code is copyable from chat.
@@ -176,6 +189,9 @@ print(greet("World"))
                             onSendToChat={handleSendToChat}
                             showTerminal={showTerminal}
                             onToggleTerminal={() => setShowTerminal(prev => !prev)}
+                            lastError={lastError}
+                            onDebug={handleDebug}
+                            onSwitchToChat={() => setViewMode("chat")}
                         />
                         </Panel>
                         {showTerminal && (
@@ -209,6 +225,9 @@ print(greet("World"))
                             onSendToChat={handleSendToChat}
                             showTerminal={showTerminal}
                             onToggleTerminal={() => setShowTerminal(prev => !prev)}
+                            lastError={lastError}
+                            onDebug={handleDebug}
+                            onSwitchToChat={() => setViewMode("chat")}
                         />
                     </Panel>
                     {showTerminal && (

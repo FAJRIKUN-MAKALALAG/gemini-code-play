@@ -218,6 +218,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
               try {
                 const data = JSON.parse(jsonStr);
+                
+                // Handle explicit errors sent as data chunks
+                if (data.error) {
+                  throw new Error(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+                }
+
                 // Handle both simple {text: ""} and complex Gemini structure
                 const text = data.text || data.candidates?.[0]?.content?.parts?.[0]?.text;
                 

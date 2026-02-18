@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -28,13 +28,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
 
-  // Load API key when user is available
-  // Using useEffect with userId as dependency so it re-runs when user logs in
-  useState(() => { if (userId) loadApiKey(userId); });
-
-  const loadApiKey = async (userId: string) => {
+  const loadApiKey = async (uid: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/keys/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/keys/${uid}`);
       if (response.ok) {
         const data = await response.json();
         setHasApiKey(data.hasKey || false);
@@ -43,6 +39,11 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
       console.error("Failed to load API key status from backend:", error);
     }
   };
+
+  // Load API key whenever user changes (e.g. after login)
+  useEffect(() => {
+    if (userId) loadApiKey(userId);
+  }, [userId]);
 
   const saveApiKey = async () => {
     if (userId && tempApiKey.trim()) {

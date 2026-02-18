@@ -15,7 +15,6 @@ interface CodeEditorProps {
   // Debug feature
   lastError?: string | null;
   onDebug?: (message: string) => void;
-  onSwitchToChat?: () => void;
 }
 
 export const CodeEditor = ({
@@ -28,7 +27,6 @@ export const CodeEditor = ({
   onToggleTerminal,
   lastError,
   onDebug,
-  onSwitchToChat,
 }: CodeEditorProps) => {
   const { resolvedTheme } = useTheme();
 
@@ -92,7 +90,6 @@ export const CodeEditor = ({
               code={code}
               lastError={lastError ?? null}
               onSendMessage={onDebug}
-              onSwitchToChat={onSwitchToChat}
             />
           )}
         </div>

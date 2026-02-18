@@ -51,6 +51,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
+  const [modelMode, setModelMode] = useState<'fast' | 'reasoning'>('fast');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -160,7 +161,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       const gemResp = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messageHistory, userId: userId }),
+        body: JSON.stringify({ 
+          messages: messageHistory, 
+          userId: userId,
+          mode: modelMode // Include selected mode
+        }),
       });
 
       if (!gemResp.ok) throw new Error(`Gemini error ${gemResp.status}`);
@@ -175,8 +180,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         setTimeout(async () => {
           setAiStage('idle');
           if (assistantMessage) {
-            setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
-            await backendService.addMessage(convId, userId, "assistant", assistantMessage);
+            const messageWithMode = `${assistantMessage}---model-mode:${modelMode}---`;
+            setMessages((prev) => [...prev, { role: "assistant", content: messageWithMode }]);
+            await backendService.addMessage(convId, userId, "assistant", messageWithMode);
           }
         }, 1000); // 1 second delay for "Done" state
 
@@ -231,7 +237,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           }
         }
         
-        if (fullText) await backendService.addMessage(convId, userId, "assistant", fullText);
+        if (fullText) {
+          const messageWithMode = `${fullText}---model-mode:${modelMode}---`;
+          // Update the last message with the metadata for persistence
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            newMessages[assistantMessageIndex] = { role: "assistant", content: messageWithMode };
+            return newMessages;
+          });
+          await backendService.addMessage(convId, userId, "assistant", messageWithMode);
+        }
       }
     } catch (error) {
       toast({ title: "Error", description: String(error), variant: "destructive" });
@@ -405,25 +420,28 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           </div>
           
           <div className="flex flex-1 items-center justify-center gap-2 min-w-0 mx-4 hidden sm:flex">
-            {!renaming ? (
-              <>
-                <div className="text-sm font-medium text-foreground truncate max-w-[200px] lg:max-w-md text-center">{currentTitle || "New Chat"}</div>
-                {conversationId && <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => { setRenaming(true); setRenameTitle(currentTitle || ""); }}><Pencil className="w-4 h-4" /></button>}
-              </>
-            ) : (
-              <div className="flex items-center gap-2 max-w-full">
-                <input className="text-xs px-2 py-1 rounded bg-muted text-foreground outline-none border border-border min-w-[100px]" value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} autoFocus />
-                <button className="text-foreground hover:opacity-90 shrink-0" onClick={async () => {
-                  if (!conversationId || !currentUserId) return;
-                  await backendService.updateConversation(conversationId, { title: renameTitle || "Untitled" });
-                  setCurrentTitle(renameTitle || "Untitled");
-                  const { data: convList } = await backendService.getConversations(currentUserId, 50);
-                  setConversations(convList || []);
-                  setRenaming(false);
-                }}><Check className="w-4 h-4" /></button>
-                <button className="text-muted-foreground hover:text-foreground shrink-0" onClick={() => setRenaming(false)}><X className="w-4 h-4" /></button>
-              </div>
-            )}
+            <div className="bg-secondary/50 p-1 rounded-full flex items-center gap-1 border border-border/50">
+              <button
+                onClick={() => setModelMode('fast')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                  modelMode === 'fast' 
+                    ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)] scale-105' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span>⚡</span> Fast
+              </button>
+              <button
+                onClick={() => setModelMode('reasoning')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                  modelMode === 'reasoning' 
+                    ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.4)] scale-105' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span>🧠</span> Reasoning
+              </button>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
@@ -448,10 +466,29 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                  return null;
                }
                
-               return (
+                const isAssistant = message.role === "assistant";
+                const modeMatch = message.content.match(/---model-mode:(fast|reasoning)---$/);
+                const msgMode = modeMatch ? modeMatch[1] : null;
+                const cleanContent = msgMode ? message.content.replace(/---model-mode:(fast|reasoning)---$/, "") : message.content;
+
+                return (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`${message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"} rounded-lg px-4 py-2.5 ${message.role === "user" ? "bg-primary text-primary-foreground border border-primary" : "text-foreground"}`}>
-                  <ChatMessageContent role={message.role} content={message.content} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
+                <div className={`
+                  ${message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"} 
+                  rounded-lg px-4 py-2.5 
+                  ${message.role === "user" 
+                    ? "bg-primary text-primary-foreground border border-primary" 
+                    : "text-foreground bg-secondary/30"
+                  }
+                  ${isAssistant && msgMode === 'fast' ? "border-l-4 border-blue-500 shadow-[2px_0_10px_-2px_rgba(37,99,235,0.1)]" : ""}
+                  ${isAssistant && msgMode === 'reasoning' ? "border-l-4 border-purple-500 shadow-[2px_0_10px_-2px_rgba(147,51,234,0.1)]" : ""}
+                `}>
+                  <ChatMessageContent role={message.role} content={cleanContent} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
+                  {isAssistant && msgMode && (
+                    <div className={`text-[10px] mt-2 flex items-center gap-1 opacity-60 font-medium ${msgMode === 'fast' ? 'text-blue-500' : 'text-purple-500'}`}>
+                      {msgMode === 'fast' ? '⚡ Answered in Fast Mode' : '🧠 Answered in Reasoning Mode'}
+                    </div>
+                  )}
                 </div>
               </div>
             )})
@@ -459,7 +496,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
           
           {/* AI Status Indicator */}
-          <AIStatusIndicator stage={aiStage} />
+          <AIStatusIndicator stage={aiStage} modelMode={modelMode} />
           
           {isLoading && aiStage === 'idle' && <div className="flex justify-start"><div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
           <div ref={messagesEndRef} />

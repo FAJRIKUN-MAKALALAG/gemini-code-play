@@ -2,9 +2,10 @@ import { Loader2, CheckCircle2, BrainCircuit, ShieldCheck } from "lucide-react";
 
 interface AIStatusIndicatorProps {
   stage: 'idle' | 'thinking' | 'verifying' | 'done';
+  modelMode?: 'fast' | 'reasoning';
 }
 
-export const AIStatusIndicator = ({ stage }: AIStatusIndicatorProps) => {
+export const AIStatusIndicator = ({ stage, modelMode = 'fast' }: AIStatusIndicatorProps) => {
   if (stage === 'idle') return null;
 
   return (
@@ -13,8 +14,10 @@ export const AIStatusIndicator = ({ stage }: AIStatusIndicatorProps) => {
       {/* TAHAP 1: BERPIKIR */}
       {stage === 'thinking' && (
         <>
-          <BrainCircuit className="w-5 h-5 animate-pulse text-blue-500" />
-          <span className="animate-pulse">AI sedang berpikir...</span>
+          <BrainCircuit className={`w-5 h-5 animate-pulse ${modelMode === 'reasoning' ? 'text-purple-500' : 'text-blue-500'}`} />
+          <span className="animate-pulse">
+            {modelMode === 'reasoning' ? "AI is deep-thinking..." : "AI sedang berpikir..."}
+          </span>
         </>
       )}
 

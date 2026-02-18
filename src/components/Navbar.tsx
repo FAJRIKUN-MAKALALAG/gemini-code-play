@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { authService } from "@/services/authService";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogOut, User, ChevronDown, Key, Check, X, Code, MessageSquare, Columns, Settings, Moon, Sun, LogIn } from "lucide-react";
@@ -18,22 +19,18 @@ interface NavbarProps {
 
 export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProps) => {
   const { theme, setTheme } = useTheme();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, logout } = useAuth(); // <-- Use context instead of useEffect
+  const userEmail = user?.email ?? null;
+  const userId = user?.id ?? null;
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
 
-  useEffect(() => {
-    const user = authService.getUser();
-    if (user) {
-      setUserEmail(user.email);
-      setUserId(user.id);
-      loadApiKey(user.id);
-    }
-  }, []);
+  // Load API key when user is available
+  // Using useEffect with userId as dependency so it re-runs when user logs in
+  useState(() => { if (userId) loadApiKey(userId); });
 
   const loadApiKey = async (userId: string) => {
     try {
@@ -81,10 +78,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
   const handleSignOut = async () => {
     setLoading(true);
-    await authService.logout();
-    setLoading(false);
     setShowDropdown(false);
-    window.location.reload(); // Reload to show auth screen
+    await logout(); // Uses context logout - no page reload needed!
+    setLoading(false);
   };
 
   return (

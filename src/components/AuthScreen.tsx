@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { authService } from "@/services/authService";
+import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ interface AuthScreenProps {
 }
 
 export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
+  const { login } = useAuth(); // <-- Get login function from context
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +46,11 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
         variant: "destructive",
       });
       return;
+    }
+    
+    // Update global auth state immediately (fixes Navbar not updating)
+    if (session?.user) {
+      login(session.user);
     }
     
     // Success animation before closing

@@ -22,7 +22,7 @@ export const AIStatusIndicator = ({ stage }: AIStatusIndicatorProps) => {
       {stage === 'verifying' && (
         <>
           <ShieldCheck className="w-5 h-5 animate-bounce text-orange-500" />
-          <span>Memastikan respon sesuai standar Unklab...</span>
+          <span>Memastikan respon...</span>
         </>
       )}
 

@@ -218,7 +218,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
               try {
                 const data = JSON.parse(jsonStr);
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                // Handle both simple {text: ""} and complex Gemini structure
+                const text = data.text || data.candidates?.[0]?.content?.parts?.[0]?.text;
                 
                 if (text) {
                   if (isFirstChunk) {

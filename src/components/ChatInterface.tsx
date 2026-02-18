@@ -11,6 +11,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { v4 as uuidv4 } from "uuid";
+import { AIStatusIndicator } from "./AIStatusIndicator";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
@@ -49,6 +50,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [lastCodePreview, setLastCodePreview] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,6 +144,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
       await backendService.addMessage(convId, userId, "user", userMessage.content);
 
+      // Start Thinking
+      setAiStage('thinking');
+      
+      // Simulate transition to verifying after 1.5s
+      setTimeout(() => {
+        setAiStage('verifying');
+      }, 1500);
+
       const messageHistory = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: userMessage.content }
@@ -159,15 +169,24 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       if (contentType?.includes("application/json")) {
         const data = await gemResp.json();
         const assistantMessage = data.response || data.text || "";
-        if (assistantMessage) {
-          setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
-          await backendService.addMessage(convId, userId, "assistant", assistantMessage);
-        }
+        
+        // Show "Done" state before showing message
+        setAiStage('done');
+        setTimeout(async () => {
+          setAiStage('idle');
+          if (assistantMessage) {
+            setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+            await backendService.addMessage(convId, userId, "assistant", assistantMessage);
+          }
+        }, 1000); // 1 second delay for "Done" state
+
       } else {
         const assistantMessageIndex = messages.length + 1;
-        setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: "" }]); 
 
         let fullText = "";
+        let isFirstChunk = true;
+
         const reader = gemResp.body?.getReader();
         const decoder = new TextDecoder();
 
@@ -178,6 +197,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               if (done) break;
               const chunk = decoder.decode(value, { stream: true });
               const lines = chunk.split("\n");
+              
+              if (isFirstChunk) {
+                 isFirstChunk = false;
+                 setAiStage('done');
+                 // We don't await here because we want to keep reading the stream
+                 setTimeout(() => {
+                    setAiStage('idle');
+                 }, 1000);
+              }
 
               for (const line of lines) {
                 if (line.startsWith("data: ")) {
@@ -202,10 +230,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             reader.releaseLock();
           }
         }
+        
         if (fullText) await backendService.addMessage(convId, userId, "assistant", fullText);
       }
     } catch (error) {
       toast({ title: "Error", description: String(error), variant: "destructive" });
+      setAiStage('idle');
     } finally {
       setIsLoading(false);
     }
@@ -411,15 +441,27 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               </div>
             </div>
           ) : (
-            messages.map((message, index) => (
+            messages.map((message, index) => {
+               // If we are in "thinking/verifying/done" stage, HIDE the very last message if it is an empty/streaming assistant message
+               // to prevent overlap with the indicator.
+               if (isLoading && aiStage !== 'idle' && index === messages.length - 1 && message.role === 'assistant') {
+                 return null;
+               }
+               
+               return (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`${message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"} rounded-lg px-4 py-2.5 ${message.role === "user" ? "bg-primary text-primary-foreground border border-primary" : "text-foreground"}`}>
                   <ChatMessageContent role={message.role} content={message.content} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
                 </div>
               </div>
-            ))
+            )})
           )}
-          {isLoading && <div className="flex justify-start"><div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
+
+          
+          {/* AI Status Indicator */}
+          <AIStatusIndicator stage={aiStage} />
+          
+          {isLoading && aiStage === 'idle' && <div className="flex justify-start"><div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
           <div ref={messagesEndRef} />
         </div>
   

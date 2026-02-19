@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { authService, User } from "@/services/authService";
+import { clearCachedApiKey } from "@/services/geminiService";
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await authService.logout();
+    clearCachedApiKey(); // clear in-memory Gemini key cache
     setUser(null);
   };
 

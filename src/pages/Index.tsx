@@ -14,6 +14,7 @@ import { Particles } from "@/components/ui/Particles";
 import { Helmet } from "react-helmet-async";
 
 import { useAuth } from "@/context/AuthContext";
+import { useLocation } from "react-router-dom";
 
 const Index = () => {
   const { isLoading: isAuthLoading } = useAuth();

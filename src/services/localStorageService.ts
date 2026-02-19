@@ -165,8 +165,8 @@ class LocalStorageService {
 
   // Clear all data (for testing/reset)
   clearAllData() {
-    localStorage.removeItem(this.CONVERSATIONS_KEY);
-    localStorage.removeItem(this.MESSAGES_KEY);
+    safeLocalStorage.removeItem(this.CONVERSATIONS_KEY);
+    safeLocalStorage.removeItem(this.MESSAGES_KEY);
   }
 }
 

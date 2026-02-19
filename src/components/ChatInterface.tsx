@@ -12,6 +12,35 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { AIStatusIndicator } from "./AIStatusIndicator";
+import { ErrorAlert } from "./ErrorAlert";
+
+// ─── Chat-specific error mapping ─────────────────────────────────────────────
+function mapChatError(err: any): { title: string; message: string; status: number | string } {
+  const raw: string = err?.message || String(err) || "";
+  const lower = raw.toLowerCase();
+
+  // 429 — quota / rate limit
+  if (raw.includes("429") || lower.includes("quota") || lower.includes("rate limit") || lower.includes("too many")) {
+    return { title: "Kuota AI Habis", message: "Kuota harian AI habis. Silakan coba lagi nanti atau ganti API key.", status: 429 };
+  }
+
+  // Network / offline
+  if (lower.includes("fetch") || lower.includes("network") || lower.includes("failed to fetch") || lower.includes("networkerror") || !navigator.onLine) {
+    return { title: "Koneksi Terputus", message: "Koneksi internet terganggu, gagal mengirim pesan. Periksa koneksimu dan coba lagi.", status: 0 };
+  }
+
+  // API key missing/invalid
+  if (lower.includes("api key") || lower.includes("api_key") || lower.includes("invalid key") || lower.includes("unauthorized")) {
+    return { title: "API Key Tidak Valid", message: "API key tidak valid atau sudah kedaluwarsa. Perbarui di menu Settings.", status: 401 };
+  }
+
+  // Server error
+  if (raw.includes("500") || raw.includes("503") || lower.includes("server")) {
+    return { title: "Server Bermasalah", message: "Server AI sedang bermasalah, silakan coba beberapa saat lagi.", status: 500 };
+  }
+
+  return { title: "Gagal Mengirim", message: raw || "Terjadi kesalahan. Silakan coba lagi.", status: "unknown" };
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -47,6 +76,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
   const [noApiKey, setNoApiKey] = useState(false);
+
+  // Global chat error state (shown in ErrorAlert)
+  const [chatError, setChatError] = useState<{ title: string; message: string } | null>(null);
+
+  const showChatError = (err: any) => {
+    const mapped = mapChatError(err);
+    setChatError({ title: mapped.title, message: mapped.message });
+    console.error(`[ERROR_LOG] Status: ${mapped.status} | Message: ${err?.message ?? mapped.message}`);
+  };
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -193,8 +231,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     } catch (error: any) {
       setAiStage('idle');
       if (error?.name !== 'AbortError') {
-        toast({ title: "Error", description: error.message || String(error), variant: "destructive" });
-        // Remove the empty placeholder if we never got a response
+        showChatError(error);
+        // Remove empty streaming placeholder
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
@@ -357,6 +395,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             <span className="hidden sm:inline">New</span>
           </Button>
         </div>
+
+        {/* Global chat error alert */}
+        <ErrorAlert
+          message={chatError?.message ?? null}
+          title={chatError?.title}
+          onClose={() => setChatError(null)}
+        />
 
         {/* No API key warning */}
         {noApiKey && (

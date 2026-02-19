@@ -50,6 +50,8 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     setIsExiting(true);
     setTimeout(() => {
         onAuthenticated?.();
+        // Force a page refresh after successful login/signup
+        window.location.reload();
     }, 500);
   };
 

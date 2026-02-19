@@ -24,20 +24,48 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
     setVisible(true);
   }, []);
 
+  const validateForm = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (password.length < 6) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (mode === "signup" && !username.trim()) {
+      toast({
+        title: "Username Required",
+        description: "Please enter a username for your account.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!validateForm()) return;
+    
     setLoading(true);
 
-    const { session, error } =
+    const { error } =
       mode === "signin"
         ? await authService.login(email, password)
         : await authService.signup(email, password, username);
           
-    setLoading(false);
-    
     if (error) {
-      console.error("Auth Error:", error);
+      setLoading(false);
       toast({
         title: mode === "signin" ? "Sign In Failed" : "Sign Up Failed",
         description: error.message,
@@ -46,22 +74,26 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
       return;
     }
     
-    // Success animation before closing
+    setLoading(false);
     setIsExiting(true);
+    toast({
+      title: mode === "signin" ? "Welcome Back!" : "Account Created",
+      description: mode === "signin" ? "Signing you into your workspace..." : "Your account is ready.",
+    });
+
     setTimeout(() => {
         onAuthenticated?.();
-        // Force a page refresh after successful login/signup
         window.location.reload();
-    }, 500);
+    }, 800);
   };
 
   const toggleMode = () => {
+    if (loading) return;
     setMode(mode === "signin" ? "signup" : "signin");
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background/80 backdrop-blur-sm">
-      {/* Background blobs */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse-slow pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse-slow pointer-events-none" />
 
@@ -71,7 +103,6 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
         }`}
       >
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl overflow-hidden">
-             {/* Header */}
             <div className="p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
                 <div className="w-20 h-20 bg-background rounded-2xl shadow-lg mx-auto mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
                     <img
@@ -84,19 +115,17 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-2">
                     {mode === "signin" ? "Welcome Back" : "Create Account"}
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                     {mode === "signin" 
                         ? "Enter your credentials to access your workspace" 
                         : "Join us and start your AI coding journey"}
                 </p>
             </div>
 
-            {/* Form */}
             <div className={`p-8 pt-0 transition-all duration-500`}>
                 <form onSubmit={handleAuth} className="space-y-5">
                     <div className="space-y-4">
-                         {/* Email Field - Always visible */}
-                        <div className="space-y-2 animate-in slide-in-from-left-4 fade-in duration-500 delay-100">
+                        <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
                             <Input
                                 id="email"
@@ -106,10 +135,10 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
 
-                        {/* Username Field - Only for Signup */}
                         {mode === "signup" && (
                             <div className="space-y-2 animate-in slide-in-from-left-4 fade-in duration-500">
                                 <Label htmlFor="username">Username</Label>
@@ -121,12 +150,12 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
                                     required
+                                    disabled={loading}
                                 />
                             </div>
                         )}
 
-                        {/* Password Field - Always visible */}
-                        <div className="space-y-2 animate-in slide-in-from-left-4 fade-in duration-500 delay-200">
+                        <div className="space-y-2">
                             <Label htmlFor="password">Password</Label>
                             <Input
                                 id="password"
@@ -136,6 +165,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -143,7 +173,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                     <Button
                         type="submit"
                         disabled={loading }
-                        className="w-full h-11 text-lg font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all animate-in slide-in-from-bottom-4 fade-in duration-500 delay-300"
+                        className="w-full h-11 text-lg font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
                     >
                         {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -153,14 +183,15 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                     </Button>
                 </form>
 
-                <div className="mt-6 text-center animate-in fade-in duration-700 delay-500">
+                <div className="mt-6 text-center">
                     <span className="text-sm text-muted-foreground">
                         {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
                     </span>
                     <button
                         type="button"
                         onClick={toggleMode}
-                        className="text-sm font-semibold text-primary hover:underline focus:outline-none transition-colors"
+                        disabled={loading}
+                        className="text-sm font-semibold text-primary hover:underline focus:outline-none transition-colors disabled:opacity-50"
                     >
                         {mode === "signin" ? "Sign up" : "Sign in"}
                     </button>

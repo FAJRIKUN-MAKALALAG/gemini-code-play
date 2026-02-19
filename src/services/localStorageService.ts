@@ -1,5 +1,4 @@
-// Local Storage Service - Replaces Supabase Database
-// Manages conversations and chat messages in localStorage
+import { safeLocalStorage } from "@/utils/storageUtils";
 
 export interface Conversation {
   id: string;
@@ -24,24 +23,24 @@ class LocalStorageService {
 
   // Get all conversations
   private getAllConversations(): Conversation[] {
-    const data = localStorage.getItem(this.CONVERSATIONS_KEY);
+    const data = safeLocalStorage.getItem(this.CONVERSATIONS_KEY);
     return data ? JSON.parse(data) : [];
   }
 
   // Save all conversations
   private saveConversations(conversations: Conversation[]) {
-    localStorage.setItem(this.CONVERSATIONS_KEY, JSON.stringify(conversations));
+    safeLocalStorage.setItem(this.CONVERSATIONS_KEY, JSON.stringify(conversations));
   }
 
   // Get all messages
   private getAllMessages(): ChatMessage[] {
-    const data = localStorage.getItem(this.MESSAGES_KEY);
+    const data = safeLocalStorage.getItem(this.MESSAGES_KEY);
     return data ? JSON.parse(data) : [];
   }
 
   // Save all messages
   private saveMessages(messages: ChatMessage[]) {
-    localStorage.setItem(this.MESSAGES_KEY, JSON.stringify(messages));
+    safeLocalStorage.setItem(this.MESSAGES_KEY, JSON.stringify(messages));
   }
 
   // Create new conversation

@@ -1,6 +1,5 @@
 import { authService } from "./authService";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 export interface Conversation {
   id: string;

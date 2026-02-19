@@ -1,7 +1,5 @@
-// Backend Authentication Service
-// Replaces Supabase client-side auth with backend API calls
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { safeLocalStorage } from "@/utils/storageUtils";
+import { API_BASE_URL } from "@/config";
 
 export interface User {
   id: string;
@@ -28,19 +26,24 @@ class AuthService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Signup failed');
+        let errorMessage = 'Signup failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          const textError = await response.text();
+          errorMessage = textError || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('Backend signup response:', data);
       
-      // Backend returns { user, session } directly
       if (!data.session || !data.user) {
         throw new Error('Invalid response from backend');
       }
       
-      // Construct proper session object
       const session: AuthSession = {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -71,19 +74,24 @@ class AuthService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Login failed');
+        let errorMessage = 'Login failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          const textError = await response.text();
+          errorMessage = textError || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('Backend login response:', data);
       
-      // Backend returns { user, session } directly
       if (!data.session || !data.user) {
         throw new Error('Invalid response from backend');
       }
       
-      // Construct proper session object
       const session: AuthSession = {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -132,7 +140,6 @@ class AuthService {
       });
 
       if (!response.ok) {
-        // Try to refresh token
         const refreshed = await this.refreshToken();
         if (refreshed) {
           return { valid: true, user: this.getUser() };
@@ -174,37 +181,37 @@ class AuthService {
 
   // ===== SESSION MANAGEMENT =====
   private saveSession(session: AuthSession): void {
-    localStorage.setItem('access_token', session.access_token);
-    localStorage.setItem('refresh_token', session.refresh_token);
-    localStorage.setItem('user_id', session.user.id);
-    localStorage.setItem('user_email', session.user.email);
+    safeLocalStorage.setItem('access_token', session.access_token);
+    safeLocalStorage.setItem('refresh_token', session.refresh_token);
+    safeLocalStorage.setItem('user_id', session.user.id);
+    safeLocalStorage.setItem('user_email', session.user.email);
     if (session.user.username) {
-      localStorage.setItem('user_username', session.user.username);
+      safeLocalStorage.setItem('user_username', session.user.username);
     }
-    localStorage.setItem('expires_at', session.expires_at.toString());
+    safeLocalStorage.setItem('expires_at', session.expires_at.toString());
   }
 
   private clearSession(): void {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_id');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('user_username');
-    localStorage.removeItem('expires_at');
+    safeLocalStorage.removeItem('access_token');
+    safeLocalStorage.removeItem('refresh_token');
+    safeLocalStorage.removeItem('user_id');
+    safeLocalStorage.removeItem('user_email');
+    safeLocalStorage.removeItem('user_username');
+    safeLocalStorage.removeItem('expires_at');
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem('access_token');
+    return safeLocalStorage.getItem('access_token');
   }
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refresh_token');
+    return safeLocalStorage.getItem('refresh_token');
   }
 
   getUser(): User | null {
-    const id = localStorage.getItem('user_id');
-    const email = localStorage.getItem('user_email');
-    const username = localStorage.getItem('user_username');
+    const id = safeLocalStorage.getItem('user_id');
+    const email = safeLocalStorage.getItem('user_email');
+    const username = safeLocalStorage.getItem('user_username');
 
     if (!id || !email) return null;
 

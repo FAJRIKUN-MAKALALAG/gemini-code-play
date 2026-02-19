@@ -13,9 +13,10 @@ import { Loader2 } from "lucide-react";
 import { Particles } from "@/components/ui/Particles";
 import { Helmet } from "react-helmet-async";
 
-import { useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
+  const { isLoading: isAuthLoading } = useAuth();
   const location = useLocation();
   const [code, setCode] = useState(`# Welcome to AI Coding Assistant!
 # Write your Python code here and click Run
@@ -135,12 +136,12 @@ print(greet("World"))
 
   // Removed auto-insert of AI code into editor; code is copyable from chat.
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading Python runtime...</p>
+          <p className="text-muted-foreground">{isAuthLoading ? "Verifying session..." : "Loading Python runtime..."}</p>
         </div>
       </div>
     );

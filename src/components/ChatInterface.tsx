@@ -127,10 +127,26 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     init();
   }, []);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const chatOnce = async (userMessage: Message) => {
-    // 1. STYRICT REQUEST LOCKING: Source of Truth
     if (isLoading) return;
     setIsLoading(true);
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     try {
       const user = authService.getUser();
@@ -148,17 +164,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         convId = conv!.id;
         setConversationId(convId);
         setCurrentTitle("New Chat");
-        // Update list
         const { data: convList } = await backendService.getConversations(userId, 50);
         setConversations(convList || []);
       }
 
       await backendService.addMessage(convId, userId, "user", userMessage.content);
-
-      // Start Thinking
       setAiStage('thinking');
       
-      // Simulate transition to verifying after 1.5s
       setTimeout(() => {
         setAiStage('verifying');
       }, 1500);
@@ -169,7 +181,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       ];
 
       const targetUrl = `${API_BASE_URL}/chat`;
-      // 3. LOGGING API URL: Debugging target
       console.log('🚀 Target API:', targetUrl);
 
       const gemResp = await fetch(targetUrl, {
@@ -180,20 +191,27 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           userId: userId,
           mode: modelMode 
         }),
+        signal: abortControllerRef.current.signal
       });
 
-      // 4. ERROR HANDLING: Capture specific codes
       if (!gemResp.ok) {
-        if (gemResp.status === 429) {
-          throw new Error("Antrian terlalu padat (429). Mohon tunggu sebentar.");
+        let msg = `Gemini error ${gemResp.status}`;
+        if (gemResp.status === 401) {
+          msg = "Sesi Anda telah berakhir. Silakan login kembali.";
+          authService.logout();
+        } else if (gemResp.status === 429) {
+          msg = "Antrian terlalu padat (429). Mohon tunggu sebentar.";
+        } else if (gemResp.status === 500) {
+          msg = "Terjadi masalah pada Server backend (500).";
+        } else {
+          try {
+            const errData = await gemResp.json();
+            msg = errData.error || msg;
+          } catch (e) { /* fallback to default */ }
         }
-        if (gemResp.status === 500) {
-          throw new Error("Terjadi masalah pada Server backend (500).");
-        }
-        throw new Error(`Gemini error ${gemResp.status}`);
+        throw new Error(msg);
       }
 
-      // NEW STREAMING LOGIC
       const assistantMessageIndex = messages.length + 1;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]); 
 
@@ -201,7 +219,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       const decoder = new TextDecoder();
       let fullText = "";
       let isFirstChunk = true;
-      let buffer = ""; // Buffer for incomplete JSON chunks
+      let buffer = "";
 
       if (!reader) throw new Error("No reader found");
 
@@ -214,43 +232,37 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           buffer += chunk;
 
           const lines = buffer.split("\n");
-          // Keep the last partial line in the buffer
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") continue;
+            const trimmedLine = line.trim();
+            if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+            
+            const jsonStr = trimmedLine.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
 
-              try {
-                const data = JSON.parse(jsonStr);
-                
-                // Handle explicit errors sent as data chunks
-                if (data.error) {
-                  throw new Error(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+            try {
+              const data = JSON.parse(jsonStr);
+              if (data.error) throw new Error(String(data.error));
+
+              const text = data.text || data.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (text) {
+                if (isFirstChunk) {
+                  isFirstChunk = false;
+                  setAiStage('done');
+                  setTimeout(() => setAiStage('idle'), 1000);
                 }
 
-                // Handle both simple {text: ""} and complex Gemini structure
-                const text = data.text || data.candidates?.[0]?.content?.parts?.[0]?.text;
-                
-                if (text) {
-                  if (isFirstChunk) {
-                    isFirstChunk = false;
-                    setAiStage('done');
-                    setTimeout(() => setAiStage('idle'), 1000);
-                  }
-
-                  fullText += text;
-                  setMessages((prev) => {
-                    const newMessages = [...prev];
-                    newMessages[assistantMessageIndex] = { role: "assistant", content: fullText };
-                    return newMessages;
-                  });
-                }
-              } catch (e) {
-                console.warn("Malformed JSON chunk", line, e);
-                // Keep moving, don't crash the stream
+                fullText += text;
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[assistantMessageIndex] = { role: "assistant", content: fullText };
+                  return newMessages;
+                });
               }
+            } catch (e) {
+              console.warn("Malformed JSON chunk", line, e);
             }
           }
         }
@@ -267,11 +279,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
         await backendService.addMessage(convId, userId, "assistant", messageWithMode);
       }
-    } catch (error) {
-      toast({ title: "Error", description: String(error), variant: "destructive" });
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Fetch aborted');
+      } else {
+        toast({ title: "Error", description: error.message || String(error), variant: "destructive" });
+      }
       setAiStage('idle');
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 

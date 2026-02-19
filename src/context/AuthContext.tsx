@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { authService, User } from "@/services/authService";
 
 interface AuthContextType {
@@ -6,14 +6,29 @@ interface AuthContextType {
   login: (user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Lazy initialization: reads from localStorage synchronously on first render.
-  // This fixes the page-refresh redirect issue.
   const [user, setUser] = useState<User | null>(() => authService.getUser());
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const verify = async () => {
+      if (user) {
+        const { valid, user: verifiedUser } = await authService.verifyToken();
+        if (valid && verifiedUser) {
+          setUser(verifiedUser);
+        } else {
+          setUser(null);
+        }
+      }
+      setIsLoading(false);
+    };
+    verify();
+  }, []);
 
   const login = (userData: User) => {
     setUser(userData);
@@ -25,7 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

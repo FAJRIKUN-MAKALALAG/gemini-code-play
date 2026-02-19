@@ -48,7 +48,7 @@ interface Message {
 }
 
 export type ChatInterfaceHandle = {
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string) => void;
 };
 
 type ChatProps = {
@@ -79,6 +79,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   // Global chat error state (shown in ErrorAlert)
   const [chatError, setChatError] = useState<{ title: string; message: string } | null>(null);
+
+  // Ref to avoid stale closure in useImperativeHandle
+  const isLoadingRef = useRef(false);
 
   const showChatError = (err: any) => {
     const mapped = mapChatError(err);
@@ -136,8 +139,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   }, []);
 
   // ── Core chat function — calls Gemini directly ─────────────────────────────
-  const chatOnce = async (userMessage: Message) => {
-    if (isLoading) return;
+  // `allMessages` = the complete conversation to send to Gemini (including the new user msg)
+  const chatOnce = async (allMessages: Message[]) => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     setIsLoading(true);
     setNoApiKey(false);
 
@@ -177,21 +182,19 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       }
 
       // ── 3. Save user message to DB (fire-and-forget) ────────────────────
-      backendService.addMessage(convId, userId, "user", userMessage.content).catch(console.warn);
+      const lastUserMsg = allMessages[allMessages.length - 1];
+      backendService.addMessage(convId, userId, "user", lastUserMsg.content).catch(console.warn);
 
       // ── 4. Show thinking indicator ───────────────────────────────────────
       setAiStage('thinking');
       const thinkTimer = setTimeout(() => setAiStage('verifying'), 1200);
 
-      // ── 5. Prepare message list for Gemini ──────────────────────────────
-      const allMessages: Message[] = [
-        ...messages,
-        userMessage,
-      ];
-
-      // Add streaming placeholder for assistant
-      const assistantIdx = allMessages.length; // index in the state array AFTER we append
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      // ── 5. Add streaming placeholder — track its index via the setter
+      let assistantIdx = -1;
+      setMessages((prev) => {
+        assistantIdx = prev.length; // placeholder will be at this index
+        return [...prev, { role: "assistant", content: "" }];
+      });
 
       // ── 6. Stream Gemini response directly ──────────────────────────────
       let isFirstChunk = true;
@@ -210,7 +213,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           fullText += chunk;
           setMessages((prev) => {
             const updated = [...prev];
-            updated[assistantIdx] = { role: "assistant", content: fullText };
+            const idx = updated.length - 1; // placeholder is always the last item
+            if (updated[idx]?.role === 'assistant') {
+              updated[idx] = { role: "assistant", content: fullText };
+            }
             return updated;
           });
         },
@@ -240,6 +246,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
       }
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
       abortControllerRef.current = null;
     }
@@ -247,19 +254,25 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   // ── Send handler ───────────────────────────────────────────────────────────
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-    const userMessage: Message = { role: "user", content: input.trim() };
-    setMessages((prev) => [...prev, userMessage]);
+    if (!input.trim() || isLoadingRef.current) return;
+    const content = input.trim();
     setInput("");
-    await chatOnce(userMessage);
+    setMessages((prev) => {
+      const next = [...prev, { role: "user" as const, content }];
+      // Using setTimeout(0) to call chatOnce outside the render cycle
+      setTimeout(() => chatOnce(next), 0);
+      return next;
+    });
   };
 
   useImperativeHandle(ref, () => ({
-    sendMessage: async (content: string) => {
-      if (isLoading) return;
-      const userMessage: Message = { role: "user", content };
-      setMessages((prev) => [...prev, userMessage]);
-      await chatOnce(userMessage);
+    sendMessage: (content: string) => {
+      if (isLoadingRef.current) return;
+      setMessages((prev) => {
+        const next = [...prev, { role: "user" as const, content }];
+        setTimeout(() => chatOnce(next), 0);
+        return next;
+      });
     },
   }));
 

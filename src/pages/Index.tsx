@@ -9,14 +9,12 @@ import { authService } from "@/services/authService";
 import { loadSkulpt, runPythonCode } from "@/utils/skulptRunner";
 import { useToast } from "@/hooks/use-toast";
 import { LandingPage } from "@/components/LandingPage";
-import { Loader2 } from "lucide-react";
 import { Particles } from "@/components/ui/Particles";
 import { Helmet } from "react-helmet-async";
-import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "react-router-dom";
 
 const Index = () => {
-  const { isLoading: isAuthLoading } = useAuth();
+  // Don't block on auth loading — auth state resolves in background
   const location = useLocation();
   const [code, setCode] = useState(`# Welcome to AI Coding Assistant!
 # Write your Python code here and click Run
@@ -31,7 +29,8 @@ print(greet("World"))
   const inputResolverRef = useRef<((value: string) => void) | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showStart, setShowStart] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  // Skulpt loads in background — only disables Run button until ready
+  const [skulptReady, setSkulptReady] = useState(false);
   const { toast } = useToast();
   const chatRef = useRef<ChatInterfaceHandle | null>(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -47,12 +46,13 @@ print(greet("World"))
   }, [location]);
 
   useEffect(() => {
+    // Load Skulpt non-blocking — UI renders immediately
     loadSkulpt()
-      .then(() => setIsLoading(false))
+      .then(() => setSkulptReady(true))
       .catch((error) => {
         console.error("Failed to load Skulpt:", error);
-        toast({ title: "Error", description: "Failed to load Python runtime", variant: "destructive" });
-        setIsLoading(false);
+        toast({ title: "Python Runtime Error", description: "Gagal load Python runtime. Coba refresh halaman.", variant: "destructive" });
+        setSkulptReady(false); // still allow render, Run just won't work
       });
   }, [toast]);
 
@@ -113,18 +113,6 @@ print(greet("World"))
     toast({ title: "🐛 Debugging...", description: "Mengirim error ke AI untuk dianalisis" });
   };
 
-  if (isLoading || isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground text-sm">
-            {isAuthLoading ? "Verifying session..." : "Loading Python runtime..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden relative bg-background">
@@ -169,6 +157,7 @@ print(greet("World"))
                       onToggleTerminal={() => setShowTerminal(prev => !prev)}
                       lastError={lastError}
                       onDebug={handleDebug}
+                      isRuntimeReady={skulptReady}
                     />
                   </Panel>
                   {showTerminal && (

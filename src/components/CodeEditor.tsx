@@ -1,6 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Trash2, SquareTerminal } from "lucide-react";
+import { Play, Trash2, SquareTerminal, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { DebugButton } from "./DebugButton";
 
@@ -13,6 +13,7 @@ interface CodeEditorProps {
   onToggleTerminal?: () => void;
   lastError?: string | null;
   onDebug?: (message: string) => void;
+  isRuntimeReady?: boolean;
 }
 
 export const CodeEditor = ({
@@ -24,6 +25,7 @@ export const CodeEditor = ({
   onToggleTerminal,
   lastError,
   onDebug,
+  isRuntimeReady = true,
 }: CodeEditorProps) => {
   const { resolvedTheme } = useTheme();
 
@@ -66,10 +68,12 @@ export const CodeEditor = ({
           <Button
             size="sm"
             onClick={onRun}
-            className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all"
+            disabled={!isRuntimeReady}
+            title={!isRuntimeReady ? "Loading Python runtime..." : "Run code (Ctrl+Enter)"}
+            className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
           >
-            <Play className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline sm:inline">Run</span>
+            {!isRuntimeReady ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            <span className="hidden xs:inline sm:inline">{isRuntimeReady ? "Run" : "Loading..."}</span>
           </Button>
           {onDebug && (
             <DebugButton

@@ -2,13 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Plus, History, X, Pencil, Check, Trash2, PanelLeft, LogIn, MessageSquare, Zap, Brain, ChevronDown } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { backendService } from "@/services/backendService";
@@ -16,7 +10,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
-import { v4 as uuidv4 } from "uuid";
 import { AIStatusIndicator } from "./AIStatusIndicator";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
@@ -43,7 +36,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
-  const geminiModel = "gemini-2.5-flash";
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -51,13 +43,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [showNewModal, setShowNewModal] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState("New Chat");
   const [currentTitle, setCurrentTitle] = useState<string>("");
-  const [renaming, setRenaming] = useState(false);
-  const [renameTitle, setRenameTitle] = useState("");
   const [lastCodePreview, setLastCodePreview] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
-  const [modelMode, setModelMode] = useState<'fast' | 'reasoning'>('fast');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,7 +61,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const minHeight = 60;
+      const minHeight = 44;
       const maxHeight = 200;
       const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
       textareaRef.current.style.height = newHeight + 'px';
@@ -105,14 +94,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         let restoredCode = null;
         
         if (snippets && snippets.length > 0) {
-          // Index 0 is the newest because backend orders by created_at DESC
           const latestSnippet = snippets[0];
           restoredCode = latestSnippet.code_content;
-          console.log(`[Init] Restoring code from snippets[0] for ${latestConv.id}`);
         } else if (latestConv.last_code) {
-          // Fallback to old last_code field
           restoredCode = latestConv.last_code;
-          console.log(`[Init] Restoring code from last_code fallback for ${latestConv.id}`);
         }
 
         if (restoredCode) {
@@ -130,7 +115,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Cleanup on unmount
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -142,7 +126,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     if (isLoading) return;
     setIsLoading(true);
 
-    // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -181,7 +164,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       ];
 
       const targetUrl = `${API_BASE_URL}/chat`;
-      console.log('🚀 Target API:', targetUrl);
 
       const gemResp = await fetch(targetUrl, {
         method: "POST",
@@ -189,7 +171,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         body: JSON.stringify({ 
           messages: messageHistory, 
           userId: userId,
-          mode: modelMode 
         }),
         signal: abortControllerRef.current.signal
       });
@@ -271,13 +252,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       }
       
       if (fullText) {
-        const messageWithMode = `${fullText}---model-mode:${modelMode}---`;
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          newMessages[assistantMessageIndex] = { role: "assistant", content: messageWithMode };
-          return newMessages;
-        });
-        await backendService.addMessage(convId, userId, "assistant", messageWithMode);
+        await backendService.addMessage(convId, userId, "assistant", fullText);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -293,13 +268,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   };
 
   const handleSend = async () => {
-    // UI PROTECTION: Check isLoading immediately
     if (!input.trim() || isLoading) return;
     
     const userMessage: Message = { role: "user", content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    // chatOnce will set isLoading to true and check it again internally
     await chatOnce(userMessage);
   };
 
@@ -325,12 +298,10 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     if (!user) return;
     const userId = user.id;
 
-    // 1. Save current code to OLD conversation
     try {
       if (conversationId && props.getCurrentCode) {
         const code = props.getCurrentCode();
         if (code && code.trim()) {
-           console.log(`[AutoSave] Saving current code to ${conversationId}`);
            await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`);
         }
       }
@@ -338,26 +309,20 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       console.warn("Auto-save failed", e);
     }
 
-    // 2. Switch UI
     setConversationId(id);
     const c = conversations.find(x => x.id === id);
     if (c) setCurrentTitle(c.title);
     setLoadingHistory(true);
 
-    // 3. Load messages
     const { data: msgs } = await backendService.getMessages(id);
     setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
 
-    // 4. Restore code from NEW conversation
     const { data: snippets } = await backendService.getCodeByConversation(id);
     let restoredCode = null;
     
     if (snippets && snippets.length > 0) {
-      // Index 0 is the newest because backend orders by created_at DESC
       restoredCode = snippets[0].code_content;
-      console.log(`[Restoration] Found ${snippets.length} snippets, using snippets[0]`);
     } else {
-      console.log(`[Restoration] No snippets found for ${id}, checking fallback...`);
       const { data: convData } = await backendService.getConversation(id);
       if (convData && convData.last_code) {
         restoredCode = convData.last_code;
@@ -365,7 +330,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     }
 
     if (restoredCode !== null) {
-      console.log(`[Restoration] Restoring code for ${id}, length: ${restoredCode.length}`);
       setLastCodePreview(restoredCode);
       if (props.onLoadCode) {
         props.onLoadCode(restoredCode);
@@ -376,7 +340,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
       }
     } else {
-      console.log(`[Restoration] No code history to restore for ${id}`);
       setLastCodePreview(null);
     }
 
@@ -386,7 +349,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   if (!authService.isAuthenticated()) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 h-full bg-background/50 backdrop-blur-sm">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
         <Card className="w-full max-w-sm border-dashed border-2">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
@@ -405,8 +368,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   }
 
   return (
-    <div className="flex h-full bg-background/50 backdrop-blur-sm overflow-hidden border border-border/50 shadow-inner group">
-      <div className={`hidden md:block border-r border-border/50 h-full transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+    <div className="flex h-full bg-background/50 backdrop-blur-sm overflow-hidden border border-border/50 shadow-inner rounded-lg">
+      {/* Desktop sidebar */}
+      <div className={`hidden md:block border-r border-border/50 h-full transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-60' : 'w-0 overflow-hidden'}`}>
          <ChatSidebar
             conversations={conversations}
             currentId={conversationId}
@@ -425,12 +389,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         />
       </div>
       
-      <div className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${showHistory ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setShowHistory(false)} />
-      <div className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card transform transition-transform duration-300 ${showHistory ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Mobile drawer backdrop */}
+      <div className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${showHistory ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setShowHistory(false)} />
+      {/* Mobile drawer */}
+      <div className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] bg-card shadow-2xl transform transition-transform duration-300 ${showHistory ? 'translate-x-0' : '-translate-x-full'}`}>
          <ChatSidebar
             conversations={conversations}
             currentId={conversationId}
-            onSelect={handleSwitchConversation}
+            onSelect={(id) => { handleSwitchConversation(id); setShowHistory(false); }}
             onNewChat={() => { setShowNewModal(true); setShowHistory(false); }}
             onDelete={async (id) => {
               if (!window.confirm("Delete this conversation?")) return;
@@ -446,118 +412,97 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         />
       </div>
 
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-transparent">
-        <div className="relative flex items-center justify-between px-4 py-3 bg-background border-b border-border">
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        {/* Chat header */}
+        <div className="flex items-center justify-between px-3 py-2.5 bg-background border-b border-border shrink-0">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowHistory(true)}><PanelLeft className="w-5 h-5" /></Button>
-            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSidebarOpen(!sidebarOpen)}><PanelLeft className="w-5 h-5" /></Button>
-            <div className="flex items-center gap-2 ml-2">
-                 <img src="/AicodeLogo.png" alt="AI Logo" className="w-6 h-6 dark-invert" />
-                 <h2 className="text-sm font-semibold text-foreground">AI Assistant</h2>
+            {/* Mobile drawer toggle */}
+            <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={() => setShowHistory(true)}>
+              <PanelLeft className="w-4 h-4" />
+            </Button>
+            {/* Desktop sidebar toggle */}
+            <Button variant="ghost" size="icon" className="hidden md:flex h-8 w-8" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              <PanelLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <img src="/AicodeLogo.png" alt="AI Logo" className="w-5 h-5 dark-invert" />
+              <h2 className="text-sm font-semibold text-foreground truncate">
+                {currentTitle || "AI Assistant"}
+              </h2>
             </div>
           </div>
-          
-          <div className="flex flex-1 items-center justify-center gap-2 min-w-0 mx-4 hidden sm:flex">
-            {/* Model switcher moved to input bar */}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Automatic restoration enabled, manual button removed per user request */}
-          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowNewModal(true)}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
         </div>
         
-        <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
-          {loadingHistory && <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading history...</div>}
+        {/* Messages */}
+        <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 space-y-4">
+          {loadingHistory && (
+            <div className="flex justify-center py-6 text-muted-foreground text-sm">
+              Loading history...
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-center text-muted-foreground max-w-md mx-auto">
               <div>
-                <img src="/AicodeLogo.png" alt="AI Agent" className="w-12 h-12 mx-auto mb-3 opacity-50 dark-invert" />
+                <img src="/AicodeLogo.png" alt="AI Agent" className="w-10 h-10 mx-auto mb-3 opacity-40 dark-invert" />
                 <p className="text-sm">Ask me anything about Python!</p>
               </div>
             </div>
           ) : (
             messages.map((message, index) => {
-               // If we are in "thinking/verifying/done" stage, HIDE the very last message if it is an empty/streaming assistant message
-               // to prevent overlap with the indicator.
                if (isLoading && aiStage !== 'idle' && index === messages.length - 1 && message.role === 'assistant') {
                  return null;
                }
-               
-                const isAssistant = message.role === "assistant";
-                const modeMatch = message.content.match(/---model-mode:(fast|reasoning)---$/);
-                const msgMode = modeMatch ? modeMatch[1] : null;
-                const cleanContent = msgMode ? message.content.replace(/---model-mode:(fast|reasoning)---$/, "") : message.content;
-
                 return (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`
-                  ${message.role === "user" ? "max-w-[85%]" : "max-w-[99%]"} 
-                  rounded-lg px-4 py-2.5 
+                  ${message.role === "user" ? "max-w-[85%]" : "max-w-[98%] w-full"} 
+                  rounded-xl px-3.5 py-2.5 
                   ${message.role === "user" 
-                    ? "bg-primary text-primary-foreground border border-primary" 
-                    : "text-foreground bg-secondary/30"
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-foreground bg-secondary/40 border border-border/40"
                   }
-                  ${isAssistant && msgMode === 'fast' ? "border-l-4 border-blue-500 shadow-[2px_0_10px_-2px_rgba(37,99,235,0.1)]" : ""}
-                  ${isAssistant && msgMode === 'reasoning' ? "border-l-4 border-purple-500 shadow-[2px_0_10px_-2px_rgba(147,51,234,0.1)]" : ""}
                 `}>
-                  <ChatMessageContent role={message.role} content={cleanContent} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
-                  {isAssistant && msgMode && (
-                    <div className={`text-[10px] mt-2 flex items-center gap-1 opacity-60 font-medium ${msgMode === 'fast' ? 'text-blue-500' : 'text-purple-500'}`}>
-                      {msgMode === 'fast' ? '⚡ Answered in Fast Mode' : '🧠 Answered in Reasoning Mode'}
-                    </div>
-                  )}
+                  <ChatMessageContent role={message.role} content={message.content} animate={isLoading && index === messages.length - 1 && message.role === "assistant"} />
                 </div>
               </div>
             )})
           )}
 
-          
           {/* AI Status Indicator */}
-          <AIStatusIndicator stage={aiStage} modelMode={modelMode} />
+          <AIStatusIndicator stage={aiStage} />
           
-          {isLoading && aiStage === 'idle' && <div className="flex justify-start"><div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2.5"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
+          {isLoading && aiStage === 'idle' && (
+            <div className="flex justify-start">
+              <div className="bg-secondary text-secondary-foreground rounded-xl px-4 py-2.5">
+                <Loader2 className="w-4 h-4 animate-spin" />
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
   
-        <div className="p-4 bg-transparent">
+        {/* Input area */}
+        <div className="p-3 sm:p-4 bg-transparent shrink-0">
           <div className="relative max-w-3xl mx-auto">
-            <div className="bg-secondary/70 backdrop-blur-md rounded-[28px] border border-border/50 shadow-lg p-2 flex items-end gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-10 px-2 rounded-xl flex items-center gap-1 text-muted-foreground hover:text-foreground transition-all">
-                    <span className="text-xs font-medium lowercase tracking-tight">{modelMode}</span>
-                    <ChevronDown className="w-3 h-3 opacity-30" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48 rounded-xl border-border/50 bg-popover/90 backdrop-blur-lg">
-                  <DropdownMenuItem onClick={() => setModelMode('fast')} className="gap-3 cursor-pointer py-3">
-                    <div className={`p-2 rounded-lg ${modelMode === 'fast' ? 'bg-blue-500/10' : 'bg-muted'}`}>
-                      <Zap className={`w-4 h-4 ${modelMode === 'fast' ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">Fast Mode</span>
-                      <span className="text-[10px] text-muted-foreground">Responsive & optimized</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setModelMode('reasoning')} className="gap-3 cursor-pointer py-3">
-                    <div className={`p-2 rounded-lg ${modelMode === 'reasoning' ? 'bg-purple-500/10' : 'bg-muted'}`}>
-                      <Brain className={`w-4 h-4 ${modelMode === 'reasoning' ? 'text-purple-500' : 'text-muted-foreground'}`} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold">Reasoning Mode</span>
-                      <span className="text-[10px] text-muted-foreground">Complex problem solving</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
+            <div className="bg-secondary/60 backdrop-blur-md rounded-2xl border border-border/50 shadow-md p-2 flex items-end gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-200">
               <Textarea 
                 ref={textareaRef} 
                 value={input} 
                 onChange={(e) => setInput(e.target.value)} 
-                onKeyPress={handleKeyPress} 
+                onKeyDown={handleKeyPress} 
                 placeholder="Ask UNKLAB AI..." 
-                className="flex-1 min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-3 resize-none text-sm placeholder:text-muted-foreground/60" 
+                className="flex-1 min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-2.5 resize-none text-sm placeholder:text-muted-foreground/60 leading-relaxed" 
                 disabled={isLoading} 
                 rows={1} 
               />
@@ -565,26 +510,39 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <Button 
                 onClick={handleSend} 
                 disabled={!input.trim() || isLoading} 
-                className={`w-10 h-10 rounded-full p-0 flex items-center justify-center transition-all duration-300 shrink-0 ${
-                  input.trim() ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted text-muted-foreground'
+                className={`w-9 h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${
+                  input.trim() ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
-            <p className="text-[10px] text-center text-muted-foreground/50 mt-2 px-4 italic">
-              AI models can make mistakes. Always verify important information.
+            <p className="text-[10px] text-center text-muted-foreground/40 mt-1.5 px-2 italic">
+              AI can make mistakes. Always verify important information.
             </p>
           </div>
         </div>
       </div>
   
+      {/* New Chat Modal */}
       {showNewModal && (
-        <div className="absolute inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="bg-white border border-border rounded-lg shadow-card w-full max-w-sm p-4 text-black">
-            <div className="text-sm font-semibold mb-2">Create New Chat</div>
-            <label className="text-xs text-muted-foreground">Title</label>
-            <input className="w-full mt-1 mb-3 px-3 py-2 border border-border rounded outline-none" value={newChatTitle} onChange={(e) => setNewChatTitle(e.target.value)} placeholder={`New Chat ${new Date().toLocaleDateString()}`} autoFocus />
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowNewModal(false)}>
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">New Conversation</h3>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowNewModal(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <label className="text-xs text-muted-foreground font-medium">Title</label>
+            <input
+              className="w-full mt-1.5 mb-4 px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:ring-2 focus:ring-primary/20 text-foreground placeholder:text-muted-foreground transition-all"
+              value={newChatTitle}
+              onChange={(e) => setNewChatTitle(e.target.value)}
+              placeholder={`Chat ${new Date().toLocaleDateString()}`}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.form?.requestSubmit()}
+            />
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowNewModal(false)}>Cancel</Button>
               <Button size="sm" onClick={async () => {
@@ -592,7 +550,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 if (!user) return;
                 const userId = user.id;
 
-                // Save current code to previous conversation
                 try {
                   if (conversationId && props.getCurrentCode) {
                     const code = props.getCurrentCode();
@@ -644,12 +601,17 @@ function MarkdownMessage({ content }: { content: string }) {
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const handleCopy = async () => { try { await navigator.clipboard.writeText(code); } catch {} };
   return (
-    <div className="relative">
-      <div className="absolute right-2 top-2 text-xs text-muted-foreground">{lang ? lang.toUpperCase() : "CODE"}</div>
-      <div className="rounded overflow-hidden border border-zinc-800">
-        <SyntaxHighlighter language={lang || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1rem', fontSize: '0.875rem' }} wrapLines={true} wrapLongLines={true}>{code}</SyntaxHighlighter>
+    <div className="relative rounded-lg overflow-hidden border border-zinc-700/60">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-800/80 border-b border-zinc-700/60">
+        <span className="text-[10px] font-mono font-semibold text-zinc-400 uppercase tracking-wider">{lang || "code"}</span>
+        <button
+          onClick={handleCopy}
+          className="text-[10px] text-zinc-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-zinc-700 font-medium"
+        >
+          Copy
+        </button>
       </div>
-      <div className="mt-1 flex justify-end"><Button variant="outline" size="sm" onClick={handleCopy} className="h-7 px-2 text-xs">Copy</Button></div>
+      <SyntaxHighlighter language={lang || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: 'transparent' }} wrapLines={true} wrapLongLines={true}>{code}</SyntaxHighlighter>
     </div>
   );
 }
@@ -682,7 +644,7 @@ function RichText({ text }: { text: string }) {
   const renderInline = (s: string) => {
     const codeSplit = s.split(/(`[^`]+`)/g);
     return codeSplit.map((part, idx) => {
-      if (part.startsWith("`") && part.endsWith("`")) return <code key={idx} className="bg-muted px-1 py-0.5 rounded border border-border">{part.slice(1, -1)}</code>;
+      if (part.startsWith("`") && part.endsWith("`")) return <code key={idx} className="bg-muted px-1 py-0.5 rounded text-[0.8em] border border-border font-mono">{part.slice(1, -1)}</code>;
       const boldSplit = part.split(/(\*\*[^*]+\*\*)/g);
       return boldSplit.map((bp, bidx) => {
         if (bp.startsWith("**") && bp.endsWith("**")) return <strong key={bidx}>{bp.slice(2, -2)}</strong>;
@@ -695,11 +657,11 @@ function RichText({ text }: { text: string }) {
     });
   };
   return (
-    <div className="text-sm space-y-2">
+    <div className="text-sm space-y-2 leading-relaxed">
       {blocks.map((b, idx) => {
-        if (/^h[1-6]$/.test(b.type)) return <div key={idx} className={`font-semibold text-foreground ${b.type === 'h1' ? 'text-xl' : 'text-lg'}`}>{renderInline(b.content)}</div>;
-        if (b.type === "ul") return <ul key={idx} className="list-disc pl-5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ul>;
-        if (b.type === "ol") return <ol key={idx} className="list-decimal pl-5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ol>;
+        if (/^h[1-6]$/.test(b.type)) return <div key={idx} className={`font-bold text-foreground ${b.type === 'h1' ? 'text-lg' : b.type === 'h2' ? 'text-base' : 'text-sm'} mt-1`}>{renderInline(b.content)}</div>;
+        if (b.type === "ul") return <ul key={idx} className="list-disc pl-5 space-y-0.5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ul>;
+        if (b.type === "ol") return <ol key={idx} className="list-decimal pl-5 space-y-0.5">{(b.content as string[]).map((it, i2) => <li key={i2}>{renderInline(it)}</li>)}</ol>;
         return <p key={idx} className="whitespace-pre-wrap">{renderInline(b.content as string)}</p>;
       })}
     </div>

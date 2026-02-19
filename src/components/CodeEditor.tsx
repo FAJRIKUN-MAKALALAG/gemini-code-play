@@ -11,7 +11,6 @@ interface CodeEditorProps {
   onClear: () => void;
   showTerminal?: boolean;
   onToggleTerminal?: () => void;
-  // Debug feature
   lastError?: string | null;
   onDebug?: (message: string) => void;
 }
@@ -33,48 +32,45 @@ export const CodeEditor = ({
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {
-        'editor.background': '#000000',
-      }
+      colors: { 'editor.background': '#000000' }
     });
   };
 
   return (
     <div className="flex flex-col h-full bg-editor-bg rounded-lg overflow-hidden border border-border shadow-card">
-      <div className="flex items-center justify-between px-4 py-3 bg-secondary border-b border-border">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-secondary border-b border-border shrink-0">
         <h2 className="text-sm font-semibold text-foreground">Python Editor</h2>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-1.5 sm:gap-2 items-center">
           {onToggleTerminal && (
             <Button
-                size="sm"
-                variant="ghost"
-                onClick={onToggleTerminal}
-                className={`h-8 px-3 ${showTerminal ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                title={showTerminal ? "Hide Terminal" : "Show Terminal"}
+              size="sm"
+              variant="ghost"
+              onClick={onToggleTerminal}
+              className={`h-8 px-2 sm:px-3 text-xs gap-1.5 ${showTerminal ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              title={showTerminal ? "Hide Terminal" : "Show Terminal"}
             >
-                <SquareTerminal className="w-4 h-4 mr-1.5" />
-                Terminal
+              <SquareTerminal className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-xs">Terminal</span>
             </Button>
           )}
           <Button
             size="sm"
             variant="outline"
             onClick={onClear}
-            className="h-8 px-3"
+            className="h-8 px-2 sm:px-3 text-xs gap-1.5"
           >
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            Clear
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Clear</span>
           </Button>
           <Button
             size="sm"
             onClick={onRun}
-            className="h-8 px-3 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all"
+            className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all"
           >
-            <Play className="w-4 h-4 mr-1.5" />
-            Run
+            <Play className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline sm:inline">Run</span>
           </Button>
-
-          {/* Debug Button — only visible when there's an error */}
           {onDebug && (
             <DebugButton
               code={code}
@@ -84,6 +80,8 @@ export const CodeEditor = ({
           )}
         </div>
       </div>
+
+      {/* Editor */}
       <div className="flex-1 overflow-hidden">
         <Editor
           height="100%"
@@ -104,6 +102,7 @@ export const CodeEditor = ({
             smoothScrolling: true,
             cursorBlinking: "smooth",
             cursorSmoothCaretAnimation: "on",
+            wordWrap: "on",
           }}
         />
       </div>

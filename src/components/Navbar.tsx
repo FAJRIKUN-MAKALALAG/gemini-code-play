@@ -106,7 +106,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
             />
             <div>
               <h1 className="text-xl font-bold text-foreground">
-                AI Python Coding Assistant
+                AI Coding Assistant
               </h1>
               <p className="text-xs text-muted-foreground">
                 Write, run, and improve Python code with AI assistance

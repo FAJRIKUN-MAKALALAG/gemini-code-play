@@ -9,6 +9,7 @@ import { backendService } from "@/services/backendService";
 import { fetchUserApiKey, streamGeminiResponse, clearCachedApiKey } from "@/services/geminiService";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { AIStatusIndicator } from "./AIStatusIndicator";
@@ -488,9 +489,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <Button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading || noApiKey}
-                className={`w-9 h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${
-                  input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'
-                }`}
+                className={`w-9 h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'
+                  }`}
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
@@ -531,7 +531,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                     const code = props.getCurrentCode();
                     if (code?.trim()) await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`);
                   }
-                } catch (e) {}
+                } catch (e) { }
                 const { data: conv, error } = await backendService.createConversation(userId, newChatTitle || "New Chat");
                 if (!error && conv) {
                   setConversationId(conv.id);
@@ -573,18 +573,19 @@ function MarkdownMessage({ content }: { content: string }) {
 
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
+  const isDark = document.documentElement.classList.contains('dark');
   const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { }
   };
   return (
-    <div className="relative rounded-lg overflow-hidden border border-zinc-700/60">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-800/80 border-b border-zinc-700/60">
-        <span className="text-[10px] font-mono font-semibold text-zinc-400 uppercase tracking-wider">{lang || "code"}</span>
-        <button onClick={handleCopy} className="text-[10px] text-zinc-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-zinc-700 font-medium">
+    <div className={`relative rounded-lg overflow-hidden border ${isDark ? 'border-zinc-700/60' : 'border-zinc-300'}`}>
+      <div className={`flex items-center justify-between px-3 py-1.5 border-b ${isDark ? 'bg-zinc-800/80 border-zinc-700/60' : 'bg-zinc-100 border-zinc-300'}`}>
+        <span className={`text-[10px] font-mono font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>{lang || "code"}</span>
+        <button onClick={handleCopy} className={`text-[10px] transition-colors px-2 py-0.5 rounded font-medium ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-700' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}>
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <SyntaxHighlighter language={lang || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: 'transparent' }} wrapLines wrapLongLines>
+      <SyntaxHighlighter language={lang || 'text'} style={isDark ? vscDarkPlus : oneLight} customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: isDark ? 'transparent' : '#f8f8f8' }} wrapLines wrapLongLines>
         {code}
       </SyntaxHighlighter>
     </div>

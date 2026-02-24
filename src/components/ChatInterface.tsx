@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { backendService } from "@/services/backendService";
 import { fetchUserApiKey, streamGeminiResponse, clearCachedApiKey } from "@/services/geminiService";
+import { streamGroqFallback } from "@/services/groqFallbackService";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -77,6 +78,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
   const [noApiKey, setNoApiKey] = useState(false);
+  // true while Groq fallback is actively streaming
+  const [usingFallback, setUsingFallback] = useState(false);
 
   // Global chat error state (shown in ErrorAlert)
   const [chatError, setChatError] = useState<{ title: string; message: string } | null>(null);
@@ -139,16 +142,18 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     return () => { abortControllerRef.current?.abort(); };
   }, []);
 
-  // ── Core chat function — calls Gemini directly ─────────────────────────────
-  // `allMessages` = the complete conversation to send to Gemini (including the new user msg)
+  // ── Core chat function — calls Gemini (with 30s timeout) → Groq fallback ────
+  // `allMessages` = the complete conversation to send (including the new user msg)
   const chatOnce = async (allMessages: Message[]) => {
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
     setNoApiKey(false);
+    setUsingFallback(false);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
+    const mainSignal = abortControllerRef.current.signal;
 
     try {
       const user = authService.getUser();
@@ -190,48 +195,104 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       setAiStage('thinking');
       const thinkTimer = setTimeout(() => setAiStage('verifying'), 1200);
 
-      // ── 5. Add streaming placeholder — track its index via the setter
-      let assistantIdx = -1;
-      setMessages((prev) => {
-        assistantIdx = prev.length; // placeholder will be at this index
-        return [...prev, { role: "assistant", content: "" }];
-      });
+      // ── 5. Add streaming placeholder ─────────────────────────────────────
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      // ── 6. Stream Gemini response directly ──────────────────────────────
+      // ── 6. Shared streaming state ────────────────────────────────────────
       let isFirstChunk = true;
       let fullText = "";
 
-      await streamGeminiResponse(
-        apiKey,
-        allMessages,
-        (chunk) => {
-          if (isFirstChunk) {
-            isFirstChunk = false;
-            clearTimeout(thinkTimer);
-            setAiStage('done');
-            setTimeout(() => setAiStage('idle'), 800);
+      // Chunk handler — dipakai oleh Gemini DAN Groq
+      const handleChunk = (chunk: string) => {
+        if (isFirstChunk) {
+          isFirstChunk = false;
+          clearTimeout(thinkTimer);
+          setAiStage('done');
+          setTimeout(() => setAiStage('idle'), 800);
+        }
+        fullText += chunk;
+        setMessages((prev) => {
+          const updated = [...prev];
+          const idx = updated.length - 1;
+          if (updated[idx]?.role === 'assistant') {
+            updated[idx] = { role: "assistant", content: fullText };
           }
-          fullText += chunk;
+          return updated;
+        });
+      };
+
+      // ── 7. Gemini stream + 30-detik timeout ──────────────────────────────
+      // AbortController khusus untuk Gemini (agar bisa di-abort tanpa
+      // membatalkan seluruh chatOnce — Groq masih bisa berjalan setelahnya)
+      const geminiAbort = new AbortController();
+      // Kalau user cancel (mainSignal), abort Gemini juga
+      mainSignal.addEventListener('abort', () => geminiAbort.abort(), { once: true });
+
+      let timedOut = false;
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+
+      // Promise yang reject setelah 30 detik
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          timedOut = true;
+          geminiAbort.abort('GEMINI_TIMEOUT'); // stop streaming → hemat token Gemini
+          reject(new Error('GEMINI_TIMEOUT'));
+        }, 30_000);
+      });
+
+      try {
+        // Race: siapa yang selesai duluan — Gemini atau timeout?
+        await Promise.race([
+          streamGeminiResponse(apiKey, allMessages, handleChunk, geminiAbort.signal),
+          timeoutPromise,
+        ]);
+        clearTimeout(timeoutHandle!);
+
+      } catch (geminiErr: any) {
+        clearTimeout(timeoutHandle!);
+
+        if (timedOut && !mainSignal.aborted) {
+          // ── 8. FALLBACK: Gemini timeout → switch ke Groq ───────────────
+          // Reset state streaming agar Groq mulai dari awal (bersih)
+          isFirstChunk = true;
+          fullText = "";
+          setAiStage('thinking');
           setMessages((prev) => {
             const updated = [...prev];
-            const idx = updated.length - 1; // placeholder is always the last item
-            if (updated[idx]?.role === 'assistant') {
-              updated[idx] = { role: "assistant", content: fullText };
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { role: 'assistant', content: '' };
             }
             return updated;
           });
-        },
-        abortControllerRef.current.signal
-      );
 
-      // Fallback: if stream returned nothing
+          toast({
+            title: "⚡ Backup AI Aktif",
+            description: "Gemini lambat (>30 detik), beralih ke Kimi K2 (Groq)...",
+            duration: 4000,
+          });
+
+          setUsingFallback(true);
+          try {
+            await streamGroqFallback(allMessages, handleChunk, mainSignal);
+          } finally {
+            setUsingFallback(false);
+          }
+
+        } else if (!mainSignal.aborted) {
+          // Error Gemini bukan timeout dan bukan user cancel → lempar
+          throw geminiErr;
+        }
+      }
+
+      // Kalau stream sama sekali tidak menghasilkan chunk
       if (isFirstChunk) {
         clearTimeout(thinkTimer);
         setAiStage('idle');
       }
 
-      // ── 7. Save assistant reply to DB (fire-and-forget) ─────────────────
-      if (fullText) {
+      // ── 9. Simpan balasan AI ke DB (fire-and-forget) ─────────────────────
+      if (fullText && convId) {
         backendService.addMessage(convId, userId, "assistant", fullText).catch(console.warn);
       }
 
@@ -239,7 +300,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       setAiStage('idle');
       if (error?.name !== 'AbortError') {
         showChatError(error);
-        // Remove empty streaming placeholder
+        // Hapus placeholder kosong
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
@@ -462,6 +523,18 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           )}
 
           <AIStatusIndicator stage={aiStage} />
+
+          {/* Banner: tampil saat Groq backup sedang streaming */}
+          {usingFallback && (
+            <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 rounded-full px-3 py-1 shadow-sm">
+                <span>⚡</span>
+                <span>Menggunakan Backup AI (Kimi K2)</span>
+                <Loader2 className="w-3 h-3 animate-spin ml-0.5" />
+              </div>
+            </div>
+          )}
+
           {isLoading && aiStage === 'idle' && (
             <div className="flex justify-start">
               <div className="bg-secondary text-secondary-foreground rounded-xl px-4 py-2.5">

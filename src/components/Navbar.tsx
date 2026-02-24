@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LogOut, ChevronDown, Key, Check, X, Code, MessageSquare,
-  Columns, Moon, Sun, LogIn, ExternalLink, Plus, Settings
+  Columns, Moon, Sun, ExternalLink, Plus, Settings
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -259,17 +259,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onSignInClick}
-              className="shadow-md shadow-primary/20 shrink-0 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
-            >
-              <LogIn className="w-3.5 h-3.5 mr-1.5" />
-              <span>Sign In</span>
-            </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </nav>

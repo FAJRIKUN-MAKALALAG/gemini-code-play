@@ -529,7 +529,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 rounded-full px-3 py-1 shadow-sm">
                 <span>⚡</span>
-                <span>Menggunakan Backup AI (Kimi K2)</span>
+                <span>AI Sedang Memberikan Jawaban</span>
                 <Loader2 className="w-3 h-3 animate-spin ml-0.5" />
               </div>
             </div>

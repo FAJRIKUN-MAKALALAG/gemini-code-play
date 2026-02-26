@@ -1,6 +1,7 @@
+import { useRef } from "react";
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Play, Trash2, SquareTerminal, Loader2 } from "lucide-react";
+import { Play, Trash2, SquareTerminal, Loader2, Download, Upload } from "lucide-react";
 import { useTheme } from "next-themes";
 import { DebugButton } from "./DebugButton";
 
@@ -28,6 +29,7 @@ export const CodeEditor = ({
   isRuntimeReady = true,
 }: CodeEditorProps) => {
   const { resolvedTheme } = useTheme();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditorWillMount = (monaco: any) => {
     monaco.editor.defineTheme('custom-dark', {
@@ -36,6 +38,37 @@ export const CodeEditor = ({
       rules: [],
       colors: { 'editor.background': '#000000' }
     });
+  };
+
+  // ── Save as .py ────────────────────────────────────────────────────────────
+  const handleSavePy = () => {
+    const blob = new Blob([code], { type: 'text/x-python' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'code.py';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Import .py ─────────────────────────────────────────────────────────────
+  const handleImportPy = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.py')) {
+      alert('Hanya file .py yang diperbolehkan!');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      onChange(content);
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // reset so same file can be re-imported
   };
 
   return (
@@ -56,6 +89,39 @@ export const CodeEditor = ({
               <span className="hidden sm:inline text-xs">Terminal</span>
             </Button>
           )}
+
+          {/* Import .py */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".py"
+            className="hidden"
+            onChange={handleImportPy}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-8 px-2 sm:px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            title="Import .py file"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+
+          {/* Save as .py */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleSavePy}
+            disabled={!code.trim()}
+            className="h-8 px-2 sm:px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
+            title="Save as .py file"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Save .py</span>
+          </Button>
+
           <Button
             size="sm"
             variant="outline"

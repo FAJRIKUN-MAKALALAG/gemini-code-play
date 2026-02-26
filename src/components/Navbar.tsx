@@ -36,6 +36,8 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKeyPrefix, setApiKeyPrefix] = useState("");
+  const [apiKeySuffix, setApiKeySuffix] = useState("");
+  const [fullNavApiKey, setFullNavApiKey] = useState("");
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
   const [showNavKey, setShowNavKey] = useState(false);
@@ -48,6 +50,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
         const data = await response.json();
         setHasApiKey(data.hasKey || false);
         if (data.prefix) setApiKeyPrefix(data.prefix);
+        if (data.suffix) setApiKeySuffix(data.suffix);
       }
     } catch (error) {
       console.error("Failed to load API key status from backend:", error);
@@ -67,11 +70,15 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
           body: JSON.stringify({ userId, apiKey: tempApiKey.trim() })
         });
         if (response.ok) {
+          const key = tempApiKey.trim();
           setHasApiKey(true);
-          setApiKeyPrefix(tempApiKey.trim().substring(0, 4));
+          setApiKeyPrefix(key.substring(0, 4));
+          setApiKeySuffix(key.substring(key.length - 4));
+          setFullNavApiKey(key);
           setEditingApiKey(false);
           setTempApiKey("");
           setShowNavEditKey(false);
+          setShowNavKey(false);
         }
       } catch (error) {
         console.error("Failed to save API key:", error);
@@ -211,18 +218,19 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                     <div className="space-y-2">
                       {hasApiKey ? (
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 text-[10px] font-mono bg-background/50 px-3 py-2 rounded-lg border border-border/50 flex items-center justify-between">
-                            <span className="text-muted-foreground">
-                              {showNavKey
-                                ? `${apiKeyPrefix || '••••'}${'•'.repeat(12)}`
-                                : `${apiKeyPrefix || '••••'}${'•'.repeat(12)}`
+                          <div className="flex-1 text-[10px] font-mono bg-background/50 px-3 py-2 rounded-lg border border-border/50 flex items-center justify-between overflow-hidden">
+                            <span className="truncate text-muted-foreground">
+                              {showNavKey && fullNavApiKey
+                                ? fullNavApiKey
+                                : `${apiKeyPrefix || '••••'}${'•'.repeat(8)}${apiKeySuffix || '••••'}`
                               }
                             </span>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setShowNavKey(v => !v); }}
                                 className="text-muted-foreground hover:text-foreground transition-colors"
+                                title={showNavKey ? "Hide key" : "Show full key"}
                               >
                                 {showNavKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </button>

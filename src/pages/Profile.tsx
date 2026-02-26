@@ -18,6 +18,8 @@ const Profile = () => {
     const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
     const [hasApiKey, setHasApiKey] = useState(false);
     const [apiKeyPrefix, setApiKeyPrefix] = useState("");
+    const [apiKeySuffix, setApiKeySuffix] = useState("");
+    const [fullApiKey, setFullApiKey] = useState("");
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
     const [showKey, setShowKey] = useState(false);
@@ -36,6 +38,7 @@ const Profile = () => {
                         const data = await response.json();
                         setHasApiKey(data.hasKey || false);
                         if (data.prefix) setApiKeyPrefix(data.prefix);
+                        if (data.suffix) setApiKeySuffix(data.suffix);
                     }
                 } catch (error) {
                     console.error("Failed to check API key status:", error);
@@ -57,8 +60,11 @@ const Profile = () => {
                 });
 
                 if (response.ok) {
+                    const key = tempKey.trim();
                     setHasApiKey(true);
-                    setApiKeyPrefix(tempKey.trim().substring(0, 4));
+                    setApiKeyPrefix(key.substring(0, 4));
+                    setApiKeySuffix(key.substring(key.length - 4));
+                    setFullApiKey(key);
                     setIsEditingKey(false);
                     setTempKey("");
                     setShowKey(false);
@@ -168,11 +174,11 @@ const Profile = () => {
                                 {!isEditingKey ? (
                                     <div className="space-y-4">
                                         <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all flex items-center justify-between gap-2">
-                                            <span>
+                                            <span className="flex-1 min-w-0 truncate">
                                                 {hasApiKey
-                                                    ? (showKey
-                                                        ? `${apiKeyPrefix || "••••"}${"•".repeat(28)}`
-                                                        : `${apiKeyPrefix || "••••"}${"•".repeat(28)}`)
+                                                    ? (showKey && fullApiKey
+                                                        ? fullApiKey
+                                                        : `${apiKeyPrefix || "••••"}${"•".repeat(20)}${apiKeySuffix || "••••"}`)
                                                     : "No API Key Set"}
                                             </span>
                                             {hasApiKey && (
@@ -181,7 +187,7 @@ const Profile = () => {
                                                         type="button"
                                                         onClick={() => setShowKey(v => !v)}
                                                         className="text-muted-foreground hover:text-foreground transition-colors"
-                                                        title={showKey ? "Hide key" : "Show key"}
+                                                        title={showKey ? "Hide key" : "Show full key"}
                                                     >
                                                         {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                                     </button>

@@ -222,7 +222,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                             <span className="truncate text-muted-foreground">
                               {showNavKey && fullNavApiKey
                                 ? fullNavApiKey
-                                : `${apiKeyPrefix || '••••'}${'•'.repeat(8)}${apiKeySuffix || '••••'}`
+                                : `${'•'.repeat(12)}${apiKeySuffix || '••••'}`
                               }
                             </span>
                             <div className="flex items-center gap-1.5 shrink-0">

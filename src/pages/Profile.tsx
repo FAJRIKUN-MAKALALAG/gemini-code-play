@@ -178,7 +178,7 @@ const Profile = () => {
                                                 {hasApiKey
                                                     ? (showKey && fullApiKey
                                                         ? fullApiKey
-                                                        : `${apiKeyPrefix || "••••"}${"•".repeat(20)}${apiKeySuffix || "••••"}`)
+                                                        : `${"•".repeat(28)}${apiKeySuffix || "••••"}`)
                                                     : "No API Key Set"}
                                             </span>
                                             {hasApiKey && (

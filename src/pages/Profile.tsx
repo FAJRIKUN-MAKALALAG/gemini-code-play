@@ -58,8 +58,10 @@ const Profile = () => {
 
                 if (response.ok) {
                     setHasApiKey(true);
+                    setApiKeyPrefix(tempKey.trim().substring(0, 4));
                     setIsEditingKey(false);
                     setTempKey("");
+                    setShowKey(false);
                     toast({ title: "API Key Saved", description: "Your Gemini API key has been saved to the database." });
                 } else {
                     const error = await response.text();
@@ -165,13 +167,27 @@ const Profile = () => {
                             <CardContent className="space-y-4">
                                 {!isEditingKey ? (
                                     <div className="space-y-4">
-                                        <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all flex items-center justify-between">
+                                        <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all flex items-center justify-between gap-2">
                                             <span>
                                                 {hasApiKey
-                                                    ? `${apiKeyPrefix || "••••"}${"•".repeat(28)}`
+                                                    ? (showKey
+                                                        ? `${apiKeyPrefix || "••••"}${"•".repeat(28)}`
+                                                        : `${apiKeyPrefix || "••••"}${"•".repeat(28)}`)
                                                     : "No API Key Set"}
                                             </span>
-                                            {hasApiKey && <span className="text-green-600 text-xs ml-2">✓ Saved</span>}
+                                            {hasApiKey && (
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowKey(v => !v)}
+                                                        className="text-muted-foreground hover:text-foreground transition-colors"
+                                                        title={showKey ? "Hide key" : "Show key"}
+                                                    >
+                                                        {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                    <span className="text-green-600 text-xs">✓ Saved</span>
+                                                </div>
+                                            )}
                                         </div>
                                         <Button onClick={() => { setTempKey(""); setIsEditingKey(true); }} className="w-full" variant="outline">
                                             <Key className="w-4 h-4 mr-2" />

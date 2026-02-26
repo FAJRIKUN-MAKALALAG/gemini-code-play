@@ -465,7 +465,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               </h2>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setShowNewModal(true)}>
+          {/* Sembunyikan tombol New di desktop ketika sidebar terbuka */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 ${sidebarOpen ? 'hidden md:hidden' : ''}`}
+            onClick={() => setShowNewModal(true)}
+          >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New</span>
           </Button>

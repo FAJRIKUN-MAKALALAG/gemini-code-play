@@ -69,7 +69,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
 
         <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          AI Coding Assistant
+          AI Code Assistant
         </h1>
 
         <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">

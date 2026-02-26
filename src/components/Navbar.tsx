@@ -45,7 +45,10 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
   const loadApiKey = async (uid: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/keys/${uid}`);
+      const token = authService.getAccessToken();
+      const response = await fetch(`${API_BASE_URL}/keys/${uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (response.ok) {
         const data = await response.json();
         setHasApiKey(data.hasKey || false);
@@ -64,10 +67,14 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const saveApiKey = async () => {
     if (userId && tempApiKey.trim()) {
       try {
+        const token = authService.getAccessToken();
         const response = await fetch(`${API_BASE_URL}/keys`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, apiKey: tempApiKey.trim() })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ apiKey: tempApiKey.trim() })  // userId diambil dari token
         });
         if (response.ok) {
           const key = tempApiKey.trim();

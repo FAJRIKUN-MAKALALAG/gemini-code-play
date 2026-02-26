@@ -30,7 +30,7 @@ export interface CodeSnippet {
 
 class BackendService {
   // ===== CONVERSATIONS =====
-  
+
   async getConversations(userId: string, limit = 50): Promise<{ data: Conversation[] | null; error: Error | null }> {
     try {
       const response = await fetch(`${API_BASE_URL}/conversations/${userId}?limit=${limit}`, {
@@ -61,11 +61,11 @@ class BackendService {
     try {
       const response = await fetch(`${API_BASE_URL}/conversations`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...authService.getAuthHeaders()
         },
-        body: JSON.stringify({ userId, title })
+        body: JSON.stringify({ title })
       });
       if (!response.ok) throw new Error(`Failed to create conversation: ${response.statusText}`);
       const data = await response.json();
@@ -79,7 +79,7 @@ class BackendService {
     try {
       const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...authService.getAuthHeaders()
         },
@@ -124,11 +124,11 @@ class BackendService {
     try {
       const response = await fetch(`${API_BASE_URL}/messages`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...authService.getAuthHeaders()
         },
-        body: JSON.stringify({ conversationId, userId, role, content })
+        body: JSON.stringify({ conversationId, role, content })  // userId diambil dari token di backend
       });
       if (!response.ok) throw new Error(`Failed to add message: ${response.statusText}`);
       const data = await response.json();
@@ -183,7 +183,7 @@ class BackendService {
     try {
       const response = await fetch(`${API_BASE_URL}/code`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...authService.getAuthHeaders()
         },

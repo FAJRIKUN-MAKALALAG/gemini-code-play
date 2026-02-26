@@ -8,6 +8,7 @@ interface LandingPageProps {
 
 export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Intersection Observer hook
   const useScrollAnimation = () => {
@@ -19,10 +20,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         ([entry]) => {
           if (entry.isIntersecting) {
             setIntersecting(true);
-            // Optional: Unobserve after first animation
-            // observer.unobserve(entry.target); 
           } else {
-            // Optional: Reset if you want slide-out when scrolling up/away
             setIntersecting(false);
           }
         },
@@ -51,42 +49,122 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     setIsVisible(true);
   }, []);
 
+  // ── Particle Effect ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const COLORS = [
+      'rgba(139, 92, 246, ',   // violet
+      'rgba(99, 102, 241, ',   // indigo
+      'rgba(59, 130, 246, ',   // blue
+      'rgba(168, 85, 247, ',   // purple
+    ];
+
+    type Particle = {
+      x: number; y: number;
+      r: number; speed: number;
+      drift: number; opacity: number;
+      color: string; pulse: number;
+    };
+
+    const makeParticle = (): Particle => ({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * 100,
+      r: Math.random() * 2.5 + 0.5,
+      speed: Math.random() * 0.6 + 0.2,
+      drift: (Math.random() - 0.5) * 0.4,
+      opacity: Math.random() * 0.5 + 0.15,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      pulse: Math.random() * Math.PI * 2,
+    });
+
+    const particles: Particle[] = Array.from({ length: 90 }, makeParticle);
+    // Scatter initial positions vertically
+    particles.forEach(p => { p.y = Math.random() * canvas.height; });
+
+    let animId: number;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.pulse += 0.015;
+        const alpha = p.opacity * (0.8 + 0.2 * Math.sin(p.pulse));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color}${alpha.toFixed(2)})`;
+        ctx.fill();
+
+        p.y -= p.speed;
+        p.x += p.drift;
+
+        if (p.y < -10) {
+          Object.assign(p, makeParticle());
+        }
+      });
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Hero Section */}
       <section
-        className={`min-h-screen flex flex-col items-center justify-center p-6 text-center transition-all duration-1000 transform ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+        className={`relative min-h-screen flex flex-col items-center justify-center p-6 text-center transition-all duration-1000 transform ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
           }`}
       >
-        <div className="relative mb-8 group">
-          <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all duration-700"></div>
-          <img
-            src="/AicodeLogo.png"
-            alt="AIcode Logo"
-            className="w-48 h-48 relative z-10 drop-shadow-2xl transition-transform duration-700 hover:scale-110 cursor-pointer dark-invert"
-            draggable={false}
-          />
-        </div>
+        {/* Particle Canvas */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ zIndex: 0 }}
+        />
+        {/* Content above particles */}
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="relative mb-8 group">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all duration-700"></div>
+            <img
+              src="/AicodeLogo.png"
+              alt="AIcode Logo"
+              className="w-48 h-48 relative z-10 drop-shadow-2xl transition-transform duration-700 hover:scale-110 cursor-pointer dark-invert"
+              draggable={false}
+            />
+          </div>
 
-        <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          AI Code Assistant
-        </h1>
+          <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            AI Code Assistant
+          </h1>
 
-        <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-          Experience the future of coding. Write Python, run it instantly, and get AI-powered assistance in real-time.
-        </p>
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+            Experience the future of coding. Write Python, run it instantly, and get AI-powered assistance in real-time.
+          </p>
 
-        <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
-          <Button
-            onClick={onGetStarted}
-            size="lg"
-            className="text-lg px-10 py-6 rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 transition-all duration-300"
-          >
-            Start Coding Now
-          </Button>
-        </div>
+          <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
+            <Button
+              onClick={onGetStarted}
+              size="lg"
+              className="text-lg px-10 py-6 rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 transition-all duration-300"
+            >
+              Start Coding Now
+            </Button>
+          </div>
+        </div> {/* end z-10 wrapper */}
 
-        <div className="absolute bottom-10 animate-bounce">
+        <div className="absolute bottom-10 animate-bounce z-10">
           <p className="text-sm text-muted-foreground mb-2">Scroll to learn more</p>
           <div className="w-6 h-10 border-2 border-muted-foreground rounded-full mx-auto flex justify-center p-1">
             <div className="w-1 h-2 bg-muted-foreground rounded-full animate-pulse"></div>

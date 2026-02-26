@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LogOut, ChevronDown, Key, Check, X, Code, MessageSquare,
-  Columns, Moon, Sun, ExternalLink, Plus, Settings, Eye, EyeOff
+  Columns, Moon, Sun, ExternalLink, Plus, Settings
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,13 +35,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const userId = user?.id ?? null;
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [apiKeyPrefix, setApiKeyPrefix] = useState("");
   const [apiKeySuffix, setApiKeySuffix] = useState("");
-  const [fullNavApiKey, setFullNavApiKey] = useState("");
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
-  const [showNavKey, setShowNavKey] = useState(false);
-  const [showNavEditKey, setShowNavEditKey] = useState(false);
 
   const loadApiKey = async (uid: string) => {
     try {
@@ -52,7 +48,6 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
       if (response.ok) {
         const data = await response.json();
         setHasApiKey(data.hasKey || false);
-        if (data.prefix) setApiKeyPrefix(data.prefix);
         if (data.suffix) setApiKeySuffix(data.suffix);
       }
     } catch (error) {
@@ -79,13 +74,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
         if (response.ok) {
           const key = tempApiKey.trim();
           setHasApiKey(true);
-          setApiKeyPrefix(key.substring(0, 4));
           setApiKeySuffix(key.substring(key.length - 4));
-          setFullNavApiKey(key);
           setEditingApiKey(false);
           setTempApiKey("");
-          setShowNavEditKey(false);
-          setShowNavKey(false);
         }
       } catch (error) {
         console.error("Failed to save API key:", error);
@@ -227,22 +218,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                         <div className="flex items-center gap-2">
                           <div className="flex-1 text-[10px] font-mono bg-background/50 px-3 py-2 rounded-lg border border-border/50 flex items-center justify-between overflow-hidden">
                             <span className="truncate text-muted-foreground">
-                              {showNavKey && fullNavApiKey
-                                ? fullNavApiKey
-                                : `${'•'.repeat(12)}${apiKeySuffix || '••••'}`
-                              }
+                              {`${'•'.repeat(12)}${apiKeySuffix || '••••'}`}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setShowNavKey(v => !v); }}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
-                                title={showNavKey ? "Hide key" : "Show full key"}
-                              >
-                                {showNavKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                              </button>
-                              <Check className="w-3 h-3 text-green-500" />
-                            </div>
+                            <Check className="w-3 h-3 text-green-500 shrink-0" />
                           </div>
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); startEditApiKey(); }} className="h-8 text-[10px] border-border/50 font-bold">
                             EDIT
@@ -256,25 +234,15 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                     </div>
                   ) : (
                     <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative">
-                        <Input
-                          type={showNavEditKey ? "text" : "password"}
-                          placeholder="Enter your Gemini API key..."
-                          value={tempApiKey}
-                          onChange={(e) => setTempApiKey(e.target.value)}
-                          className="h-8 text-xs bg-background pr-8"
-                          autoFocus
-                          onKeyDown={(e) => e.key === 'Enter' && saveApiKey()}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setShowNavEditKey(v => !v); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                          tabIndex={-1}
-                        >
-                          {showNavEditKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Enter your Gemini API key..."
+                        value={tempApiKey}
+                        onChange={(e) => setTempApiKey(e.target.value)}
+                        className="h-8 text-xs bg-background"
+                        autoFocus
+                        onKeyDown={(e) => e.key === 'Enter' && saveApiKey()}
+                      />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={saveApiKey} disabled={!tempApiKey.trim()} className="flex-1 h-8 text-[10px] font-bold">
                           SAVE

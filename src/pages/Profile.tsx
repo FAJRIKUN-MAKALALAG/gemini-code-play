@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Key, LogOut, User, Mail, Shield, Smartphone, Sun, Moon, ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { Key, Mail, User, Moon, Sun, ChevronLeft, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
@@ -17,12 +17,9 @@ const Profile = () => {
     const { theme, setTheme } = useTheme();
     const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
     const [hasApiKey, setHasApiKey] = useState(false);
-    const [apiKeyPrefix, setApiKeyPrefix] = useState("");
     const [apiKeySuffix, setApiKeySuffix] = useState("");
-    const [fullApiKey, setFullApiKey] = useState("");
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
-    const [showKey, setShowKey] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
 
@@ -40,7 +37,6 @@ const Profile = () => {
                     if (response.ok) {
                         const data = await response.json();
                         setHasApiKey(data.hasKey || false);
-                        if (data.prefix) setApiKeyPrefix(data.prefix);
                         if (data.suffix) setApiKeySuffix(data.suffix);
                     }
                 } catch (error) {
@@ -69,12 +65,9 @@ const Profile = () => {
                 if (response.ok) {
                     const key = tempKey.trim();
                     setHasApiKey(true);
-                    setApiKeyPrefix(key.substring(0, 4));
                     setApiKeySuffix(key.substring(key.length - 4));
-                    setFullApiKey(key);
                     setIsEditingKey(false);
                     setTempKey("");
-                    setShowKey(false);
                     toast({ title: "API Key Saved", description: "Your Gemini API key has been saved to the database." });
                 } else {
                     const error = await response.text();
@@ -183,23 +176,11 @@ const Profile = () => {
                                         <div className="p-3 bg-muted rounded-md border text-xs font-mono break-all flex items-center justify-between gap-2">
                                             <span className="flex-1 min-w-0 truncate">
                                                 {hasApiKey
-                                                    ? (showKey && fullApiKey
-                                                        ? fullApiKey
-                                                        : `${"•".repeat(28)}${apiKeySuffix || "••••"}`)
+                                                    ? `${"•".repeat(28)}${apiKeySuffix || "••••"}`
                                                     : "No API Key Set"}
                                             </span>
                                             {hasApiKey && (
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowKey(v => !v)}
-                                                        className="text-muted-foreground hover:text-foreground transition-colors"
-                                                        title={showKey ? "Hide key" : "Show full key"}
-                                                    >
-                                                        {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                                    </button>
-                                                    <span className="text-green-600 text-xs">✓ Saved</span>
-                                                </div>
+                                                <span className="text-green-600 text-xs shrink-0">✓ Saved</span>
                                             )}
                                         </div>
                                         <Button onClick={() => { setTempKey(""); setIsEditingKey(true); }} className="w-full" variant="outline">
@@ -209,23 +190,12 @@ const Profile = () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="Paste API Key here"
-                                                value={tempKey}
-                                                onChange={(e) => setTempKey(e.target.value)}
-                                                type={showKey ? "text" : "password"}
-                                                className="pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowKey(v => !v)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                                tabIndex={-1}
-                                            >
-                                                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
+                                        <Input
+                                            placeholder="Paste API Key here"
+                                            value={tempKey}
+                                            onChange={(e) => setTempKey(e.target.value)}
+                                            type="password"
+                                        />
                                         <div className="flex gap-2">
                                             <Button onClick={handleSaveKey} className="flex-1">Save</Button>
                                             <Button variant="ghost" onClick={() => setIsEditingKey(false)}>Cancel</Button>

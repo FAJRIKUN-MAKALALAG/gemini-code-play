@@ -647,17 +647,24 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
     try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { }
   };
   return (
-    <div className={`relative rounded-lg overflow-hidden border my-2 ${isDark ? 'border-zinc-700/60' : 'border-zinc-300'}`}>
-      <div className={`flex items-center justify-between px-3 py-1.5 border-b ${isDark ? 'bg-zinc-800/80 border-zinc-700/60' : 'bg-zinc-100 border-zinc-300'}`}>
-        <span className={`text-[10px] font-mono font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>{lang || "code"}</span>
-        <button onClick={handleCopy} className={`text-[10px] transition-colors px-2 py-0.5 rounded font-medium ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-700' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}>
+    <div className="relative rounded-lg overflow-hidden border my-2 border-zinc-700/80">
+      {/* Header bar — selalu dark seperti VS Code */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b bg-zinc-800 border-zinc-700/80">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
+          {lang || "code"}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="text-[10px] transition-colors px-2 py-0.5 rounded font-medium text-zinc-400 hover:text-white hover:bg-zinc-700"
+        >
           {copied ? "✓ Copied!" : "Copy"}
         </button>
       </div>
+      {/* Body — selalu pakai vscDarkPlus (hitam gelap) di semua mode */}
       <SyntaxHighlighter
         language={lang || 'text'}
-        style={isDark ? vscDarkPlus : oneLight}
-        customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: isDark ? 'transparent' : '#f8f8f8' }}
+        style={vscDarkPlus}
+        customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: '#1e1e1e' }}
         wrapLines wrapLongLines
       >
         {code}

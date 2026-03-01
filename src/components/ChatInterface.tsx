@@ -144,6 +144,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     return () => { abortControllerRef.current?.abort(); };
   }, []);
 
+  // ── Sliding Window — batasi history yang dikirim ke AI ─────────────────────
+  // History lengkap tetap tampil di UI & tersimpan di DB.
+  // Hanya N pesan terakhir yang dikirim ke Gemini/Groq agar hemat token.
+  const CHAT_WINDOW_SIZE = 10; // 5 pasang tanya-jawab
+
   // ── Core chat function — calls Gemini (with 30s timeout) → Groq fallback ────
   // `allMessages` = the complete conversation to send (including the new user msg)
   const chatOnce = async (allMessages: Message[]) => {
@@ -223,7 +228,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
       };
 
-      // ── 7. Gemini stream + 30-detik timeout ──────────────────────────────
+      // ── 7. Sliding window — ambil N pesan terakhir saja untuk dikirim ke AI ─
+      // allMessages masih lengkap untuk disimpan di DB (step 3 di atas).
+      const windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
+        ? allMessages.slice(-CHAT_WINDOW_SIZE)
+        : allMessages;
+
+      // ── 8. Gemini stream + 30-detik timeout ──────────────────────────────────
       // AbortController khusus untuk Gemini (agar bisa di-abort tanpa
       // membatalkan seluruh chatOnce — Groq masih bisa berjalan setelahnya)
       const geminiAbort = new AbortController();
@@ -245,7 +256,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       try {
         // Race: siapa yang selesai duluan — Gemini atau timeout?
         await Promise.race([
-          streamGeminiResponse(apiKey, allMessages, handleChunk, geminiAbort.signal),
+          streamGeminiResponse(apiKey, windowedMessages, handleChunk, geminiAbort.signal),
           timeoutPromise,
         ]);
         clearTimeout(timeoutHandle!);
@@ -276,7 +287,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
           setUsingFallback(true);
           try {
-            await streamGroqFallback(allMessages, handleChunk, mainSignal);
+            await streamGroqFallback(windowedMessages, handleChunk, mainSignal);
           } finally {
             setUsingFallback(false);
           }

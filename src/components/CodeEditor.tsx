@@ -32,11 +32,80 @@ export const CodeEditor = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditorWillMount = (monaco: any) => {
+    // ── Custom Dark Theme (VS Code inspired, synced ke app bg) ─────────────────
     monaco.editor.defineTheme('custom-dark', {
       base: 'vs-dark',
       inherit: true,
-      rules: [],
-      colors: { 'editor.background': '#000000' }
+      rules: [
+        // Keywords: def, class, return, if, for, while, import, from, as, with, ...
+        { token: 'keyword', foreground: 'c792ea' },  // 🟣 ungu
+        { token: 'keyword.control', foreground: 'f97583' },  // 🔴 merah muda
+        // Built-in functions: print, len, range, type, input, ...
+        { token: 'support.function', foreground: 'ffcb6b' },  // 🟡 kuning emas
+        // String literals
+        { token: 'string', foreground: 'c3e88d' },  // 🟢 hijau muda
+        { token: 'string.escape', foreground: 'f78c6c' },  // 🟠 oranye (escape char)
+        // Comments
+        { token: 'comment', foreground: '546e7a', fontStyle: 'italic' },
+        // Numbers
+        { token: 'number', foreground: 'f78c6c' },  // 🟠 oranye
+        { token: 'number.float', foreground: 'f78c6c' },
+        // Function & class names
+        { token: 'entity.name.function', foreground: '82aaff' },  // 🔵 biru
+        { token: 'entity.name.class', foreground: 'ffcb6b' },  // 🟡 kuning
+        // Self, True, False, None
+        { token: 'variable.language', foreground: 'f07178' },  // 🔴 merah muda
+        { token: 'constant.language', foreground: 'ff5370' },  // 🔴 merah
+        // Operators: =, +, -, *, /, ==, !=, ...
+        { token: 'operator', foreground: '89ddff' },  // 🩵 biru muda
+        // Decorator: @staticmethod, @property, ...
+        { token: 'meta.decorator', foreground: 'c792ea' },
+        // Type hints
+        { token: 'entity.name.type', foreground: 'ffcb6b' },
+      ],
+      colors: {
+        'editor.background': '#09090b', // zinc-950 — cocok dgn app bg
+        'editor.foreground': '#cdd3de',
+        'editor.lineHighlightBackground': '#ffffff08',
+        'editor.selectionBackground': '#4a4a7a66',
+        'editorCursor.foreground': '#c792ea',
+        'editorLineNumber.foreground': '#37474f',
+        'editorLineNumber.activeForeground': '#78909c',
+        'editorIndentGuide.background': '#ffffff10',
+        'editorGutter.background': '#09090b',
+      }
+    });
+
+    // ── Custom Light Theme (high contrast, tetap nyaman dibaca) ────────────────
+    monaco.editor.defineTheme('custom-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'keyword', foreground: '7c3aed' },  // 🟣 ungu gelap
+        { token: 'keyword.control', foreground: 'd63031' },  // 🔴 merah
+        { token: 'support.function', foreground: 'b45309' },  // 🟡 coklat-kuning
+        { token: 'string', foreground: '16803a' },  // 🟢 hijau gelap
+        { token: 'string.escape', foreground: 'd97706' },  // 🟠 oranye
+        { token: 'comment', foreground: '94a3b8', fontStyle: 'italic' },
+        { token: 'number', foreground: 'c2410c' },  // 🟠 oranye tua
+        { token: 'number.float', foreground: 'c2410c' },
+        { token: 'entity.name.function', foreground: '1d4ed8' },  // 🔵 biru gelap
+        { token: 'entity.name.class', foreground: 'b45309' },
+        { token: 'variable.language', foreground: 'be185d' },  // 🩷 pink gelap
+        { token: 'constant.language', foreground: 'be185d' },
+        { token: 'operator', foreground: '0369a1' },  // 🔵 biru muda gelap
+        { token: 'entity.name.type', foreground: 'b45309' },
+      ],
+      colors: {
+        'editor.background': '#fafafa',
+        'editor.foreground': '#1e293b',
+        'editor.lineHighlightBackground': '#00000008',
+        'editor.selectionBackground': '#7c3aed22',
+        'editorCursor.foreground': '#7c3aed',
+        'editorLineNumber.foreground': '#94a3b8',
+        'editorLineNumber.activeForeground': '#475569',
+        'editorIndentGuide.background': '#00000015',
+      }
     });
   };
 
@@ -158,7 +227,7 @@ export const CodeEditor = ({
           defaultLanguage="python"
           value={code}
           onChange={(value) => onChange(value || "")}
-          theme={resolvedTheme === 'dark' ? 'custom-dark' : 'light'}
+          theme={resolvedTheme === 'dark' ? 'custom-dark' : 'custom-light'}
           beforeMount={handleEditorWillMount}
           options={{
             minimap: { enabled: false },

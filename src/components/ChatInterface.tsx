@@ -15,6 +15,8 @@ import { ChatSidebar } from "./ChatSidebar";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { AIStatusIndicator } from "./AIStatusIndicator";
 import { ErrorAlert } from "./ErrorAlert";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // ─── Chat-specific error mapping ─────────────────────────────────────────────
 function mapChatError(err: any): { title: string; message: string; status: number | string } {
@@ -637,19 +639,7 @@ function ChatMessageContent({ role, content, animate = false }: { role: "user" |
   return <MarkdownMessage content={displayed} />;
 }
 
-function MarkdownMessage({ content }: { content: string }) {
-  const segments: Array<{ type: "code" | "text"; lang?: string; text: string }> = [];
-  const regex = /```(\w+)?\n([\s\S]*?)```/g;
-  let lastIndex = 0, match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    if (match.index > lastIndex) segments.push({ type: "text", text: content.slice(lastIndex, match.index) });
-    segments.push({ type: "code", lang: match[1]?.toLowerCase(), text: match[2] });
-    lastIndex = regex.lastIndex;
-  }
-  if (lastIndex < content.length) segments.push({ type: "text", text: content.slice(lastIndex) });
-  return <div className="space-y-3">{segments.map((s, i) => s.type === "code" ? <CodeBlock key={i} lang={s.lang} code={s.text} /> : <RichText key={i} text={s.text} />)}</div>;
-}
-
+// ── Reusable CodeBlock (dipakai oleh react-markdown custom component)
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
   const isDark = document.documentElement.classList.contains('dark');
@@ -657,63 +647,203 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
     try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { }
   };
   return (
-    <div className={`relative rounded-lg overflow-hidden border ${isDark ? 'border-zinc-700/60' : 'border-zinc-300'}`}>
+    <div className={`relative rounded-lg overflow-hidden border my-2 ${isDark ? 'border-zinc-700/60' : 'border-zinc-300'}`}>
       <div className={`flex items-center justify-between px-3 py-1.5 border-b ${isDark ? 'bg-zinc-800/80 border-zinc-700/60' : 'bg-zinc-100 border-zinc-300'}`}>
         <span className={`text-[10px] font-mono font-semibold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>{lang || "code"}</span>
         <button onClick={handleCopy} className={`text-[10px] transition-colors px-2 py-0.5 rounded font-medium ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-700' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200'}`}>
-          {copied ? "Copied!" : "Copy"}
+          {copied ? "✓ Copied!" : "Copy"}
         </button>
       </div>
-      <SyntaxHighlighter language={lang || 'text'} style={isDark ? vscDarkPlus : oneLight} customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: isDark ? 'transparent' : '#f8f8f8' }} wrapLines wrapLongLines>
+      <SyntaxHighlighter
+        language={lang || 'text'}
+        style={isDark ? vscDarkPlus : oneLight}
+        customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: isDark ? 'transparent' : '#f8f8f8' }}
+        wrapLines wrapLongLines
+      >
         {code}
       </SyntaxHighlighter>
     </div>
   );
 }
 
-function RichText({ text }: { text: string }) {
-  const lines = text.replace(/\r/g, "").split("\n");
-  const blocks: Array<{ type: string; content: any }> = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (!line.trim()) { i++; continue; }
-    const h = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (h) { blocks.push({ type: `h${h[1].length}`, content: h[2] }); i++; continue; }
-    if (/^\s*[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*]\s+/, "")); i++; }
-      blocks.push({ type: "ul", content: items }); continue;
-    }
-    if (/^\s*\d+\.\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
-      blocks.push({ type: "ol", content: items }); continue;
-    }
-    const para: string[] = [];
-    while (i < lines.length && lines[i].trim() && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i]) && !/^#{1,6}\s+/.test(lines[i])) { para.push(lines[i]); i++; }
-    blocks.push({ type: "p", content: para.join("\n") });
-  }
-  const renderInline = (s: string) => {
-    return s.split(/(`[^`]+`)/g).map((part, idx) => {
-      if (part.startsWith("`") && part.endsWith("`")) return <code key={idx} className="bg-muted px-1 py-0.5 rounded text-[0.8em] border border-border font-mono">{part.slice(1, -1)}</code>;
-      return part.split(/(\*\*[^*]+\*\*)/g).map((bp, bidx) => {
-        if (bp.startsWith("**") && bp.endsWith("**")) return <strong key={bidx}>{bp.slice(2, -2)}</strong>;
-        return bp.split(/(\*[^*]+\*)/g).map((ip, iidx) => {
-          if (ip.startsWith("*") && ip.endsWith("*")) return <em key={iidx}>{ip.slice(1, -1)}</em>;
-          return <span key={iidx}>{ip}</span>;
-        });
-      });
-    });
-  };
+// ── react-markdown powered renderer with colored custom components
+function MarkdownMessage({ content }: { content: string }) {
+  const isDark = document.documentElement.classList.contains('dark');
+
   return (
-    <div className="text-sm space-y-2 leading-relaxed">
-      {blocks.map((b, idx) => {
-        if (/^h[1-6]$/.test(b.type)) return <div key={idx} className={`font-bold text-foreground ${b.type === 'h1' ? 'text-lg' : b.type === 'h2' ? 'text-base' : 'text-sm'} mt-1`}>{renderInline(b.content)}</div>;
-        if (b.type === "ul") return <ul key={idx} className="list-disc pl-5 space-y-0.5">{(b.content as string[]).map((it: string, i2: number) => <li key={i2}>{renderInline(it)}</li>)}</ul>;
-        if (b.type === "ol") return <ol key={idx} className="list-decimal pl-5 space-y-0.5">{(b.content as string[]).map((it: string, i2: number) => <li key={i2}>{renderInline(it)}</li>)}</ol>;
-        return <p key={idx} className="whitespace-pre-wrap">{renderInline(b.content as string)}</p>;
-      })}
+    <div className="text-sm leading-relaxed space-y-2">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // ── Headings ──────────────────────────────────────────────────
+          h1: ({ children }) => (
+            <h1 className="text-lg font-bold mt-3 mb-1 pb-1 border-b border-blue-400/40"
+              style={{ color: isDark ? '#60a5fa' : '#2563eb' }}>
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-base font-bold mt-2.5 mb-1"
+              style={{ color: isDark ? '#a78bfa' : '#7c3aed' }}>
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-sm font-semibold mt-2 mb-0.5"
+              style={{ color: isDark ? '#2dd4bf' : '#0d9488' }}>
+              {children}
+            </h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className="text-sm font-semibold mt-1.5"
+              style={{ color: isDark ? '#34d399' : '#059669' }}>
+              {children}
+            </h4>
+          ),
+          h5: ({ children }) => (
+            <h5 className="text-sm font-medium mt-1"
+              style={{ color: isDark ? '#94a3b8' : '#475569' }}>
+              {children}
+            </h5>
+          ),
+          h6: ({ children }) => (
+            <h6 className="text-xs font-medium mt-1 uppercase tracking-wide"
+              style={{ color: isDark ? '#64748b' : '#64748b' }}>
+              {children}
+            </h6>
+          ),
+
+          // ── Paragraf ─────────────────────────────────────────────────
+          p: ({ children }) => (
+            <p className="whitespace-pre-wrap my-1 leading-relaxed">{children}</p>
+          ),
+
+          // ── Bold & Italic ─────────────────────────────────────────────
+          strong: ({ children }) => (
+            <strong className="font-bold" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
+              {children}
+            </strong>
+          ),
+          em: ({ children }) => (
+            <em className="italic" style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>
+              {children}
+            </em>
+          ),
+
+          // ── Code block (pre > code) — react-markdown v10 ─────────────
+          // Di v10, block code selalu dibungkus <pre>, kita handle di sini
+          pre: ({ children }) => {
+            // Ambil node <code> di dalam <pre>
+            const codeEl = (children as any)?.[0] ?? children;
+            const className: string = codeEl?.props?.className ?? '';
+            const lang = /language-(\w+)/.exec(className)?.[1];
+            const code = String(codeEl?.props?.children ?? '').replace(/\n$/, '');
+            return <CodeBlock code={code} lang={lang} />;
+          },
+
+          // ── Inline code ───────────────────────────────────────────────
+          code: ({ className, children, ...props }: any) => {
+            // Kalau punya className language-*, ini adalah block → skip (sudah dihandle di `pre`)
+            if (className?.startsWith('language-')) return null;
+            return (
+              <code
+                className="px-1.5 py-0.5 rounded text-[0.8em] font-mono border"
+                style={{
+                  background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
+                  color: isDark ? '#6ee7b7' : '#047857',
+                  borderColor: isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.3)',
+                }}
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+
+          // ── Lists ─────────────────────────────────────────────────────
+          ul: ({ children }) => (
+            <ul className="pl-5 space-y-0.5 my-1" style={{ listStyleType: 'disc' }}>{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="pl-5 space-y-0.5 my-1" style={{ listStyleType: 'decimal' }}>{children}</ol>
+          ),
+          li: ({ children }) => (
+            <li className="leading-relaxed"
+              style={{ color: 'inherit' }}>
+              <span>{children}</span>
+            </li>
+          ),
+
+          // ── Blockquote ────────────────────────────────────────────────
+          blockquote: ({ children }) => (
+            <blockquote
+              className="pl-3 py-1 my-2 rounded-r-md text-sm italic"
+              style={{
+                borderLeft: `3px solid ${isDark ? '#f97316' : '#ea580c'}`,
+                background: isDark ? 'rgba(249,115,22,0.08)' : 'rgba(234,88,12,0.06)',
+                color: isDark ? '#fdba74' : '#9a3412',
+              }}
+            >
+              {children}
+            </blockquote>
+          ),
+
+          // ── Horizontal rule ───────────────────────────────────────────
+          hr: () => (
+            <hr className="my-3 border-0 h-px"
+              style={{ background: 'linear-gradient(to right, transparent, currentColor, transparent)', opacity: 0.3 }}
+            />
+          ),
+
+          // ── Links ─────────────────────────────────────────────────────
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 transition-colors"
+              style={{ color: isDark ? '#818cf8' : '#4f46e5' }}
+            >
+              {children}
+            </a>
+          ),
+
+          // ── Table ─────────────────────────────────────────────────────
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-2 rounded-md border"
+              style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+              <table className="text-xs w-full border-collapse">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => (
+            <thead style={{ background: isDark ? 'rgba(51,65,85,0.8)' : 'rgba(241,245,249,0.9)' }}>
+              {children}
+            </thead>
+          ),
+          th: ({ children }) => (
+            <th className="px-3 py-2 text-left font-semibold border-b"
+              style={{
+                color: isDark ? '#94a3b8' : '#475569',
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+              }}>
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="px-3 py-2 border-b"
+              style={{ borderColor: isDark ? '#1e293b' : '#f1f5f9' }}>
+              {children}
+            </td>
+          ),
+
+          // ── del (strikethrough dari GFM) ──────────────────────────────
+          del: ({ children }) => (
+            <del className="opacity-60 line-through">{children}</del>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }

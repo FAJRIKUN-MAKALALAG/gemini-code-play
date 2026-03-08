@@ -32,7 +32,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const userEmail = user?.email ?? null;
+  const username = user?.username ?? null;
   const userId = user?.id ?? null;
+  const displayName = username || userEmail?.split('@')[0] || '';
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKeySuffix, setApiKeySuffix] = useState("");
@@ -150,12 +152,12 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                 <button className="flex items-center gap-2 group p-1.5 rounded-full border border-border/50 hover:bg-muted/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 shrink-0">
                   <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
                     <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white text-xs font-bold">
-                      {userEmail.substring(0, 2).toUpperCase()}
+                      {displayName.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-left hidden md:block px-1 max-w-[120px]">
                     <div className="text-xs font-semibold text-foreground truncate">
-                      {userEmail.split('@')[0]}
+                      {displayName}
                     </div>
                   </div>
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform group-hover:text-foreground hidden sm:block" />
@@ -164,9 +166,10 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
               <DropdownMenuContent align="end" className="w-72 p-0 rounded-xl overflow-hidden shadow-2xl border-border/50 bg-popover/95 backdrop-blur-xl">
                 {/* User Header */}
-                <div className="bg-secondary/30 px-4 py-3.5 space-y-0.5">
+                <div className="bg-secondary/30 px-4 py-3.5 space-y-1">
                   <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Signed in as</p>
-                  <p className="text-sm font-semibold truncate text-foreground">{userEmail}</p>
+                  <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+                  {username && <p className="text-[11px] text-muted-foreground truncate">{userEmail}</p>}
                 </div>
 
                 <div className="p-1.5 space-y-0.5">

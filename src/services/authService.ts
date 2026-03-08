@@ -39,11 +39,11 @@ class AuthService {
 
       const data = await response.json();
       console.log('Backend signup response:', data);
-      
+
       if (!data.session || !data.user) {
         throw new Error('Invalid response from backend');
       }
-      
+
       const session: AuthSession = {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -55,7 +55,7 @@ class AuthService {
           username: data.user.username
         }
       };
-      
+
       this.saveSession(session);
       return { session, error: null };
     } catch (error) {
@@ -87,11 +87,11 @@ class AuthService {
 
       const data = await response.json();
       console.log('Backend login response:', data);
-      
+
       if (!data.session || !data.user) {
         throw new Error('Invalid response from backend');
       }
-      
+
       const session: AuthSession = {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -103,7 +103,7 @@ class AuthService {
           username: data.user.username
         }
       };
-      
+
       this.saveSession(session);
       return { session, error: null };
     } catch (error) {
@@ -115,7 +115,7 @@ class AuthService {
   // ===== LOGOUT =====
   async logout(): Promise<void> {
     const token = this.getAccessToken();
-    
+
     try {
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
@@ -124,7 +124,7 @@ class AuthService {
     } catch (error) {
       console.error('Logout request failed:', error);
     }
-    
+
     this.clearSession();
   }
 
@@ -179,7 +179,50 @@ class AuthService {
     }
   }
 
+  // ===== FORGOT PASSWORD =====
+  async forgotPassword(email: string): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to send reset email');
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return { success: false, error: error as Error };
+    }
+  }
+
+  // ===== RESET PASSWORD =====
+  async resetPassword(access_token: string, refresh_token: string, newPassword: string): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token, refresh_token, password: newPassword })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to reset password');
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Reset password error:', error);
+      return { success: false, error: error as Error };
+    }
+  }
+
   // ===== SESSION MANAGEMENT =====
+
   private saveSession(session: AuthSession): void {
     safeLocalStorage.setItem('access_token', session.access_token);
     safeLocalStorage.setItem('refresh_token', session.refresh_token);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -136,9 +137,8 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
       <ErrorAlert message={errorMessage} title={errorTitle ?? undefined} onClose={clearError} />
 
       <div
-        className={`relative w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${
-          visible && !isExiting ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-        }`}
+        className={`relative w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${visible && !isExiting ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
+          }`}
       >
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl overflow-hidden">
           {/* Header */}
@@ -186,7 +186,18 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
 
                 {/* Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {mode === "signin" && (
+                      <Link
+                        to="/forgot-password"
+                        className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                        tabIndex={loading ? -1 : undefined}
+                      >
+                        Lupa Password?
+                      </Link>
+                    )}
+                  </div>
                   <Input
                     id="password" type="password" placeholder="••••••••"
                     value={password} onChange={(e) => setPassword(e.target.value)}

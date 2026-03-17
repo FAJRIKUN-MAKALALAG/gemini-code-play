@@ -1,5 +1,6 @@
 import { safeLocalStorage } from "@/utils/storageUtils";
 import { API_BASE_URL } from "@/config";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export interface User {
   id: string;
@@ -176,6 +177,24 @@ class AuthService {
     } catch (error) {
       this.clearSession();
       return false;
+    }
+  }
+
+  // ===== GOOGLE OAUTH =====
+  async loginWithGoogle(): Promise<{ error: Error | null }> {
+    try {
+      const supabase = await getSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/auth/callback',
+        },
+      });
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      return { error: error as Error };
     }
   }
 

@@ -427,7 +427,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           conversations={conversations} currentId={conversationId}
           onSelect={handleSwitchConversation} onNewChat={() => setShowNewModal(true)}
           onDelete={async (id) => {
-            if (!window.confirm("Delete this conversation?")) return;
             const { error } = await backendService.deleteConversation(id);
             if (!error && currentUserId) {
               const { data: convList } = await backendService.getConversations(currentUserId, 50);
@@ -447,7 +446,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           onSelect={(id) => { handleSwitchConversation(id); setShowHistory(false); }}
           onNewChat={() => { setShowNewModal(true); setShowHistory(false); }}
           onDelete={async (id) => {
-            if (!window.confirm("Delete this conversation?")) return;
             const { error } = await backendService.deleteConversation(id);
             if (!error && currentUserId) {
               const { data: convList } = await backendService.getConversations(currentUserId, 50);

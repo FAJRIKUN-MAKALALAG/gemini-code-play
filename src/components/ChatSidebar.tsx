@@ -1,6 +1,17 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, MessageSquare, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Conversation {
   id: string;
@@ -29,6 +40,8 @@ export function ChatSidebar({
   onClose,
   className
 }: ChatSidebarProps) {
+  const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   return (
@@ -86,7 +99,7 @@ export function ChatSidebar({
               className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-destructive hover:bg-destructive/10 transition-all duration-150 shrink-0"
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(chat.id);
+                setChatToDelete(chat.id);
               }}
               title="Delete chat"
             >
@@ -95,6 +108,32 @@ export function ChatSidebar({
           </div>
         ))}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!chatToDelete} onOpenChange={(open) => !open && setChatToDelete(null)}>
+        <AlertDialogContent className="w-[90vw] max-w-sm rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base sm:text-lg">Hapus Percakapan?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
+              Tindakan ini tidak dapat dibatalkan. Percakapan ini akan dihapus secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 sm:mt-6">
+            <AlertDialogCancel className="text-xs sm:text-sm h-9">Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs sm:text-sm h-9"
+              onClick={() => {
+                if (chatToDelete) {
+                  onDelete(chatToDelete);
+                  setChatToDelete(null);
+                }
+              }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

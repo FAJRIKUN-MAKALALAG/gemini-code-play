@@ -285,6 +285,26 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </section>
 
+      {/* Data Privacy & Transparency Section */}
+      <section className="py-20 px-6 bg-background/50 border-t border-border">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-6">Data Privacy & Transparency</h2>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            At <strong>aicode-unklab</strong>, we value your privacy. We use Google OAuth to securely authenticate users and provide a personalized experience.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 text-left">
+            <div className="p-6 rounded-xl bg-card border border-border">
+              <h4 className="font-bold mb-2 text-primary">Why we collect data?</h4>
+              <p className="text-sm text-muted-foreground">We request your email and basic profile info to create your account and allow you to save/load your Python code snippets across devices.</p>
+            </div>
+            <div className="p-6 rounded-xl bg-card border border-border">
+              <h4 className="font-bold mb-2 text-primary">How we use it?</h4>
+              <p className="text-sm text-muted-foreground">Your data is only used for authentication and to store your personal projects. We never share your data with third parties or use it for advertising.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer className="py-12 bg-secondary/50 text-center text-muted-foreground border-t border-border">
         <div className="flex flex-col items-center gap-4">
           <img src="/AicodeLogo.png" alt="Logo" className="w-12 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500" />

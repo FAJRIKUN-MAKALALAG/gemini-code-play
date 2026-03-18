@@ -262,16 +262,14 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
               {googleLoading ? "Redirecting to Google..." : "Continue with Google"}
             </Button>
 
-            <div className="mt-6 text-center">
-              <span className="text-sm text-muted-foreground">
-                {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
-              </span>
-              <button
-                type="button" onClick={toggleMode} disabled={loading}
-                className="text-sm font-semibold text-primary hover:underline focus:outline-none transition-colors disabled:opacity-50"
-              >
-                {mode === "signin" ? "Sign up" : "Sign in"}
-              </button>
+            <div className="mt-8 pt-4 border-t border-border/30 text-center space-y-2">
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Dengan melanjutkan, Anda menyetujui <a href="https://unklab-aicode.online/terms" className="text-primary hover:underline">Syarat & Ketentuan</a> dan <a href="https://unklab-aicode.online/privacy" className="text-primary hover:underline">Kebijakan Privasi</a> kami.
+              </p>
+              <div className="flex justify-center gap-4">
+                <a href="https://unklab-aicode.online/privacy" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
+                <a href="https://unklab-aicode.online/terms" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
+              </div>
             </div>
           </div>
         </div>

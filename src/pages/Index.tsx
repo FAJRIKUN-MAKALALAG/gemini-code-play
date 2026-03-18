@@ -12,9 +12,12 @@ import { LandingPage } from "@/components/LandingPage";
 import { Particles } from "@/components/ui/Particles";
 import { Helmet } from "react-helmet-async";
 import { useLocation } from "react-router-dom";
+import { Code, MessageSquare, SquareTerminal } from "lucide-react";
+
+// ── Mobile tab type (code | terminal | chat) ────────────────────────────────
+type MobileTab = "code" | "terminal" | "chat";
 
 const Index = () => {
-  // Don't block on auth loading — auth state resolves in background
   const location = useLocation();
   const [code, setCode] = useState(`# Selamat datang di AI Coding Assistant!
 # Tulis kode Python kamu di sini dan klik Run
@@ -27,7 +30,6 @@ print(f"Halo, {nama}! Selamat belajar Python!")
   const inputResolverRef = useRef<((value: string) => void) | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showStart, setShowStart] = useState(true);
-  // Skulpt loads in background — only disables Run button until ready
   const [skulptReady, setSkulptReady] = useState(false);
   const { toast } = useToast();
   const chatRef = useRef<ChatInterfaceHandle | null>(null);
@@ -35,6 +37,17 @@ print(f"Halo, {nama}! Selamat belajar Python!")
   const [viewMode, setViewMode] = useState<"code" | "chat" | "both">("both");
   const [showTerminal, setShowTerminal] = useState(true);
   const [lastError, setLastError] = useState<string | null>(null);
+
+  // ── Mobile detection & default tab ─────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (location.state?.showLanding) {
@@ -44,13 +57,12 @@ print(f"Halo, {nama}! Selamat belajar Python!")
   }, [location]);
 
   useEffect(() => {
-    // Load Skulpt non-blocking — UI renders immediately
     loadSkulpt()
       .then(() => setSkulptReady(true))
       .catch((error) => {
         console.error("Failed to load Skulpt:", error);
         toast({ title: "Python Runtime Error", description: "Gagal load Python runtime. Coba refresh halaman.", variant: "destructive" });
-        setSkulptReady(false); // still allow render, Run just won't work
+        setSkulptReady(false);
       });
   }, [toast]);
 
@@ -59,6 +71,8 @@ print(f"Halo, {nama}! Selamat belajar Python!")
     setPrompt(null);
     setIsRunning(true);
     setLastError(null);
+    // Auto-switch to terminal tab on mobile when running
+    if (isMobile) setMobileTab("terminal");
     try {
       const appendChunk = (chunk: string) => {
         const normalized = chunk.replace(/\r/g, "");
@@ -107,10 +121,47 @@ print(f"Halo, {nama}! Selamat belajar Python!")
 
   const handleDebug = (message: string) => {
     chatRef.current?.sendMessage(message);
-    if (viewMode === "code") setViewMode("both");
+    if (isMobile) {
+      setMobileTab("chat");
+    } else if (viewMode === "code") {
+      setViewMode("both");
+    }
     toast({ title: "🐛 Debugging...", description: "Mengirim error ke AI untuk dianalisis" });
   };
 
+  // ── Shared editor + terminal for reuse across layouts ──────────────────────
+  const editorNode = (
+    <CodeEditor
+      code={code}
+      onChange={setCode}
+      onRun={handleRunCode}
+      onClear={handleClearTerminal}
+      showTerminal={showTerminal}
+      onToggleTerminal={() => setShowTerminal((prev) => !prev)}
+      lastError={lastError}
+      onDebug={handleDebug}
+      isRuntimeReady={skulptReady}
+      isRunning={isRunning}
+    />
+  );
+
+  const terminalNode = (
+    <Terminal
+      output={output}
+      prompt={prompt}
+      disabled={!prompt || !isRunning}
+      onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
+    />
+  );
+
+  const chatNode = (
+    <ChatInterface
+      ref={chatRef}
+      getCurrentCode={() => code}
+      onLoadCode={(c) => setCode(c)}
+      onSignInClick={() => setShowAuth(true)}
+    />
+  );
 
   return (
     <div className="h-screen flex flex-col overflow-hidden relative bg-background">
@@ -134,91 +185,124 @@ print(f"Halo, {nama}! Selamat belajar Python!")
         <AuthScreen onAuthenticated={() => setShowAuth(false)} />
       )}
 
-      {/* Navbar */}
-      <Navbar viewMode={viewMode} onViewModeChange={setViewMode} onSignInClick={() => setShowAuth(true)} />
+      {/* Navbar — hide view-mode toggle on mobile (use bottom nav instead) */}
+      <Navbar
+        viewMode={isMobile ? undefined : viewMode}
+        onViewModeChange={isMobile ? undefined : setViewMode}
+        onSignInClick={() => setShowAuth(true)}
+      />
 
-      {/* Main content */}
-      <div className="flex-1 min-h-0 px-2 sm:px-4 py-2 sm:py-3">
-        <div className="h-full">
-          {viewMode === "both" ? (
-            /* ─── Split: Code + Chat ─── */
-            <PanelGroup direction="horizontal" className="h-full gap-2 sm:gap-3">
-              <Panel defaultSize={58} minSize={30} className="flex flex-col min-w-0">
-                <PanelGroup direction="vertical" className="h-full gap-2 sm:gap-3">
-                  <Panel defaultSize={showTerminal ? 62 : 100} minSize={25} className="min-h-0">
-                    <CodeEditor
-                      code={code}
-                      onChange={setCode}
-                      onRun={handleRunCode}
-                      onClear={handleClearTerminal}
-                      showTerminal={showTerminal}
-                      onToggleTerminal={() => setShowTerminal(prev => !prev)}
-                      lastError={lastError}
-                      onDebug={handleDebug}
-                      isRuntimeReady={skulptReady}
-                      isRunning={isRunning}
-                    />
-                  </Panel>
-                  {showTerminal && (
-                    <>
-                      <PanelResizeHandle className="h-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-row-resize" />
-                      <Panel minSize={18} className="min-h-0">
-                        <Terminal
-                          output={output}
-                          prompt={prompt}
-                          disabled={!prompt || !isRunning}
-                          onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
-                        />
-                      </Panel>
-                    </>
-                  )}
-                </PanelGroup>
-              </Panel>
-              <PanelResizeHandle className="w-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-col-resize" />
-              <Panel minSize={25} defaultSize={42} className="min-w-0">
-                <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} onSignInClick={() => setShowAuth(true)} />
-              </Panel>
-            </PanelGroup>
-          ) : viewMode === "code" ? (
-            /* ─── Code Only ─── */
-            <PanelGroup direction="vertical" className="h-full gap-2 sm:gap-3">
-              <Panel defaultSize={showTerminal ? 65 : 100} minSize={25} className="min-h-0">
-                <CodeEditor
-                  code={code}
-                  onChange={setCode}
-                  onRun={handleRunCode}
-                  onClear={handleClearTerminal}
-                  showTerminal={showTerminal}
-                  onToggleTerminal={() => setShowTerminal(prev => !prev)}
-                  lastError={lastError}
-                  onDebug={handleDebug}
-                  isRunning={isRunning}
-                />
-              </Panel>
-              {showTerminal && (
-                <>
-                  <PanelResizeHandle className="h-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-row-resize" />
-                  <Panel minSize={18} className="min-h-0">
-                    <Terminal
-                      output={output}
-                      prompt={prompt}
-                      disabled={!prompt || !isRunning}
-                      onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
-                    />
-                  </Panel>
-                </>
-              )}
-            </PanelGroup>
-          ) : (
-            /* ─── Chat Only ─── */
-            <div className="h-full max-w-5xl mx-auto">
-              <ChatInterface ref={chatRef} getCurrentCode={() => code} onLoadCode={(c) => setCode(c)} onSignInClick={() => setShowAuth(true)} />
+      {/* ── MOBILE LAYOUT ──────────────────────────────────────────────────── */}
+      {isMobile ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Single panel — switches by tab */}
+          <div className="flex-1 min-h-0 overflow-hidden p-2">
+            {mobileTab === "code" && (
+              <div className="h-full">{editorNode}</div>
+            )}
+            {mobileTab === "terminal" && (
+              <div className="h-full">{terminalNode}</div>
+            )}
+            {mobileTab === "chat" && (
+              <div className="h-full">{chatNode}</div>
+            )}
+          </div>
+
+          {/* ── Fixed bottom navigation bar ── */}
+          <div className="shrink-0 border-t border-border bg-background/95 backdrop-blur-sm safe-area-bottom">
+            <div className="flex items-stretch h-14">
+              <button
+                onClick={() => setMobileTab("code")}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+                  mobileTab === "code"
+                    ? "text-primary border-t-2 border-primary bg-primary/5"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Code className="w-5 h-5" />
+                <span>Editor</span>
+              </button>
+              <button
+                onClick={() => setMobileTab("terminal")}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors relative ${
+                  mobileTab === "terminal"
+                    ? "text-primary border-t-2 border-primary bg-primary/5"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <SquareTerminal className="w-5 h-5" />
+                <span>Terminal</span>
+                {/* Dot indicator when code is running */}
+                {isRunning && (
+                  <span className="absolute top-2 right-[calc(50%-14px)] w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                )}
+              </button>
+              <button
+                onClick={() => setMobileTab("chat")}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+                  mobileTab === "chat"
+                    ? "text-primary border-t-2 border-primary bg-primary/5"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span>AI Chat</span>
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* ── DESKTOP LAYOUT (unchanged) ───────────────────────────────────── */
+        <div className="flex-1 min-h-0 px-4 py-3">
+          <div className="h-full">
+            {viewMode === "both" ? (
+              <PanelGroup direction="horizontal" className="h-full gap-3">
+                <Panel defaultSize={58} minSize={30} className="flex flex-col min-w-0">
+                  <PanelGroup direction="vertical" className="h-full gap-3">
+                    <Panel defaultSize={showTerminal ? 62 : 100} minSize={25} className="min-h-0">
+                      {editorNode}
+                    </Panel>
+                    {showTerminal && (
+                      <>
+                        <PanelResizeHandle className="h-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-row-resize" />
+                        <Panel minSize={18} className="min-h-0">
+                          {terminalNode}
+                        </Panel>
+                      </>
+                    )}
+                  </PanelGroup>
+                </Panel>
+                <PanelResizeHandle className="w-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-col-resize" />
+                <Panel minSize={25} defaultSize={42} className="min-w-0">
+                  {chatNode}
+                </Panel>
+              </PanelGroup>
+            ) : viewMode === "code" ? (
+              <PanelGroup direction="vertical" className="h-full gap-3">
+                <Panel defaultSize={showTerminal ? 65 : 100} minSize={25} className="min-h-0">
+                  {editorNode}
+                </Panel>
+                {showTerminal && (
+                  <>
+                    <PanelResizeHandle className="h-1.5 bg-border/50 rounded-full hover:bg-primary/50 transition-colors cursor-row-resize" />
+                    <Panel minSize={18} className="min-h-0">
+                      {terminalNode}
+                    </Panel>
+                  </>
+                )}
+              </PanelGroup>
+            ) : (
+              <div className="h-full max-w-5xl mx-auto">
+                {chatNode}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Index;
+
+// Removed duplicate definition

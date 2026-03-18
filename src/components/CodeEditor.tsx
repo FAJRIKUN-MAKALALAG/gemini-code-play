@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Play, Trash2, SquareTerminal, Loader2, Download, Upload } from "lucide-react";
@@ -34,6 +34,14 @@ export const CodeEditor = ({
   const { resolvedTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const handleEditorWillMount = (monaco: any) => {
     // ── Custom Dark Theme (VS Code inspired, synced ke app bg) ─────────────────
@@ -154,73 +162,89 @@ export const CodeEditor = ({
 
   return (
     <div className="flex flex-col h-full bg-editor-bg rounded-lg overflow-hidden border border-border shadow-card">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-secondary border-b border-border shrink-0">
-        <h2 className="text-sm font-semibold text-foreground">Python Editor</h2>
-        <div className="flex gap-1.5 sm:gap-2 items-center">
+      {/* ── Toolbar ───────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-secondary border-b border-border shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex gap-1 sm:gap-1.5 items-center mr-1 sm:mr-3">
+            <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-red-400/80" />
+            <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-amber-400/80" />
+            <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-green-400/80" />
+          </div>
+          <span className="text-xs sm:text-sm font-semibold text-foreground/80 font-mono tracking-tight flex items-center gap-1 sm:gap-2">
+            main.py
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-md bg-secondary border border-border">Python 3.10</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Action buttons (icon only on mobile) */}
           {onToggleTerminal && (
             <Button
               size="sm"
               variant="ghost"
               onClick={onToggleTerminal}
-              className={`h-8 px-2 sm:px-3 text-xs gap-1.5 ${showTerminal ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-8 w-8 sm:w-auto px-0 sm:px-2.5 gap-1.5 ${showTerminal ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               title={showTerminal ? "Hide Terminal" : "Show Terminal"}
             >
-              <SquareTerminal className="w-3.5 h-3.5" />
+              <SquareTerminal className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               <span className="hidden sm:inline text-xs">Terminal</span>
             </Button>
           )}
 
-          {/* Import .py */}
           <input
-            ref={fileInputRef}
             type="file"
             accept=".py"
-            className="hidden"
+            ref={fileInputRef}
             onChange={handleImportPy}
+            className="hidden"
           />
           <Button
             size="sm"
             variant="ghost"
             onClick={() => fileInputRef.current?.click()}
-            className="h-8 px-2 sm:px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-            title="Import .py file"
+            title="Import .py (Ctrl+O)"
+            className="h-8 w-8 sm:w-auto px-0 sm:px-2.5 gap-1.5 text-muted-foreground hover:text-foreground"
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Import</span>
+            <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden sm:inline text-xs">Import</span>
           </Button>
 
-          {/* Save as .py */}
           <Button
             size="sm"
             variant="ghost"
             onClick={handleSavePy}
             disabled={!code.trim()}
-            className="h-8 px-2 sm:px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
-            title="Save as .py file"
+            title="Save .py (Ctrl+S)"
+            className="h-8 w-8 sm:w-auto px-0 sm:px-2.5 gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Save .py</span>
+            <Download className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden sm:inline text-xs">Save</span>
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onClear}
-            className="h-8 px-2 sm:px-3 text-xs gap-1.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Clear</span>
-          </Button>
+          <div className="w-px h-4 bg-border mx-0 sm:mx-1 hidden xs:block" />
+
+          {onClear && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onClear}
+              title="Clear terminal output"
+              className="h-8 w-8 sm:w-auto px-0 sm:px-2.5 gap-1.5 ml-0 sm:ml-1"
+            >
+              <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline text-xs">Clear</span>
+            </Button>
+          )}
+
           <Button
             size="sm"
             onClick={onRun}
             disabled={!isRuntimeReady || isRunning}
             title={!isRuntimeReady ? "Loading Python runtime..." : isRunning ? "Code is executing..." : "Run code (Ctrl+Enter)"}
-            className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
+            className="h-8 px-2.5 sm:px-4 text-xs font-medium gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
           >
-            {(!isRuntimeReady || isRunning) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-            <span className="hidden xs:inline sm:inline">{!isRuntimeReady ? "Loading..." : isRunning ? "Running..." : "Run"}</span>
+            {(!isRuntimeReady || isRunning) ? <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" /> : <Play className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
+            <span className="hidden xs:inline sm:inline">{!isRuntimeReady ? "Wait..." : isRunning ? "Running..." : "Run"}</span>
           </Button>
           {onDebug && (
             <DebugButton
@@ -243,8 +267,9 @@ export const CodeEditor = ({
           beforeMount={handleEditorWillMount}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: isMobile ? 12 : 14,
             fontFamily: "JetBrains Mono, Fira Code, monospace",
+            lineHeight: isMobile ? 20 : 24,
             lineNumbers: "on",
             scrollBeyondLastLine: false,
             automaticLayout: true,
@@ -260,3 +285,4 @@ export const CodeEditor = ({
     </div>
   );
 };
+

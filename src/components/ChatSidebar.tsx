@@ -150,20 +150,20 @@ export function ChatSidebar({
                 <span className="truncate flex-1 text-left text-xs leading-snug">
                   {chat.title || "Untitled Chat"}
                 </span>
-                <div className="opacity-30 group-hover:opacity-100 flex items-center gap-0.5 transition-all duration-150 shrink-0">
+                <div className="opacity-100 md:opacity-30 md:group-hover:opacity-100 flex items-center gap-0.5 transition-all duration-150 shrink-0">
                   <button
-                    className="p-1 rounded hover:text-primary hover:bg-primary/10 transition-all"
+                    className="p-1 rounded hover:text-primary hover:bg-primary/10 active:bg-primary/20 transition-all text-muted-foreground md:text-inherit"
                     onClick={(e) => startRename(chat, e)}
                     title="Rename chat"
                   >
-                    <Pencil className="w-3 h-3" />
+                    <Pencil className="w-3.5 h-3.5 md:w-3 md:h-3" />
                   </button>
                   <button
-                    className="p-1 rounded hover:text-destructive hover:bg-destructive/10 transition-all"
+                    className="p-1 rounded hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 transition-all text-muted-foreground md:text-inherit"
                     onClick={(e) => { e.stopPropagation(); setChatToDelete(chat.id); }}
                     title="Delete chat"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
                   </button>
                 </div>
               </>

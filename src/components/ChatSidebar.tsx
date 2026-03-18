@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageSquare, Trash2, X } from "lucide-react";
+import { Plus, MessageSquare, Trash2, X, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ interface ChatSidebarProps {
   onSelect: (id: string) => void;
   onNewChat: () => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, newTitle: string) => Promise<void>;
   isOpen: boolean;
   onClose?: () => void;
   className?: string;
@@ -36,11 +37,52 @@ export function ChatSidebar({
   onSelect,
   onNewChat,
   onDelete,
+  onRename,
   isOpen,
   onClose,
   className
 }: ChatSidebarProps) {
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the rename input when it appears
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
+
+  const startRename = (chat: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(chat.id);
+    setEditValue(chat.title || "Untitled Chat");
+  };
+
+  const confirmRename = async () => {
+    if (!editingId || !editValue.trim() || savingRename) return;
+    setSavingRename(true);
+    try {
+      await onRename(editingId, editValue.trim());
+    } finally {
+      setSavingRename(false);
+      setEditingId(null);
+      setEditValue("");
+    }
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); confirmRename(); }
+    if (e.key === "Escape") cancelRename();
+  };
 
   if (!isOpen) return null;
 
@@ -84,27 +126,74 @@ export function ChatSidebar({
           <div
             key={chat.id}
             className={cn(
-              "group flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg cursor-pointer transition-all duration-150",
+              "group flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg cursor-pointer transition-all duration-150",
               currentId === chat.id
                 ? "bg-primary/10 text-primary font-medium border border-primary/20"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             )}
-            onClick={() => onSelect(chat.id)}
+            onClick={() => editingId !== chat.id && onSelect(chat.id)}
           >
-            <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-70" />
-            <span className="truncate flex-1 text-left text-xs leading-snug">
-              {chat.title || "Untitled Chat"}
-            </span>
-            <button
-              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-destructive hover:bg-destructive/10 transition-all duration-150 shrink-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                setChatToDelete(chat.id);
-              }}
-              title="Delete chat"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-70 mt-0.5" />
+
+            {/* Inline rename input or plain text */}
+            {editingId === chat.id ? (
+              <div
+                className="flex-1 flex items-center gap-1 min-w-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleRenameKeyDown}
+                  onBlur={confirmRename}
+                  disabled={savingRename}
+                  className="flex-1 min-w-0 bg-background border border-primary/40 rounded px-1.5 py-0.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+                  maxLength={80}
+                />
+                <button
+                  onClick={(e) => { e.stopPropagation(); confirmRename(); }}
+                  disabled={savingRename || !editValue.trim()}
+                  className="p-0.5 rounded hover:text-primary transition-colors disabled:opacity-40 shrink-0"
+                  title="Save"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); cancelRename(); }}
+                  className="p-0.5 rounded hover:text-destructive transition-colors shrink-0"
+                  title="Cancel"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="truncate flex-1 text-left text-xs leading-snug">
+                  {chat.title || "Untitled Chat"}
+                </span>
+                {/* Action buttons — visible on hover */}
+                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all duration-150 shrink-0">
+                  <button
+                    className="p-1 rounded hover:text-primary hover:bg-primary/10 transition-all duration-150"
+                    onClick={(e) => startRename(chat, e)}
+                    title="Rename chat"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    className="p-1 rounded hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChatToDelete(chat.id);
+                    }}
+                    title="Delete chat"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>

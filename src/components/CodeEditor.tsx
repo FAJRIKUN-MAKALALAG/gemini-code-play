@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Trash2, SquareTerminal, Loader2, Download, Upload } from "lucide-react";
 import { useTheme } from "next-themes";
 import { DebugButton } from "./DebugButton";
+import { useToast } from "@/hooks/use-toast";
 
 interface CodeEditorProps {
   code: string;
@@ -15,6 +16,7 @@ interface CodeEditorProps {
   lastError?: string | null;
   onDebug?: (message: string) => void;
   isRuntimeReady?: boolean;
+  isRunning?: boolean;
 }
 
 export const CodeEditor = ({
@@ -27,8 +29,10 @@ export const CodeEditor = ({
   lastError,
   onDebug,
   isRuntimeReady = true,
+  isRunning = false,
 }: CodeEditorProps) => {
   const { resolvedTheme } = useTheme();
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditorWillMount = (monaco: any) => {
@@ -111,13 +115,17 @@ export const CodeEditor = ({
 
   // ── Save as .py ────────────────────────────────────────────────────────────
   const handleSavePy = () => {
-    const blob = new Blob([code], { type: 'text/x-python' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'code.py';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([code], { type: 'text/x-python' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'code.py';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Gagal Menyimpan', description: 'Tidak bisa menyimpan file. Coba lagi.', variant: 'destructive' });
+    }
   };
 
   // ── Import .py ─────────────────────────────────────────────────────────────
@@ -126,7 +134,7 @@ export const CodeEditor = ({
     if (!file) return;
 
     if (!file.name.endsWith('.py')) {
-      alert('Hanya file .py yang diperbolehkan!');
+      toast({ title: 'Format Tidak Didukung', description: 'Hanya file .py yang dapat diimport.', variant: 'destructive' });
       e.target.value = '';
       return;
     }
@@ -135,6 +143,10 @@ export const CodeEditor = ({
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
       onChange(content);
+      toast({ title: 'File Diimport', description: `${file.name} berhasil dimuat.`, duration: 2000 });
+    };
+    reader.onerror = () => {
+      toast({ title: 'Gagal Membaca File', description: 'File tidak bisa dibaca. Coba lagi.', variant: 'destructive' });
     };
     reader.readAsText(file);
     e.target.value = ''; // reset so same file can be re-imported
@@ -203,12 +215,12 @@ export const CodeEditor = ({
           <Button
             size="sm"
             onClick={onRun}
-            disabled={!isRuntimeReady}
-            title={!isRuntimeReady ? "Loading Python runtime..." : "Run code (Ctrl+Enter)"}
+            disabled={!isRuntimeReady || isRunning}
+            title={!isRuntimeReady ? "Loading Python runtime..." : isRunning ? "Code is executing..." : "Run code (Ctrl+Enter)"}
             className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
           >
-            {!isRuntimeReady ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-            <span className="hidden xs:inline sm:inline">{isRuntimeReady ? "Run" : "Loading..."}</span>
+            {(!isRuntimeReady || isRunning) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            <span className="hidden xs:inline sm:inline">{!isRuntimeReady ? "Loading..." : isRunning ? "Running..." : "Run"}</span>
           </Button>
           {onDebug && (
             <DebugButton

@@ -17,6 +17,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
+import { useToast } from "@/hooks/use-toast";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
@@ -36,10 +37,12 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const userId = user?.id ?? null;
   const displayName = username || userEmail?.split('@')[0] || '';
   const [loading, setLoading] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKeySuffix, setApiKeySuffix] = useState("");
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
+  const { toast } = useToast();
 
   const loadApiKey = async (uid: string) => {
     try {
@@ -62,27 +65,34 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   }, [userId]);
 
   const saveApiKey = async () => {
-    if (userId && tempApiKey.trim()) {
-      try {
-        const token = authService.getAccessToken();
-        const response = await fetch(`${API_BASE_URL}/keys`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ apiKey: tempApiKey.trim() })  // userId diambil dari token
-        });
-        if (response.ok) {
-          const key = tempApiKey.trim();
-          setHasApiKey(true);
-          setApiKeySuffix(key.substring(key.length - 4));
-          setEditingApiKey(false);
-          setTempApiKey("");
-        }
-      } catch (error) {
-        console.error("Failed to save API key:", error);
+    if (savingKey || !userId || !tempApiKey.trim()) return;
+    setSavingKey(true);
+    try {
+      const token = authService.getAccessToken();
+      const response = await fetch(`${API_BASE_URL}/keys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ apiKey: tempApiKey.trim() })
+      });
+      if (response.ok) {
+        const key = tempApiKey.trim();
+        setHasApiKey(true);
+        setApiKeySuffix(key.substring(key.length - 4));
+        setEditingApiKey(false);
+        setTempApiKey("");
+        toast({ title: 'API Key Disimpan', description: 'Gemini API key berhasil disimpan.', duration: 2500 });
+      } else {
+        const errText = await response.text().catch(() => 'Gagal menyimpan ke server.');
+        toast({ title: 'Gagal Menyimpan', description: errText || 'Coba lagi.', variant: 'destructive' });
       }
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({ title: 'Koneksi Gagal', description: 'Tidak bisa menghubungi server. Periksa koneksi.', variant: 'destructive' });
+    } finally {
+      setSavingKey(false);
     }
   };
 
@@ -247,10 +257,10 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                         onKeyDown={(e) => e.key === 'Enter' && saveApiKey()}
                       />
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={saveApiKey} disabled={!tempApiKey.trim()} className="flex-1 h-8 text-[10px] font-bold">
-                          SAVE
+                        <Button size="sm" onClick={saveApiKey} disabled={!tempApiKey.trim() || savingKey} className="flex-1 h-8 text-[10px] font-bold">
+                          {savingKey ? 'SAVING...' : 'SAVE'}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEditApiKey} className="h-8 w-8 p-0">
+                        <Button size="sm" variant="ghost" onClick={cancelEditApiKey} disabled={savingKey} className="h-8 w-8 p-0">
                           <X className="w-3.5 h-3.5" />
                         </Button>
                       </div>

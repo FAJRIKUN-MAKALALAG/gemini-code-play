@@ -20,6 +20,7 @@ const Profile = () => {
     const [apiKeySuffix, setApiKeySuffix] = useState("");
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
 
@@ -81,8 +82,16 @@ const Profile = () => {
     };
 
     const handleLogout = async () => {
-        await authService.logout();
-        navigate("/");
+        if (isLoggingOut) return;
+        setIsLoggingOut(true);
+        try {
+            await authService.logout();
+            navigate("/");
+        } catch (error) {
+            console.error('Logout failed:', error);
+            toast({ title: 'Logout Gagal', description: 'Terjadi kesalahan saat logout. Coba lagi.', variant: 'destructive' });
+            setIsLoggingOut(false);
+        }
     };
 
     if (!user) return null;
@@ -213,9 +222,9 @@ const Profile = () => {
                                 <CardTitle>Account Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleLogout}>
+                                <Button variant="outline" disabled={isLoggingOut} className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleLogout}>
                                     <LogOut className="w-4 h-4 mr-2" />
-                                    Sign Out
+                                    {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
                                 </Button>
                             </CardContent>
                         </Card>

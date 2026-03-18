@@ -396,6 +396,25 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     setShowHistory(false);
   };
 
+  // ── Rename conversation ────────────────────────────────────────────────────
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    // Optimistic update — update UI immediately
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+    );
+    if (conversationId === id) setCurrentTitle(newTitle);
+
+    const { error } = await backendService.updateConversation(id, { title: newTitle });
+    if (error) {
+      // Revert on failure by re-fetching
+      if (currentUserId) {
+        const { data: convList } = await backendService.getConversations(currentUserId, 50);
+        setConversations(convList || []);
+      }
+      toast({ title: "Gagal Mengubah Nama", description: "Nama percakapan tidak bisa disimpan. Coba lagi.", variant: "destructive" });
+    }
+  };
+
   // ── Unauthenticated state ──────────────────────────────────────────────────
   if (!authService.isAuthenticated()) {
     return (
@@ -426,6 +445,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         <ChatSidebar
           conversations={conversations} currentId={conversationId}
           onSelect={handleSwitchConversation} onNewChat={() => setShowNewModal(true)}
+          onRename={handleRenameConversation}
           onDelete={async (id) => {
             const { error } = await backendService.deleteConversation(id);
             if (!error && currentUserId) {
@@ -445,6 +465,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           conversations={conversations} currentId={conversationId}
           onSelect={(id) => { handleSwitchConversation(id); setShowHistory(false); }}
           onNewChat={() => { setShowNewModal(true); setShowHistory(false); }}
+          onRename={handleRenameConversation}
           onDelete={async (id) => {
             const { error } = await backendService.deleteConversation(id);
             if (!error && currentUserId) {

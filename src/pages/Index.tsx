@@ -158,6 +158,7 @@ print(greet("World"))
                       lastError={lastError}
                       onDebug={handleDebug}
                       isRuntimeReady={skulptReady}
+                      isRunning={isRunning}
                     />
                   </Panel>
                   {showTerminal && (
@@ -193,6 +194,7 @@ print(greet("World"))
                   onToggleTerminal={() => setShowTerminal(prev => !prev)}
                   lastError={lastError}
                   onDebug={handleDebug}
+                  isRunning={isRunning}
                 />
               </Panel>
               {showTerminal && (

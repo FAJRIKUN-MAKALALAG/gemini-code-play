@@ -288,7 +288,11 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <footer className="py-12 bg-secondary/50 text-center text-muted-foreground border-t border-border">
         <div className="flex flex-col items-center gap-4">
           <img src="/AicodeLogo.png" alt="Logo" className="w-12 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500" />
-          <p className="text-sm">© {new Date().getFullYear()} AI Code Play. Built for developers.</p>
+          <p className="text-sm">© {new Date().getFullYear()} aicode-unklab. Built for developers.</p>
+          <div className="flex gap-6 mt-2">
+            <a href="/privacy" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Privacy Policy</a>
+            <a href="/terms" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Terms of Service</a>
+          </div>
         </div>
       </footer>
     </div>

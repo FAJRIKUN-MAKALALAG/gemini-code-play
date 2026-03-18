@@ -5,8 +5,8 @@ export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-background text-foreground py-20 px-4 sm:px-6 lg:px-8">
       <Helmet>
-        <title>Kebijakan Privasi | AICODE UNKLAB</title>
-        <meta name="description" content="Kebijakan Privasi untuk layanan AICODE UNKLAB" />
+        <title>Kebijakan Privasi | aicode-unklab</title>
+        <meta name="description" content="Kebijakan Privasi untuk layanan aicode-unklab" />
       </Helmet>
 
       <div className="max-w-3xl mx-auto prose prose-invert">

@@ -114,10 +114,16 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
           <Link to="/" state={{ showLanding: true }} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
             <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-7 h-7 sm:w-9 sm:h-9 dark-invert" />
             <div className="hidden sm:block">
-              <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight">AI Coding Assistant</h1>
+              <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight">aicode-unklab</h1>
               <p className="text-[10px] text-muted-foreground hidden lg:block">Write, run &amp; improve Python with AI</p>
             </div>
           </Link>
+
+          {/* Legal Links (for Google Verification) */}
+          <div className="hidden xl:flex items-center gap-4 ml-2">
+            <a href="https://unklab-aicode.online/privacy" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
+            <a href="https://unklab-aicode.online/terms" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
+          </div>
 
           {/* View Mode Toggle — centered */}
           {onViewModeChange && viewMode && (

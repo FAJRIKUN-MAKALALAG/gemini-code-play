@@ -12,20 +12,13 @@ export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleCallback = async () => {
+    let isMounted = true;
+    let authListener: any = null;
+
+    const handleSession = async (session: any) => {
+      if (!session || !isMounted) return;
+
       try {
-        const supabase = await getSupabaseClient();
-
-        // Get session that Supabase set after Google OAuth redirect
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError || !session) {
-          throw new Error(sessionError?.message || 'No session found. Please try signing in again.');
-        }
-
         // Sync Google user profile to backend database
         const response = await fetch(`${API_BASE_URL}/auth/google/callback`, {
           method: 'POST',
@@ -63,12 +56,38 @@ export default function AuthCallback() {
         // Redirect to home
         navigate('/', { replace: true });
       } catch (err: any) {
-        console.error('[AuthCallback] Error:', err);
-        setError(err?.message || 'Authentication failed. Please try again.');
+        if (isMounted) {
+          console.error('[AuthCallback] Error:', err);
+          setError(err?.message || 'Authentication failed. Please try again.');
+        }
       }
     };
 
-    handleCallback();
+    const initAuth = async () => {
+      const supabase = await getSupabaseClient();
+      
+      // Listen for the initial session or sign-in event
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          await handleSession(session);
+        }
+      });
+      
+      authListener = subscription;
+
+      // Also check if there's already a session available
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await handleSession(session);
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+      if (authListener) authListener.unsubscribe();
+    };
   }, [login, navigate]);
 
   if (error) {

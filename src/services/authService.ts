@@ -183,14 +183,9 @@ class AuthService {
   // ===== GOOGLE OAUTH =====
   async loginWithGoogle(): Promise<{ error: Error | null }> {
     try {
-      const supabase = await getSupabaseClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/auth/callback',
-        },
-      });
-      if (error) throw error;
+      // Direct redirect to backend custom Google OAuth endpoint
+      // This allows the backend to control the branding and domain
+      window.location.href = `${API_BASE_URL}/auth/google/login`;
       return { error: null };
     } catch (error) {
       console.error('Google OAuth error:', error);

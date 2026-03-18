@@ -44,41 +44,44 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background overflow-hidden relative">
+        <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-background">
             <Helmet>
                 <title>Lupa Password — AI Coding Assistant</title>
                 <meta name="robots" content="noindex" />
             </Helmet>
 
-            {/* Background blobs */}
-            <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse pointer-events-none" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse pointer-events-none" />
+            <div className="min-h-full w-full flex flex-col items-center justify-center py-6 sm:py-12 relative">
+                {/* Background blobs */}
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+                    <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse" />
+                    <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse" />
+                </div>
 
-            <div
-                className={`relative w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-                    }`}
-            >
+                <div
+                    className={`relative z-10 w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
+                        }`}
+                >
                 <div className="bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl overflow-hidden">
                     {/* Header */}
-                    <div className="p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
-                        <div className="w-20 h-20 bg-background rounded-2xl shadow-lg mx-auto mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
+                    <div className="p-6 sm:p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-background rounded-2xl shadow-lg mx-auto mb-4 sm:mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
                             <img
                                 src="/AicodeLogo.png"
                                 alt="AIcode Logo"
-                                className="w-16 h-16 dark-invert"
+                                className="w-12 h-12 sm:w-16 sm:h-16 dark-invert"
                                 draggable={false}
                             />
                         </div>
-                        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-2">
+                        <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-1 sm:mb-2 text-balance leading-tight">
                             Lupa Password
                         </h2>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-[13px] sm:text-sm px-2">
                             Masukkan email akun Anda dan kami akan kirimkan link reset password.
                         </p>
                     </div>
 
                     {/* Body */}
-                    <div className="p-8 pt-0">
+                    <div className="p-6 sm:p-8 pt-0">
                         {sent ? (
                             /* ── Success State ── */
                             <div className="flex flex-col items-center gap-4 py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -105,7 +108,7 @@ const ForgotPassword = () => {
                             </div>
                         ) : (
                             /* ── Form State ── */
-                            <form onSubmit={handleSubmit} className="space-y-5">
+                            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email</Label>
                                     <div className="relative">
@@ -131,7 +134,7 @@ const ForgotPassword = () => {
                                 <Button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full h-11 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+                                    className="w-full h-10 sm:h-11 text-sm sm:text-base font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
                                 >
                                     {loading ? (
                                         <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Mengirim...</>
@@ -154,6 +157,7 @@ const ForgotPassword = () => {
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

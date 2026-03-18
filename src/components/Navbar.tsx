@@ -112,9 +112,9 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
           {/* Logo */}
           <Link to="/" state={{ showLanding: true }} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
-            <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-8 h-8 sm:w-9 sm:h-9 dark-invert" />
+            <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-7 h-7 sm:w-9 sm:h-9 dark-invert" />
             <div className="hidden sm:block">
-              <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">AI Coding Assistant</h1>
+              <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight">AI Coding Assistant</h1>
               <p className="text-[10px] text-muted-foreground hidden lg:block">Write, run &amp; improve Python with AI</p>
             </div>
           </Link>
@@ -160,7 +160,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 group p-1.5 rounded-full border border-border/50 hover:bg-muted/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 shrink-0">
-                  <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                  <Avatar className="h-6 w-6 sm:h-8 sm:w-8 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
                     <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white text-xs font-bold">
                       {displayName.substring(0, 2).toUpperCase()}
                     </AvatarFallback>

@@ -30,7 +30,9 @@ export const ErrorAlert = ({ message, onClose, title = "Terjadi Kesalahan" }: Er
         {/* Content */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-red-700 dark:text-red-300 leading-snug">{title}</p>
-          <p className="text-sm text-red-600 dark:text-red-400 mt-0.5 leading-relaxed">{message}</p>
+          <div className="max-h-40 overflow-y-auto mt-0.5 pr-1">
+            <p className="text-sm text-red-600 dark:text-red-400 leading-relaxed whitespace-pre-wrap">{message}</p>
+          </div>
         </div>
 
         {/* Close button */}

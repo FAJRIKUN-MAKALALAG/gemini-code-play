@@ -140,16 +140,16 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <img
               src="/AicodeLogo.png"
               alt="AIcode Logo"
-              className="w-48 h-48 relative z-10 drop-shadow-2xl transition-transform duration-700 hover:scale-110 cursor-pointer dark-invert"
+              className="w-32 h-32 sm:w-48 sm:h-48 relative z-10 drop-shadow-2xl transition-transform duration-700 hover:scale-110 cursor-pointer dark-invert"
               draggable={false}
             />
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-4 sm:mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-1000">
             AI Code Assistant
           </h1>
 
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+          <p className="text-sm sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mb-8 sm:mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
             Experience the future of coding. Write Python, run it instantly, and get AI-powered assistance in real-time.
           </p>
 
@@ -157,7 +157,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <Button
               onClick={onGetStarted}
               size="lg"
-              className="text-lg px-10 py-6 rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 transition-all duration-300"
+              className="text-base px-6 py-4 sm:text-lg sm:px-10 sm:py-6 rounded-full shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 transition-all duration-300"
             >
               Start Coding Now
             </Button>
@@ -179,7 +179,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         className={`py-32 px-6 bg-secondary/30 transition-opacity duration-1000 ${featuresVisible ? 'opacity-100' : 'opacity-0'}`}
       >
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-bold text-center mb-24 bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground">
+          <h2 className="text-2xl md:text-5xl font-bold text-center mb-16 sm:mb-24 bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground">
             How to use AI Coding Assistants
           </h2>
 
@@ -193,7 +193,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               <div className="w-16 h-16 bg-blue-900/20 rounded-2xl flex items-center justify-center mb-6 text-blue-400">
                 <Code className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold mb-4">1. Write & Edit</h3>
+              <h3 className="text-xl sm:text-2xl font-bold mb-4">1. Write & Edit</h3>
               <p className="text-muted-foreground leading-relaxed">
                 Use the powerful code editor to write your Python scripts. It supports syntax highlighting, auto-formatting, and intelligent suggestions to keep your code clean.
               </p>
@@ -208,7 +208,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               <div className="w-16 h-16 bg-green-900/20 rounded-2xl flex items-center justify-center mb-6 text-green-400">
                 <Play className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold mb-4">2. Run Instantly</h3>
+              <h3 className="text-xl sm:text-2xl font-bold mb-4">2. Run Instantly</h3>
               <p className="text-muted-foreground leading-relaxed">
                 Execute your code directly in the browser with our embedded Python runtime. See output instantly in the integrated terminal without any server setup.
               </p>
@@ -223,7 +223,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               <div className="w-16 h-16 bg-purple-900/20 rounded-2xl flex items-center justify-center mb-6 text-purple-400">
                 <MessageSquare className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold mb-4">3. AI Assistance</h3>
+              <h3 className="text-xl sm:text-2xl font-bold mb-4">3. AI Assistance</h3>
               <p className="text-muted-foreground leading-relaxed">
                 Stuck? Ask the AI assistant to debug your code, explain concepts, or suggest improvements. It's like having a senior developer pair-programming with you.
               </p>

@@ -210,27 +210,27 @@ print(f"Halo, {nama}! Selamat belajar Python!")
 
           {/* ── Fixed bottom navigation bar ── */}
           <div className="shrink-0 border-t border-border bg-background/95 backdrop-blur-sm safe-area-bottom">
-            <div className="flex items-stretch h-14">
+            <div className="flex items-stretch h-12 sm:h-14">
               <button
                 onClick={() => setMobileTab("code")}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[9px] sm:text-[10px] font-semibold transition-colors ${
                   mobileTab === "code"
                     ? "text-primary border-t-2 border-primary bg-primary/5"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Code className="w-5 h-5" />
+                <Code className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Editor</span>
               </button>
               <button
                 onClick={() => setMobileTab("terminal")}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors relative ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[9px] sm:text-[10px] font-semibold transition-colors relative ${
                   mobileTab === "terminal"
                     ? "text-primary border-t-2 border-primary bg-primary/5"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <SquareTerminal className="w-5 h-5" />
+                <SquareTerminal className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Terminal</span>
                 {/* Dot indicator when code is running */}
                 {isRunning && (
@@ -239,13 +239,13 @@ print(f"Halo, {nama}! Selamat belajar Python!")
               </button>
               <button
                 onClick={() => setMobileTab("chat")}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[9px] sm:text-[10px] font-semibold transition-colors ${
                   mobileTab === "chat"
                     ? "text-primary border-t-2 border-primary bg-primary/5"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>AI Chat</span>
               </button>
             </div>
@@ -304,5 +304,3 @@ print(f"Halo, {nama}! Selamat belajar Python!")
 };
 
 export default Index;
-
-// Removed duplicate definition

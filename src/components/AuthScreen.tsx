@@ -140,28 +140,31 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background/80 backdrop-blur-sm">
-      {/* Background blobs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse-slow pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse-slow pointer-events-none" />
+    <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-background/80 backdrop-blur-sm">
+      <div className="min-h-full w-full flex flex-col items-center justify-center py-6 sm:py-12 relative">
+        {/* Background blobs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] animate-pulse-slow" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse-slow" />
+        </div>
 
-      {/* ── Global Error Alert — top center ── */}
-      <ErrorAlert message={errorMessage} title={errorTitle ?? undefined} onClose={clearError} />
+        {/* ── Global Error Alert — top center ── */}
+        <ErrorAlert message={errorMessage} title={errorTitle ?? undefined} onClose={clearError} />
 
-      <div
-        className={`relative w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${visible && !isExiting ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-          }`}
-      >
+        <div
+          className={`relative z-10 w-full max-w-md mx-4 transition-all duration-500 ease-out transform ${visible && !isExiting ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
+            }`}
+        >
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl overflow-hidden">
           {/* Header */}
-          <div className="p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
-            <div className="w-20 h-20 bg-background rounded-2xl shadow-lg mx-auto mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
-              <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-16 h-16 dark-invert" draggable={false} />
+          <div className="p-6 sm:p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-background rounded-2xl shadow-lg mx-auto mb-4 sm:mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
+              <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-12 h-12 sm:w-16 sm:h-16 dark-invert" draggable={false} />
             </div>
-            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-1 sm:mb-2 text-balance leading-tight">
               {mode === "signin" ? "Welcome Back" : "Create Account"}
             </h2>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-[13px] sm:text-sm px-2">
               {mode === "signin"
                 ? "Enter your credentials to access your workspace"
                 : "Join us and start your AI coding journey"}
@@ -169,8 +172,8 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           </div>
 
           {/* Form */}
-          <div className="p-8 pt-0">
-            <form onSubmit={handleAuth} className="space-y-5">
+          <div className="p-6 sm:p-8 pt-0">
+            <form onSubmit={handleAuth} className="space-y-4 sm:space-y-5">
               <div className="space-y-4">
                 {/* Email */}
                 <div className="space-y-2">
@@ -221,7 +224,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
 
               <Button
                 type="submit" disabled={loading}
-                className="w-full h-11 text-lg font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+                className="w-full h-10 sm:h-11 text-base sm:text-lg font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -244,7 +247,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
               variant="outline"
               disabled={googleLoading || loading}
               onClick={handleGoogleLogin}
-              className="w-full h-11 mt-4 font-medium border-border/50 bg-background/50 hover:bg-background/80 transition-all flex items-center justify-center gap-3"
+              className="w-full h-10 sm:h-11 mt-3 sm:mt-4 text-sm sm:text-base font-medium border-border/50 bg-background/50 hover:bg-background/80 transition-all flex items-center justify-center gap-2 sm:gap-3"
             >
               {googleLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -272,6 +275,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

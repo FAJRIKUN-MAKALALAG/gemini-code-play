@@ -62,7 +62,7 @@ export const Terminal = ({ output, prompt, onSubmitInput, disabled }: TerminalPr
                 ref={inputRef}
                 name="terminal-input"
                 type="text"
-                className="w-full sm:flex-1 bg-transparent text-foreground text-sm px-0 py-0 outline-none border-0 focus:ring-1 focus:ring-primary/20 rounded p-1"
+                className="w-full sm:flex-1 bg-transparent text-foreground text-base sm:text-sm px-0 py-0 outline-none border-0 focus:ring-1 focus:ring-primary/20 rounded p-1"
                 disabled={disabled}
                 autoComplete="off"
               />

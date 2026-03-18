@@ -169,6 +169,7 @@ print(f"Halo, {nama}! Selamat belajar Python!")
         <title>AI Coding Assistant</title>
         <meta name="description" content="UNKLAB AI Code (unklab-aicode) - Interactive Python coding environment with AI chatbot assistance. Write, execute, and improve Python code with instant AI feedback." />
         <meta name="keywords" content="unklab-aicode, unklab ai code, UNKLAB, AI coding assistant, Python IDE, online Python editor, AI programming help, code debugging" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
         <link rel="canonical" href="https://unklab-aicode.online/" />
       </Helmet>
       <Particles />
@@ -194,18 +195,20 @@ print(f"Halo, {nama}! Selamat belajar Python!")
 
       {/* ── MOBILE LAYOUT ──────────────────────────────────────────────────── */}
       {isMobile ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
           {/* Single panel — switches by tab */}
-          <div className="flex-1 min-h-0 overflow-hidden p-2">
-            {mobileTab === "code" && (
-              <div className="h-full">{editorNode}</div>
-            )}
-            {mobileTab === "terminal" && (
-              <div className="h-full">{terminalNode}</div>
-            )}
-            {mobileTab === "chat" && (
-              <div className="h-full">{chatNode}</div>
-            )}
+          <div className="flex-1 min-h-0 relative">
+            <div className="absolute inset-0 overflow-hidden">
+              {mobileTab === "code" && (
+                <div className="h-full p-1.5">{editorNode}</div>
+              )}
+              {mobileTab === "terminal" && (
+                <div className="h-full p-1.5">{terminalNode}</div>
+              )}
+              {mobileTab === "chat" && (
+                <div className="h-full">{chatNode}</div>
+              )}
+            </div>
           </div>
 
           {/* ── Fixed bottom navigation bar ── */}

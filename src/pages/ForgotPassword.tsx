@@ -119,7 +119,7 @@ const ForgotPassword = () => {
                                             placeholder="name@example.com"
                                             value={email}
                                             onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                                            className="pl-9 bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
+                                            className="pl-9 bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all text-base sm:text-sm"
                                             required
                                             disabled={loading}
                                         />

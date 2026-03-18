@@ -593,7 +593,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={noApiKey ? "Add an API key to start chatting..." : "Ask UNKLAB AI..."}
-                className="flex-1 min-h-[36px] sm:min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1.5 sm:py-2.5 resize-none text-[13px] sm:text-sm placeholder:text-muted-foreground/60 leading-relaxed"
+                className="flex-1 min-h-[36px] sm:min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1.5 sm:py-2.5 resize-none text-base sm:text-sm placeholder:text-muted-foreground/60 leading-relaxed"
                 disabled={isLoading || noApiKey}
                 rows={1}
               />

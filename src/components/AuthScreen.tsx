@@ -181,7 +181,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                   <Input
                     id="email" type="email" placeholder="name@example.com"
                     value={email} onChange={(e) => setEmail(e.target.value)}
-                    className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
+                    className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all text-base sm:text-sm"
                     required disabled={loading}
                   />
                 </div>
@@ -193,7 +193,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                     <Input
                       id="username" type="text" placeholder="Display Name"
                       value={username} onChange={(e) => setUsername(e.target.value)}
-                      className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
+                      className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all text-base sm:text-sm"
                       required disabled={loading}
                     />
                   </div>
@@ -216,7 +216,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                   <Input
                     id="password" type="password" placeholder="••••••••"
                     value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all"
+                    className="bg-background/50 border-border/50 focus:border-primary focus:ring-primary/20 transition-all text-base sm:text-sm"
                     required disabled={loading}
                   />
                 </div>

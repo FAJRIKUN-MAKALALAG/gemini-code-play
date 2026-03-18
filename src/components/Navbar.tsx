@@ -252,7 +252,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                         placeholder="Enter your Gemini API key..."
                         value={tempApiKey}
                         onChange={(e) => setTempApiKey(e.target.value)}
-                        className="h-8 text-xs bg-background"
+                        className="h-8 text-base sm:text-xs bg-background"
                         autoFocus
                         onKeyDown={(e) => e.key === 'Enter' && saveApiKey()}
                       />

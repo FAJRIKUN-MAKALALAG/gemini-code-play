@@ -163,16 +163,16 @@ export const CodeEditor = ({
   return (
     <div className="flex flex-col h-full bg-editor-bg rounded-lg overflow-hidden border border-border shadow-card">
       {/* ── Toolbar ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-secondary border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-1.5 sm:px-4 py-1.5 sm:py-3 bg-secondary border-b border-border shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex gap-1 sm:gap-1.5 items-center mr-1 sm:mr-3">
             <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-red-400/80" />
             <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-amber-400/80" />
             <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-green-400/80" />
           </div>
-          <span className="text-xs sm:text-sm font-semibold text-foreground/80 font-mono tracking-tight flex items-center gap-1 sm:gap-2">
+          <span className="text-[10px] sm:text-sm font-semibold text-foreground/80 font-mono tracking-tight flex items-center gap-1 sm:gap-2">
             main.py
-            <span className="text-[9px] sm:text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-md bg-secondary border border-border">Python 3.10</span>
+            <span className="hidden xs:inline text-[9px] sm:text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-md bg-secondary border border-border">Python 3.10</span>
           </span>
         </div>
 
@@ -241,10 +241,10 @@ export const CodeEditor = ({
             onClick={onRun}
             disabled={!isRuntimeReady || isRunning}
             title={!isRuntimeReady ? "Loading Python runtime..." : isRunning ? "Code is executing..." : "Run code (Ctrl+Enter)"}
-            className="h-8 px-2.5 sm:px-4 text-xs font-medium gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
+            className="h-7 px-2 sm:h-8 sm:px-4 text-[11px] sm:text-xs font-medium gap-1 sm:gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-glow-accent transition-all disabled:opacity-60"
           >
-            {(!isRuntimeReady || isRunning) ? <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" /> : <Play className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
-            <span className="hidden xs:inline sm:inline">{!isRuntimeReady ? "Wait..." : isRunning ? "Running..." : "Run"}</span>
+            {(!isRuntimeReady || isRunning) ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            <span className="hidden xs:inline">{!isRuntimeReady ? "Wait" : isRunning ? "Running" : "Run"}</span>
           </Button>
           {onDebug && (
             <DebugButton

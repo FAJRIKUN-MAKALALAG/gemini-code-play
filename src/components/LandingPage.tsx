@@ -310,8 +310,8 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <img src="/AicodeLogo.png" alt="Logo" className="w-12 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500" />
           <p className="text-sm">© {new Date().getFullYear()} aicode-unklab. Built for developers.</p>
           <div className="flex gap-6 mt-2">
-            <a href="/privacy" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Privacy Policy</a>
-            <a href="/terms" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Terms of Service</a>
+            <a href="https://unklab-aicode.online/privacy" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Privacy Policy</a>
+            <a href="https://unklab-aicode.online/terms" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Terms of Service</a>
           </div>
         </div>
       </footer>

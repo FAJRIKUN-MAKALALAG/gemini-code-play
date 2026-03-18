@@ -5,8 +5,8 @@ export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-background text-foreground py-20 px-4 sm:px-6 lg:px-8">
       <Helmet>
-        <title>Syarat & Ketentuan Layanan | AICODE UNKLAB</title>
-        <meta name="description" content="Syarat dan Ketentuan Layanan untuk AICODE UNKLAB" />
+        <title>Syarat & Ketentuan Layanan | aicode-unklab</title>
+        <meta name="description" content="Syarat dan Ketentuan Layanan untuk aicode-unklab" />
       </Helmet>
 
       <div className="max-w-3xl mx-auto prose prose-invert">
@@ -19,7 +19,7 @@ export default function TermsOfService() {
         <section className="mb-8">
           <h2 className="text-2xl font-bold mb-4">1. Penerimaan Syarat</h2>
           <p>
-            Dengan mengakses dan menggunakan AICODE UNKLAB ("Layanan"), Anda menerima dan menyetujui untuk terikat oleh syarat dan ketentuan perjanjian ini. Jika Anda tidak menyetujui syarat-syarat ini, harap jangan gunakan Layanan.
+            Dengan mengakses dan menggunakan aicode-unklab ("Layanan"), Anda menerima dan menyetujui untuk terikat oleh syarat dan ketentuan perjanjian ini. Jika Anda tidak menyetujui syarat-syarat ini, harap jangan gunakan Layanan.
           </p>
         </section>
 

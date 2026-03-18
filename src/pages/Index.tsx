@@ -16,13 +16,11 @@ import { useLocation } from "react-router-dom";
 const Index = () => {
   // Don't block on auth loading — auth state resolves in background
   const location = useLocation();
-  const [code, setCode] = useState(`# Welcome to AI Coding Assistant!
-# Write your Python code here and click Run
+  const [code, setCode] = useState(`# Selamat datang di AI Coding Assistant!
+# Tulis kode Python kamu di sini dan klik Run
 
-def greet(name):
-    return f"Hello, {name}!"
-
-print(greet("World"))
+nama = input("Masukkan nama kamu: ")
+print(f"Halo, {nama}! Selamat belajar Python!")
 `);
   const [output, setOutput] = useState<string[]>([]);
   const [prompt, setPrompt] = useState<string | null>(null);

@@ -33,8 +33,10 @@ export default function AuthCallback() {
           throw new Error(errData.error || 'Failed to sync profile with backend');
         }
 
-        const data = await response.json();
-        const user = data.user;
+        // The backend POST endpoint just returns success for the custom flow,
+        // so we extract the user data directly from the Supabase session
+        const user = session.user;
+        const username = user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
 
         // Save session to localStorage (same keys as email/password login)
         safeLocalStorage.setItem('access_token', session.access_token);
@@ -42,15 +44,15 @@ export default function AuthCallback() {
         safeLocalStorage.setItem('expires_at', session.expires_at?.toString() ?? '');
         safeLocalStorage.setItem('user_id', user.id);
         safeLocalStorage.setItem('user_email', user.email);
-        if (user.username) {
-          safeLocalStorage.setItem('user_username', user.username);
+        if (username) {
+          safeLocalStorage.setItem('user_username', username);
         }
 
         // Update React auth state
         login({
           id: user.id,
           email: user.email,
-          username: user.username,
+          username: username,
         });
 
         // Redirect to home

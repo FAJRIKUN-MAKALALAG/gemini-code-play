@@ -56,13 +56,15 @@ export const Terminal = ({ output, prompt, onSubmitInput, disabled }: TerminalPr
         )}
         {onSubmitInput && prompt !== null && (
           <form onSubmit={handleSubmit} className="mt-2 sm:mt-1">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 w-full">
-              <span className="text-terminal-text whitespace-pre-wrap leading-relaxed">{prompt || "Input"}</span>
+            <div className="flex flex-row items-center gap-2 w-full">
+              <span className="text-terminal-text whitespace-pre shrink-0 leading-relaxed font-mono">
+                {prompt || "> "}
+              </span>
               <input
                 ref={inputRef}
                 name="terminal-input"
                 type="text"
-                className="w-full sm:flex-1 bg-transparent text-foreground text-base sm:text-sm px-0 py-0 outline-none border-0 focus:ring-1 focus:ring-primary/20 rounded p-1"
+                className="flex-1 bg-transparent text-foreground text-base sm:text-sm px-0 py-0 outline-none border-0 focus:ring-0 rounded p-1 font-mono"
                 disabled={disabled}
                 autoComplete="off"
               />

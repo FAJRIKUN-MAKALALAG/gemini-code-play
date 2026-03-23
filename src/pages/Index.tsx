@@ -89,7 +89,7 @@ print(f"Halo, {nama}! Selamat belajar Python!")
       await runPythonCode(code, {
         inputProvider: (p?: string) =>
           new Promise<string>((resolve) => {
-            setPrompt(p || "Input");
+            setPrompt(p || "");
             inputResolverRef.current = (val: string) => {
               resolve(val);
               inputResolverRef.current = null;

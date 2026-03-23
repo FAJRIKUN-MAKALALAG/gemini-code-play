@@ -4,9 +4,10 @@ interface TerminalProps {
   prompt?: string | null;
   onSubmitInput?: (value: string) => void;
   disabled?: boolean;
+  isRunning?: boolean;
 }
 
-export const Terminal = ({ output, prompt, onSubmitInput, disabled }: TerminalProps) => {
+export const Terminal = ({ output, prompt, onSubmitInput, disabled, isRunning }: TerminalProps) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -36,7 +37,7 @@ export const Terminal = ({ output, prompt, onSubmitInput, disabled }: TerminalPr
         <h2 className="text-sm font-semibold text-foreground">Terminal Output</h2>
       </div>
       <div ref={containerRef} className="flex-1 overflow-auto p-4 font-mono text-sm">
-        {output.length === 0 ? (
+        {output.length === 0 && !prompt && !isRunning ? (
           <div className="text-muted-foreground italic">
             Run your Python code to see output here...
           </div>

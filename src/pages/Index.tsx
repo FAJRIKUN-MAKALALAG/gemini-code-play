@@ -149,6 +149,7 @@ print(f"Halo, {nama}! Selamat belajar Python!")
     <Terminal
       output={output}
       prompt={prompt}
+      isRunning={isRunning}
       disabled={!prompt || !isRunning}
       onSubmitInput={(val: string) => inputResolverRef.current?.(val)}
     />

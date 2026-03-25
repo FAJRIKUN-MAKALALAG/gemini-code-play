@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHand
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import {
-  Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown,
+  Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
   Save, CheckCircle2, AlertCircle,
 } from "lucide-react";
@@ -609,6 +609,7 @@ function CellCard({
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiPrompt, setShowAiPrompt] = useState(false);
+  const [isFolded, setIsFolded] = useState(false);
 
   const hasError = cell.outputs.some(o => o.type === "stderr");
   const hasOutput = cell.outputs.length > 0;
@@ -630,7 +631,17 @@ function CellCard({
       style={{ background: isDark ? "#0d0d10" : "#fff" }}
     >
       {/* ── Cell header ───────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/30">
+      <div 
+        className={`flex items-center gap-2 px-2 py-1.5 border-b ${isFolded ? "border-transparent" : "border-border/30"} cursor-pointer hover:bg-secondary/20 transition-colors`}
+        onClick={() => setIsFolded(!isFolded)}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); setIsFolded(!isFolded); }}
+          title={isFolded ? "Unfold cell" : "Fold cell"}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+        >
+          {isFolded ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
 
         {/* Execution badge */}
         <div className={`shrink-0 w-8 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center border transition-colors ${
@@ -663,10 +674,15 @@ function CellCard({
             : <Play className="w-3.5 h-3.5 translate-x-px" />}
         </button>
 
-        {/* Cell label */}
-        <span className="text-[10px] text-muted-foreground font-mono flex-1 truncate hidden sm:block">
+        {/* Cell label & Preview */}
+        <span className="text-[10px] text-muted-foreground font-mono flex-1 truncate hidden sm:flex items-center gap-2">
           Cell {index + 1}
-          {cell.isAiLoading && <span className="ml-2 text-violet-400 animate-pulse">AI generating…</span>}
+          {cell.isAiLoading && <span className="text-violet-400 animate-pulse">AI generating…</span>}
+          {isFolded && cell.code && (
+            <span className="text-muted-foreground/50 border-l border-border/50 pl-2 pointer-events-none">
+              {cell.code.split('\n')[0].substring(0, 60)}{cell.code.length > 60 ? '...' : ''}
+            </span>
+          )}
         </span>
 
         {/* Action buttons — visible on hover / active */}
@@ -765,41 +781,43 @@ function CellCard({
       )}
 
       {/* ── Monaco Editor ──────────────────────────────────────────────────── */}
-      <div
-        style={{ height: editorHeight }}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun(); }
-        }}
-      >
-        <Editor
-          height={editorHeight}
-          defaultLanguage="python"
-          value={cell.code}
-          onChange={(v) => onCodeChange(v ?? "")}
-          theme={monacoTheme}
-          beforeMount={onEditorWillMount}
-          options={{
-            minimap: { enabled: false },
-            fontSize: isMobile ? 12 : 13,
-            fontFamily: "JetBrains Mono, Fira Code, monospace",
-            lineHeight: isMobile ? 20 : 22,
-            lineNumbers: "on",
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 4,
-            padding: { top: 8, bottom: 8 },
-            smoothScrolling: true,
-            cursorBlinking: "smooth",
-            cursorSmoothCaretAnimation: "on",
-            wordWrap: "on",
-            scrollbar: { vertical: "hidden", horizontal: "auto" },
-            overviewRulerLanes: 0,
+      {!isFolded && (
+        <div
+          style={{ height: editorHeight }}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun(); }
           }}
-        />
-      </div>
+        >
+          <Editor
+            height={editorHeight}
+            defaultLanguage="python"
+            value={cell.code}
+            onChange={(v) => onCodeChange(v ?? "")}
+            theme={monacoTheme}
+            beforeMount={onEditorWillMount}
+            options={{
+              minimap: { enabled: false },
+              fontSize: isMobile ? 12 : 13,
+              fontFamily: "JetBrains Mono, Fira Code, monospace",
+              lineHeight: isMobile ? 20 : 22,
+              lineNumbers: "on",
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              tabSize: 4,
+              padding: { top: 8, bottom: 8 },
+              smoothScrolling: true,
+              cursorBlinking: "smooth",
+              cursorSmoothCaretAnimation: "on",
+              wordWrap: "on",
+              scrollbar: { vertical: "hidden", horizontal: "auto" },
+              overviewRulerLanes: 0,
+            }}
+          />
+        </div>
+      )}
 
       {/* ── Output ────────────────────────────────────────────────────────── */}
-      {showOutputBox && (
+      {!isFolded && showOutputBox && (
         <div className="border-t border-border/30">
           <div className="flex items-center justify-between px-3 py-1 bg-secondary/20">
             <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">

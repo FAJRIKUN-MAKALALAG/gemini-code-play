@@ -52,20 +52,29 @@ export default function AuthCallback() {
 
         // Step 3: Build user object from Supabase session (already validated above)
         const user = session.user;
+        const metadata = user.user_metadata || {};
+        
+        // Extract the most readable name possible
         const username =
-          user.user_metadata?.username ||
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name;
+          metadata.username ||
+          metadata.full_name ||
+          metadata.name ||
+          user.email?.split('@')[0] || 
+          'User';
 
         // Step 4: Update React auth state (no localStorage needed anymore)
         login({
           id: user.id,
-          email: user.email,
+          email: user.email || '',
           username: username,
         });
 
-        // Step 5: Redirect to home
-        navigate('/', { replace: true });
+        // Step 5: Redirect to home — add slight delay to ensure state and cookies are settled
+        setTimeout(() => {
+          if (isMounted) {
+            navigate('/', { replace: true });
+          }
+        }, 500);
       } catch (err: any) {
         if (isMounted) {
           console.error('[AuthCallback] Error:', err);

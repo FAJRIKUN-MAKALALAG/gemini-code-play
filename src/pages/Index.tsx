@@ -107,6 +107,17 @@ const Index = () => {
     return { success: true };
   };
 
+  const handleRemoveChallenge = () => {
+    const unlockedCode = code.replace(/# 🎯 TANTANGAN:.*\n?/g, "");
+    setCode(unlockedCode);
+    
+    setTimeout(() => {
+      chatRef.current?.sendMessage(
+        "Halo AI, saya kesulitan dan menyerah pada tantangan barusan. Tolong bantu saya memperbaikinya atau jelaskan solusinya:\n\n```python\n" + unlockedCode + "\n```"
+      );
+    }, 300);
+  };
+
   // ── Shared nodes for reuse across layouts ─────────────────────────────────
   const editorNode = (
     <NotebookEditor
@@ -129,6 +140,7 @@ const Index = () => {
       onLoadCode={(c) => setCode(c)}
       onSignInClick={() => setShowAuth(true)}
       isChallengeActive={isChallengeActive}
+      onRemoveChallenge={handleRemoveChallenge}
     />
   );
 

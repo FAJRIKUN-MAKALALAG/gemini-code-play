@@ -65,6 +65,7 @@ type ChatProps = {
   onLoadCode?: (code: string) => void;
   onSignInClick?: () => void;
   isChallengeActive?: boolean;
+  onRemoveChallenge?: () => void;
 };
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
@@ -578,7 +579,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
-                <p className="text-[10px] sm:text-xs text-orange-600/70 font-medium">Hapus atau ubah teks "# 🎯 TANTANGAN" di dalam cell untuk mengaktifkan AI kembali.</p>
+                <p className="text-[10px] sm:text-xs text-orange-600/70 font-medium mb-4">Hapus atau ubah teks "# 🎯 TANTANGAN" di dalam cell untuk mengaktifkan AI kembali.</p>
+                {props.onRemoveChallenge && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-600"
+                    onClick={props.onRemoveChallenge}
+                  >
+                    🏳️ Menyerah & Minta Bantuan AI
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>

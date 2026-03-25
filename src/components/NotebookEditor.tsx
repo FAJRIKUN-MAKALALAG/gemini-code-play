@@ -141,22 +141,24 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     return JSON.stringify(cellList.map(c => ({ id: c.id, code: c.code })));
   };
 
-  const handleCellCodeChange = useCallback(
-    (cellId: string, value: string) => {
-      setCells(prev => {
-        const updated = prev.map(c => c.id === cellId ? { ...c, code: value } : c);
-        
-        // Serialize and sync to parent
-        const serialized = serializeNotebook(updated);
+  const syncSetCells = useCallback((updater: (prev: Cell[]) => Cell[]) => {
+    setCells(prev => {
+      const next = updater(prev);
+      const serialized = serializeNotebook(next);
+      if (serialized !== lastExternalCode.current) {
         lastExternalCode.current = serialized;
         onChange(serialized);
-        
-        return updated;
-      });
-      // Mark as unsaved whenever any cell code changes
-      setSaveStatus("unsaved");
+        setSaveStatus("unsaved");
+      }
+      return next;
+    });
+  }, [onChange]);
+
+  const handleCellCodeChange = useCallback(
+    (cellId: string, value: string) => {
+      syncSetCells(prev => prev.map(c => c.id === cellId ? { ...c, code: value } : c));
     },
-    [onChange]
+    [syncSetCells]
   );
 
   useEffect(() => {
@@ -215,7 +217,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   // ── Cell CRUD ──────────────────────────────────────────────────────────────
   const addCellAfter = (cellId: string, prefillCode = "") => {
     const newCell = makeCell(prefillCode);
-    setCells(prev => {
+    syncSetCells(prev => {
       const idx = prev.findIndex(c => c.id === cellId);
       const updated = [...prev];
       updated.splice(idx + 1, 0, newCell);
@@ -226,12 +228,12 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
 
   const addCellAtEnd = () => {
     const newCell = makeCell();
-    setCells(prev => [...prev, newCell]);
+    syncSetCells(prev => [...prev, newCell]);
     setActiveCell(newCell.id);
   };
 
   const deleteCell = (cellId: string) => {
-    setCells(prev => {
+    syncSetCells(prev => {
       if (prev.length === 1) return [makeCell()];
       const idx = prev.findIndex(c => c.id === cellId);
       const updated = prev.filter(c => c.id !== cellId);
@@ -241,7 +243,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   };
 
   const moveCell = (cellId: string, dir: "up" | "down") => {
-    setCells(prev => {
+    syncSetCells(prev => {
       const idx = prev.findIndex(c => c.id === cellId);
       if (dir === "up" && idx === 0) return prev;
       if (dir === "down" && idx === prev.length - 1) return prev;
@@ -404,7 +406,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     const match = fullText.match(/```python\s*([\s\S]*?)```/);
     const extracted = match ? match[1].trim() : fullText.trim();
 
-    setCells(prev => prev.map(c =>
+    syncSetCells(prev => prev.map(c =>
       c.id === cellId ? { ...c, code: extracted, isAiLoading: false } : c
     ));
     toast({ title: "✨ Kode AI sudah siap!", description: "Klik ▶ untuk menjalankan.", duration: 2500 });
@@ -453,7 +455,7 @@ Aturan:
     const match = fullText.match(/```python\s*([\s\S]*?)```/);
     const extracted = match ? match[1].trim() : fullText.trim();
 
-    setCells(prev => prev.map(c =>
+    syncSetCells(prev => prev.map(c =>
       c.id === newCell.id ? { ...c, code: extracted + "\n\n", isAiLoading: false } : c
     ));
     setIsGeneratingChallenge(false);
@@ -498,10 +500,9 @@ Aturan:
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
       const parts = content.split(/^# === Cell \d+ ===/m).map(s => s.trim()).filter(Boolean);
-      const newCells = parts.length > 0 ? parts.map(code => makeCell(code)) : [makeCell(content)];
-      setCells(newCells);
+      const newCells = parts.length > 0 ? parts.map(cCode => makeCell(cCode)) : [makeCell(content)];
+      syncSetCells(() => newCells);
       setActiveCell(newCells[0].id);
-      onChange(newCells[0].code);
       toast({ title: "📂 File diimport!", description: `${file.name} → ${newCells.length} cell(s).`, duration: 2500 });
     };
     reader.readAsText(file);

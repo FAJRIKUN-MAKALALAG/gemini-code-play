@@ -96,6 +96,7 @@ export const runPythonCode = async (
     inputProvider?: (prompt?: string) => Promise<string>;
     onStdout?: (text: string) => void;
     onStderr?: (text: string) => void;
+    signal?: AbortSignal;
   }
 ): Promise<string[]> => {
   return new Promise((resolve) => {
@@ -138,6 +139,21 @@ export const runPythonCode = async (
       inputfunTakesPrompt: true,
     });
 
+    // Timeout execution config:
+    // Setup yield limit to prevent UI freezing (yields every 100ms)
+    window.Sk.yieldLimit = 100;
+    
+    // Normal execLimit is 5 minutes. If aborted, we set it to 1ms to instantly trigger a TimeLimitError.
+    window.Sk.execLimit = 5 * 60 * 1000; 
+
+    const onAbort = () => {
+      window.Sk.execLimit = 1; 
+    };
+
+    if (opts?.signal) {
+      opts.signal.addEventListener("abort", onAbort);
+    }
+
     // Jalankan kode Python secara asynchronous
     window.Sk.misceval
       .asyncToPromise(() =>
@@ -147,9 +163,17 @@ export const runPythonCode = async (
         resolve(output);
       })
       .catch((err: any) => {
-        const msg = `Error: ${err.toString()}`;
+        const errStr = err.toString();
+        // Cek jika error karena dihentikan secara sengaja (TimeLimitError akibat execLimit = 1)
+        const isAborted = opts?.signal?.aborted && errStr.includes("TimeLimitError");
+        const msg = isAborted ? "KeyboardInterrupt: Execution stopped by user." : `Error: ${errStr}`;
         if (opts?.onStderr) opts.onStderr(msg);
         resolve([msg]);
+      })
+      .finally(() => {
+        if (opts?.signal) {
+          opts.signal.removeEventListener("abort", onAbort);
+        }
       });
   });
 };

@@ -29,6 +29,7 @@ interface Cell {
   isRunning: boolean;
   isAiLoading: boolean; // only used for "AI Generate"
   activeInput?: { prompt: string; resolve: (val: string) => void };
+  abortController?: AbortController;
 }
 
 type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
@@ -303,12 +304,15 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     const cell = cells.find(c => c.id === cellId);
     if (!cell || !cell.code.trim() || cell.isRunning) return;
 
-    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isRunning: true, outputs: [], activeInput: undefined } : c));
+    const abortController = new AbortController();
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isRunning: true, outputs: [], activeInput: undefined, abortController } : c));
 
     const outputs: OutputItem[] = [];
     let hasError = false;
 
     await runPythonCode(cell.code, {
+      signal: abortController.signal,
       onStdout: (text) => {
         outputs.push({ type: "stdout", text });
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
@@ -327,7 +331,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
 
     globalExecCounter++;
     setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isRunning: false, executionCount: globalExecCounter, outputs, activeInput: undefined } : c
+      c.id === cellId ? { ...c, isRunning: false, executionCount: globalExecCounter, outputs, activeInput: undefined, abortController: undefined } : c
     ));
 
     // Nudge user towards AI debug on error
@@ -339,6 +343,19 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       });
     }
   }, [cells, toast]);
+
+  const stopCell = useCallback((cellId: string) => {
+    const cell = cells.find(c => c.id === cellId);
+    if (!cell || !cell.isRunning) return;
+
+    if (cell.activeInput) {
+      cell.activeInput.resolve(""); // Unblock prompt
+    }
+
+    if (cell.abortController) {
+      cell.abortController.abort();
+    }
+  }, [cells]);
 
   const runAllCells = async () => {
     for (const cell of cells) await runCell(cell.id);
@@ -548,6 +565,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
             onActivate={() => setActiveCell(cell.id)}
             onCodeChange={(v) => handleCellCodeChange(cell.id, v)}
             onRun={() => runCell(cell.id)}
+            onStop={() => stopCell(cell.id)}
             onDelete={() => deleteCell(cell.id)}
             onMoveUp={() => moveCell(cell.id, "up")}
             onMoveDown={() => moveCell(cell.id, "down")}
@@ -590,6 +608,7 @@ interface CellCardProps {
   onActivate: () => void;
   onCodeChange: (v: string) => void;
   onRun: () => void;
+  onStop: () => void;
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -604,7 +623,7 @@ interface CellCardProps {
 
 function CellCard({
   cell, index, totalCells, isActive, monacoTheme, isMobile, isDark, isRuntimeReady,
-  hasChatHandler, onActivate, onCodeChange, onRun, onDelete, onMoveUp, onMoveDown,
+  hasChatHandler, onActivate, onCodeChange, onRun, onStop, onDelete, onMoveUp, onMoveDown,
   onAddBelow, onClearOutput, onExplain, onDebug, onAiGenerate, onEditorWillMount, onProvideInput
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
@@ -656,21 +675,25 @@ function CellCard({
             : cell.executionCount !== null ? `[${cell.executionCount}]` : "[ ]"}
         </div>
 
-        {/* Run button */}
+        {/* Run/Stop button */}
         <button
-          onClick={(e) => { e.stopPropagation(); onRun(); }}
-          disabled={!isRuntimeReady || cell.isRunning}
-          title="Run cell (Ctrl+Enter)"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            if (cell.isRunning) onStop();
+            else onRun(); 
+          }}
+          disabled={!isRuntimeReady && !cell.isRunning}
+          title={cell.isRunning ? "Stop cell" : "Run cell (Ctrl+Enter)"}
           className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150 ${
             cell.isRunning
-              ? "border-amber-500/40 bg-amber-500/10 text-amber-400 cursor-not-allowed"
+              ? "border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:border-red-500/70 cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.4)]"
               : isRuntimeReady
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/70 hover:shadow-[0_0_8px_rgba(52,211,153,0.3)]"
               : "border-border/30 text-muted-foreground cursor-not-allowed"
           }`}
         >
           {cell.isRunning
-            ? <Square className="w-3.5 h-3.5" />
+            ? <Square className="w-3.5 h-3.5" fill="currentColor" />
             : <Play className="w-3.5 h-3.5 translate-x-px" />}
         </button>
 

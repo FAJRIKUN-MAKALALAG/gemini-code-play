@@ -62,6 +62,30 @@ function makeCell(code = ""): Cell {
   };
 }
 
+// ── Helper: Parse or fallback ────────────────────────────────────────────────
+function parseNotebookCode(rawCode: string): Cell[] {
+  if (!rawCode) return [makeCell("")];
+  try {
+    const trimmed = rawCode.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0].id === "string") {
+        return parsed.map((p: any) => makeCell(p.code));
+      }
+    }
+  } catch (e) {
+    // ignore parse error, fallback to legacy
+  }
+  
+  // Legacy parsing (if using delimiters)
+  if (rawCode.includes("# ─────────────────────")) {
+    const parts = rawCode.split("# ─────────────────────").map(s => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts.map(p => makeCell(p));
+  }
+  
+  return [makeCell(rawCode)];
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>((
@@ -79,8 +103,8 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const [cells, setCells] = useState<Cell[]>(() => [makeCell(code)]);
-  const [activeCell, setActiveCell] = useState<string>(cells[0].id);
+  const [cells, setCells] = useState<Cell[]>(() => parseNotebookCode(code));
+  const [activeCell, setActiveCell] = useState<string>(cells[0]?.id || "");
 
   // ── Save status ───────────────────────────────────────────────────────────
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -97,29 +121,33 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       })),
   }));
 
-  // ── Sync first cell ↔ parent prop ─────────────────────────────────────────
+  // ── Sync External ↔ Internal ─────────────────────────────────────────
   const lastExternalCode = useRef(code);
   useEffect(() => {
     if (code !== lastExternalCode.current) {
       lastExternalCode.current = code;
-      setCells(prev => {
-        const updated = [...prev];
-        updated[0] = { ...updated[0], code };
-        return updated;
-      });
+      const parsed = parseNotebookCode(code);
+      setCells(parsed);
+      if (parsed.length > 0) {
+        setActiveCell(parsed[0].id);
+      }
     }
   }, [code]);
+
+  const serializeNotebook = (cellList: Cell[]) => {
+    return JSON.stringify(cellList.map(c => ({ id: c.id, code: c.code })));
+  };
 
   const handleCellCodeChange = useCallback(
     (cellId: string, value: string) => {
       setCells(prev => {
         const updated = prev.map(c => c.id === cellId ? { ...c, code: value } : c);
-        // Always sync first cell to parent
-        const first = updated[0];
-        if (first) {
-          lastExternalCode.current = first.code;
-          onChange(first.code);
-        }
+        
+        // Serialize and sync to parent
+        const serialized = serializeNotebook(updated);
+        lastExternalCode.current = serialized;
+        onChange(serialized);
+        
         return updated;
       });
       // Mark as unsaved whenever any cell code changes
@@ -228,10 +256,10 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   // ── Manual Save to DB ─────────────────────────────────────────────────────
   const handleSaveToDb = async () => {
     if (!onSaveCode || saveStatus === "saving") return;
-    const allCode = cells.map(c => c.code).join("\n\n# ─────────────────────\n\n");
+    const serialized = serializeNotebook(cells);
     setSaveStatus("saving");
     try {
-      const result = await onSaveCode(allCode);
+      const result = await onSaveCode(serialized);
       if (result.success) {
         setSaveStatus("saved");
         // Auto-reset to idle after 3s

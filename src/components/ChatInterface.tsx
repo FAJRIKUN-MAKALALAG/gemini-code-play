@@ -380,43 +380,52 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   // ── Conversation switching ─────────────────────────────────────────────────
   const handleSwitchConversation = async (id: string) => {
+    if (id === conversationId) {
+      setShowHistory(false);
+      return;
+    }
+
     const user = authService.getUser();
     if (!user) return;
     const userId = user.id;
 
-    // Auto-save current code
-    try {
-      if (conversationId && props.getCurrentCode) {
-        const code = props.getCurrentCode();
-        if (code?.trim()) {
-          await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`);
-        }
+    // 1. Auto-save current code (FIRE AND FORGET — don't block UI)
+    if (conversationId && props.getCurrentCode) {
+      const code = props.getCurrentCode();
+      if (code?.trim()) {
+        backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`).catch(console.warn);
       }
-    } catch (e) { console.warn("Auto-save failed", e); }
+    }
 
+    // 2. Clear UI instantly for snappy feel
     setConversationId(id);
     const c = conversations.find(x => x.id === id);
     if (c) setCurrentTitle(c.title);
+    setMessages([]);
+    setShowHistory(false);
     setLoadingHistory(true);
 
-    const { data: msgs } = await backendService.getMessages(id);
-    setMessages((msgs || []).map((m) => ({ role: m.role, content: m.content })));
+    // 3. Fetch all required data CONCURRENTLY (Parallel)
+    const [msgsRes, snippetsRes, convRes] = await Promise.all([
+      backendService.getMessages(id),
+      backendService.getCodeByConversation(id),
+      backendService.getConversation(id),
+    ]);
 
-    const { data: snippets } = await backendService.getCodeByConversation(id);
-    let restoredCode: string | null = snippets?.[0]?.code_content ?? null;
-    if (!restoredCode) {
-      const { data: convData } = await backendService.getConversation(id);
-      restoredCode = convData?.last_code ?? null;
-    }
-    if (restoredCode) {
-      if (props.onLoadCode) {
-        props.onLoadCode(restoredCode);
-        toast({ title: "Code Restored", description: `Loaded code for "${c?.title || 'this chat'}"`, duration: 2000 });
-      }
+    setMessages((msgsRes.data || []).map((m) => ({ role: m.role, content: m.content })));
+
+    let restoredCode: string | null = snippetsRes.data?.[0]?.code_content ?? null;
+    if (!restoredCode) restoredCode = convRes.data?.last_code ?? null;
+
+    if (restoredCode && props.onLoadCode) {
+      props.onLoadCode(restoredCode);
+      toast({ title: "Code Restored", description: `Loaded code for "${c?.title || 'this chat'}"`, duration: 1500 });
+    } else if (props.onLoadCode) {
+      // Clear code if completely empty
+      props.onLoadCode("");
     }
 
     setLoadingHistory(false);
-    setShowHistory(false);
   };
 
   // ── Rename conversation ────────────────────────────────────────────────────
@@ -660,21 +669,39 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 const user = authService.getUser();
                 if (!user) return;
                 const userId = user.id;
-                try {
-                  if (conversationId && props.getCurrentCode) {
-                    const code = props.getCurrentCode();
-                    if (code?.trim()) await backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`);
+                
+                // 1. Close modal and show loading immediately
+                setShowNewModal(false);
+                setLoadingHistory(true);
+                
+                // 2. Fire and forget auto-save (don't block)
+                if (conversationId && props.getCurrentCode) {
+                  const code = props.getCurrentCode();
+                  if (code?.trim()) {
+                    backendService.saveCodeSnippet(userId, code, "python", conversationId, `Auto-save ${new Date().toLocaleTimeString()}`).catch(console.warn);
                   }
-                } catch (e) { }
+                }
+                
+                // 3. Create conversation in backend
                 const { data: conv, error } = await backendService.createConversation(userId, newChatTitle || "New Chat");
+                
                 if (!error && conv) {
                   setConversationId(conv.id);
                   setCurrentTitle(conv.title || "Untitled");
                   setMessages([]);
-                  const { data: convList } = await backendService.getConversations(userId, 50);
-                  setConversations(convList || []);
+                  if (props.onLoadCode) props.onLoadCode(""); // Clear editor instantly
+                  
+                  // Optimistically add to sidebar immediately before fetching
+                  setConversations(prev => [{ id: conv.id, title: conv.title, created_at: new Date().toISOString() }, ...prev]);
+                  
+                  // Refetch list in background to sync exactly
+                  backendService.getConversations(userId, 50).then(res => {
+                    if (res.data) setConversations(res.data);
+                  });
                 }
-                setShowNewModal(false);
+                
+                setLoadingHistory(false);
+                setNewChatTitle(""); // reset input for next time
               }}>Create</Button>
             </div>
           </div>

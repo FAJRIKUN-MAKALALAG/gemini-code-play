@@ -77,16 +77,32 @@ export default function AuthCallback() {
     const initAuth = async () => {
       const supabase = await getSupabaseClient();
 
-      // Listen for the initial session or sign-in event
+      // 1. Manually check URL hash (fragment) in case onAuthStateChange hasn't fired yet
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token=')) {
+        try {
+          // Use Supabase helper to parse the session from hash
+          const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+          if (session && !sessionErr) {
+            console.log('[AuthCallback] Session found in hash, processing...');
+            await handleSession(session);
+            return; // Exit as handled
+          }
+        } catch (e) {
+          console.warn('[AuthCallback] Manual hash parse failed:', e);
+        }
+      }
+
+      // 2. Listen for the initial session or sign-in event
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
           await handleSession(session);
         }
       });
 
       authListener = subscription;
 
-      // Also check if there's already a session available immediately
+      // 3. Also check if there's already a session available immediately
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         await handleSession(session);

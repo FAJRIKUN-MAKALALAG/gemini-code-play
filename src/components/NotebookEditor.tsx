@@ -28,6 +28,7 @@ interface Cell {
   executionCount: number | null;
   isRunning: boolean;
   isAiLoading: boolean; // only used for "AI Generate"
+  activeInput?: { prompt: string; resolve: (val: string) => void };
 }
 
 type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
@@ -277,12 +278,32 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     }
   };
 
+  // ── In-cell input provider ──────────────────────────────────────────────────
+  const handleProvideInput = useCallback((cellId: string, value: string) => {
+    setCells(prev => prev.map(c => {
+      if (c.id === cellId && c.activeInput) {
+        const resolve = c.activeInput.resolve;
+        const promptText = c.activeInput.prompt;
+        // Append both the prompt and user's answer into stdout to mirror terminal behavior
+        const newStdout = `${promptText}${value}\n`;
+        c.outputs.push({ type: "stdout", text: newStdout });
+        c.activeInput = undefined;
+
+        // Resolve input request out-of-band to prevent React hook collisions
+        setTimeout(() => resolve(value), 0);
+
+        return { ...c, outputs: [...c.outputs] };
+      }
+      return c;
+    }));
+  }, []);
+
   // ── Run a single cell ──────────────────────────────────────────────────────
   const runCell = useCallback(async (cellId: string) => {
     const cell = cells.find(c => c.id === cellId);
     if (!cell || !cell.code.trim() || cell.isRunning) return;
 
-    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isRunning: true, outputs: [] } : c));
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isRunning: true, outputs: [], activeInput: undefined } : c));
 
     const outputs: OutputItem[] = [];
     let hasError = false;
@@ -297,11 +318,16 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
         outputs.push({ type: "stderr", text });
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
       },
+      inputProvider: (promptText) => {
+        return new Promise<string>((resolve) => {
+          setCells(prev => prev.map(c => c.id === cellId ? { ...c, activeInput: { prompt: promptText || "Input: ", resolve } } : c));
+        });
+      }
     });
 
     globalExecCounter++;
     setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isRunning: false, executionCount: globalExecCounter, outputs } : c
+      c.id === cellId ? { ...c, isRunning: false, executionCount: globalExecCounter, outputs, activeInput: undefined } : c
     ));
 
     // Nudge user towards AI debug on error
@@ -531,6 +557,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
             onDebug={() => handleDebug(cell.id)}
             onAiGenerate={(prompt) => handleAiGenerate(cell.id, prompt)}
             onEditorWillMount={handleEditorWillMount}
+            onProvideInput={(val) => handleProvideInput(cell.id, val)}
           />
         ))}
 
@@ -572,18 +599,20 @@ interface CellCardProps {
   onDebug: () => void;
   onAiGenerate: (prompt: string) => void;
   onEditorWillMount: (monaco: any) => void;
+  onProvideInput: (val: string) => void;
 }
 
 function CellCard({
   cell, index, totalCells, isActive, monacoTheme, isMobile, isDark, isRuntimeReady,
   hasChatHandler, onActivate, onCodeChange, onRun, onDelete, onMoveUp, onMoveDown,
-  onAddBelow, onClearOutput, onExplain, onDebug, onAiGenerate, onEditorWillMount,
+  onAddBelow, onClearOutput, onExplain, onDebug, onAiGenerate, onEditorWillMount, onProvideInput
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiPrompt, setShowAiPrompt] = useState(false);
 
   const hasError = cell.outputs.some(o => o.type === "stderr");
   const hasOutput = cell.outputs.length > 0;
+  const showOutputBox = hasOutput || !!cell.activeInput;
 
   const lineCount = Math.min(30, Math.max(3, cell.code.split("\n").length));
   const editorHeight = lineCount * (isMobile ? 20 : 22) + 32;
@@ -770,13 +799,18 @@ function CellCard({
       </div>
 
       {/* ── Output ────────────────────────────────────────────────────────── */}
-      {hasOutput && (
+      {showOutputBox && (
         <div className="border-t border-border/30">
           <div className="flex items-center justify-between px-3 py-1 bg-secondary/20">
             <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
               Output{hasError && (
                 <span className="text-red-400 ml-2 normal-case">
                   ⚠ Error — klik <strong>Debug</strong> untuk bantuan AI
+                </span>
+              )}
+              {cell.activeInput && (
+                <span className="text-indigo-400 ml-2 normal-case animate-pulse inline-flex items-center gap-1">
+                  Menunggu input Anda...
                 </span>
               )}
             </span>
@@ -787,7 +821,7 @@ function CellCard({
               <X className="w-3 h-3" /> Clear
             </button>
           </div>
-          <div className="px-3 py-2 max-h-60 overflow-y-auto font-mono text-xs leading-relaxed">
+          <div className="px-3 py-2 max-h-60 overflow-y-auto font-mono text-xs leading-relaxed flex flex-col gap-0.5">
             {cell.outputs.map((out, i) => (
               <div key={i} className={
                 out.type === "stderr"
@@ -797,6 +831,24 @@ function CellCard({
                 {out.text}
               </div>
             ))}
+            
+            {/* Native In-Cell Input Field */}
+            {cell.activeInput && (
+              <div className="flex items-center font-mono mt-1 pt-1">
+                <span className="whitespace-pre text-indigo-400/90 font-medium">{cell.activeInput.prompt}</span>
+                <input
+                  type="text"
+                  autoFocus
+                  className="flex-1 bg-transparent min-w-[50px] outline-none border-b border-indigo-500/30 focus:border-indigo-500/70 rounded-none px-1 py-0.5 text-emerald-400/90 ml-1 transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onProvideInput(e.currentTarget.value);
+                    }
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

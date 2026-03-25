@@ -124,7 +124,7 @@ class AuthService {
   // ===== VERIFY TOKEN (via /api/me) =====
   async verifyToken(): Promise<{ valid: boolean; user: User | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/me`, {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         credentials: 'include'
       });
@@ -263,7 +263,7 @@ class AuthService {
   // Async: hits /api/me to get fresh user data from server  
   async fetchCurrentUser(): Promise<User | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/me`, {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         credentials: 'include'
       });

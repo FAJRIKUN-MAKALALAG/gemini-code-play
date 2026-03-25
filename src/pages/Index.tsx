@@ -109,18 +109,22 @@ const Index = () => {
 
   const handleRemoveChallenge = () => {
     try {
-      const cellList = JSON.parse(code);
-      if (Array.isArray(cellList)) {
+      // 1. Deteksi apakah formatnya JSON (Notebook) atau teks biasa (Legacy)
+      const isJson = code.trim().startsWith("[") && code.trim().endsWith("]");
+      
+      if (isJson) {
+        const cellList = JSON.parse(code);
         const updated = cellList.map((c: any) => ({
           ...c,
           code: c.code.replace(/# 🎯 TANTANGAN:.*\n?/g, "").trimStart()
         }));
         setCode(JSON.stringify(updated));
+      } else {
+        // Fallback untuk teks biasa
+        setCode(code.replace(/# 🎯 TANTANGAN:.*\n?/g, "").trimStart());
       }
     } catch (e) {
-      // Fallback if not JSON
-      const unlockedCode = code.replace(/# 🎯 TANTANGAN:.*\n?/g, "");
-      setCode(unlockedCode);
+      console.error("Failed to unlock challenge:", e);
     }
   };
 

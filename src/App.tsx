@@ -20,7 +20,14 @@ const AuthError = lazy(() => import("./pages/AuthError"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Disable auto-refetch on focus to save requests in lab environments
+      retry: 1,                    // Limit retries
+    },
+  },
+});
 
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">

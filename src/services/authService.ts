@@ -7,20 +7,14 @@ export interface User {
   username?: string;
 }
 
-export interface AuthSession {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  expires_at: number;
-  user: User;
-}
+// Removed AuthSession since tokens are now entirely handled by backend HttpOnly cookies
 
 // ── Cached user so we don't hit /api/me on every isAuthenticated() check ──────
 let cachedUser: User | null = null;
 
 class AuthService {
   // ===== SIGNUP =====
-  async signup(email: string, password: string, username?: string): Promise<{ session: AuthSession | null; error: Error | null }> {
+  async signup(email: string, password: string, username?: string): Promise<{ user: User | null; error: Error | null }> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
@@ -41,26 +35,20 @@ class AuthService {
       }
 
       const data = await response.json();
-      if (!data.session || !data.user) throw new Error('Invalid response from backend');
+      if (!data.user) throw new Error('Invalid response from backend');
 
-      const session: AuthSession = {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_in: data.session.expires_in,
-        expires_at: data.session.expires_at,
-        user: { id: data.user.id, email: data.user.email, username: data.user.username }
-      };
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      cachedUser = user;
 
-      await this.saveSession(session);
-      return { session, error: null };
+      return { user, error: null };
     } catch (error) {
       console.error('Signup error:', error);
-      return { session: null, error: error as Error };
+      return { user: null, error: error as Error };
     }
   }
 
   // ===== LOGIN =====
-  async login(email: string, password: string): Promise<{ session: AuthSession | null; error: Error | null }> {
+  async login(email: string, password: string): Promise<{ user: User | null; error: Error | null }> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -81,21 +69,15 @@ class AuthService {
       }
 
       const data = await response.json();
-      if (!data.session || !data.user) throw new Error('Invalid response from backend');
+      if (!data.user) throw new Error('Invalid response from backend');
 
-      const session: AuthSession = {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_in: data.session.expires_in,
-        expires_at: data.session.expires_at,
-        user: { id: data.user.id, email: data.user.email, username: data.user.username }
-      };
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      cachedUser = user;
 
-      await this.saveSession(session);
-      return { session, error: null };
+      return { user, error: null };
     } catch (error) {
       console.error('Login error:', error);
-      return { session: null, error: error as Error };
+      return { user: null, error: error as Error };
     }
   }
 
@@ -226,32 +208,7 @@ class AuthService {
 
   // ===== SESSION MANAGEMENT (COOKIE BASED) =====
 
-  // Backend contract: only access_token + refresh_token. No user object (prevents spoofing).
-  private async saveSession(session: AuthSession): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/set-session`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-          // Do NOT send user — backend validates token with Supabase itself
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'set-session rejected');
-      }
-
-      // Cache user from session passed in (already validated by login/signup endpoint)
-      cachedUser = session.user;
-    } catch (error) {
-      console.error('saveSession via backend failed:', error);
-      throw error; // Propagate so login knows it failed
-    }
-  }
+  // Backend automatically manages cookies, so we don't need a saveSession call.
 
   // ===== USER & AUTH STATE =====
 

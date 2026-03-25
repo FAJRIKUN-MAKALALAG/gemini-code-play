@@ -232,6 +232,35 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
                   mode === "signin" ? "Sign In" : "Create Account"
                 )}
               </Button>
+
+              {/* Toggle Mode */}
+              <div className="text-center text-sm text-muted-foreground mt-4">
+                {mode === "signin" ? (
+                  <>
+                    Belum punya akun?{' '}
+                    <button
+                      type="button"
+                      onClick={toggleMode}
+                      className="text-primary hover:underline font-medium transition-colors"
+                      disabled={loading}
+                    >
+                      Daftar sekarang
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Sudah punya akun?{' '}
+                    <button
+                      type="button"
+                      onClick={toggleMode}
+                      className="text-primary hover:underline font-medium transition-colors"
+                      disabled={loading}
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </div>
             </form>
 
             {/* OR Divider */}
@@ -266,10 +295,6 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
               <p className="text-[10px] text-muted-foreground leading-relaxed">
                 Dengan melanjutkan, Anda menyetujui <a href="https://unklab-aicode.online/terms" className="text-primary hover:underline">Syarat & Ketentuan</a> dan <a href="https://unklab-aicode.online/privacy" className="text-primary hover:underline">Kebijakan Privasi</a> kami.
               </p>
-              <div className="flex justify-center gap-4">
-                <a href="https://unklab-aicode.online/privacy" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
-                <a href="https://unklab-aicode.online/terms" className="text-[10px] text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
-              </div>
             </div>
           </div>
         </div>

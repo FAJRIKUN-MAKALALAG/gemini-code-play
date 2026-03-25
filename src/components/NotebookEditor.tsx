@@ -352,7 +352,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       return null;
     }
     try {
-      return await fetchUserApiKey(user.id, authService.getAccessToken() ?? "");
+      return await fetchUserApiKey(user.id);
     } catch {
       toast({ title: "API Key tidak ditemukan", description: "Tambahkan Gemini API key di Settings.", variant: "destructive" });
       return null;

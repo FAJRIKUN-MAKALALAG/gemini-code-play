@@ -63,15 +63,12 @@ let cachedApiKey: string | null = null;
  * Result is cached in memory for the lifetime of the browser tab.
  */
 export async function fetchUserApiKey(
-  userId: string,
-  accessToken: string
+  userId: string
 ): Promise<string> {
   if (cachedApiKey) return cachedApiKey;
 
   const res = await fetch(`${API_BASE_URL}/keys/${userId}/value`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    credentials: 'include',   // HttpOnly cookie handles auth
   });
 
   if (!res.ok) {

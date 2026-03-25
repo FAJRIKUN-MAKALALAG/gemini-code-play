@@ -180,12 +180,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       }
 
       const userId = user.id;
-      const accessToken = authService.getAccessToken();
 
       // ── 1. Get API key (cached after first fetch) ────────────────────────
       let apiKey: string;
       try {
-        apiKey = await fetchUserApiKey(userId, accessToken || "");
+        apiKey = await fetchUserApiKey(userId); // cookie handles auth
       } catch (keyErr: any) {
         setNoApiKey(true);
         toast({ title: "API Key Missing", description: keyErr.message, variant: "destructive" });

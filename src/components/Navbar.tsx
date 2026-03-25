@@ -46,9 +46,8 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
 
   const loadApiKey = async (uid: string) => {
     try {
-      const token = authService.getAccessToken();
       const response = await fetch(`${API_BASE_URL}/keys/${uid}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'   // cookie handles auth
       });
       if (response.ok) {
         const data = await response.json();
@@ -68,12 +67,11 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
     if (savingKey || !userId || !tempApiKey.trim()) return;
     setSavingKey(true);
     try {
-      const token = authService.getAccessToken();
       const response = await fetch(`${API_BASE_URL}/keys`, {
         method: 'POST',
+        credentials: 'include',   // cookie handles auth
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ apiKey: tempApiKey.trim() })
       });

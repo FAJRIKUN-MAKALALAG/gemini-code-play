@@ -586,7 +586,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                     className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-600"
                     onClick={props.onRemoveChallenge}
                   >
-                    🏳️ Menyerah & Minta Bantuan AI
+                    🏳️ Menyerah
                   </Button>
                 )}
               </CardContent>

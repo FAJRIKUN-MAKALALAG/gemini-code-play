@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import { safeLocalStorage } from '@/utils/storageUtils';
 import { API_BASE_URL } from '@/config';
 
 export default function AuthCallback() {
@@ -19,11 +18,12 @@ export default function AuthCallback() {
       if (!session || !isMounted) return;
 
       try {
-        // Sync Google user profile to backend database
+        // Step 1: Sync Google profile to backend database AND set HttpOnly cookies
         const response = await fetch(`${API_BASE_URL}/auth/google/callback`, {
           method: 'POST',
+          credentials: 'include', // REQUIRED: allows backend Set-Cookie header to be accepted
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
         });
@@ -33,29 +33,38 @@ export default function AuthCallback() {
           throw new Error(errData.error || 'Failed to sync profile with backend');
         }
 
-        // The backend POST endpoint just returns success for the custom flow,
-        // so we extract the user data directly from the Supabase session
-        const user = session.user;
-        const username = user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
+        // Step 2: Ask backend to set secure HttpOnly cookies
+        // Backend contract: only access_token + refresh_token (no user object)
+        const setSessionRes = await fetch(`${API_BASE_URL}/auth/set-session`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token ?? ''
+          })
+        });
 
-        // Save session to localStorage (same keys as email/password login)
-        safeLocalStorage.setItem('access_token', session.access_token);
-        safeLocalStorage.setItem('refresh_token', session.refresh_token ?? '');
-        safeLocalStorage.setItem('expires_at', session.expires_at?.toString() ?? '');
-        safeLocalStorage.setItem('user_id', user.id);
-        safeLocalStorage.setItem('user_email', user.email);
-        if (username) {
-          safeLocalStorage.setItem('user_username', username);
+        if (!setSessionRes.ok) {
+          const errData = await setSessionRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to establish secure session');
         }
 
-        // Update React auth state
+        // Step 3: Build user object from Supabase session (already validated above)
+        const user = session.user;
+        const username =
+          user.user_metadata?.username ||
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name;
+
+        // Step 4: Update React auth state (no localStorage needed anymore)
         login({
           id: user.id,
           email: user.email,
           username: username,
         });
 
-        // Redirect to home
+        // Step 5: Redirect to home
         navigate('/', { replace: true });
       } catch (err: any) {
         if (isMounted) {
@@ -67,17 +76,17 @@ export default function AuthCallback() {
 
     const initAuth = async () => {
       const supabase = await getSupabaseClient();
-      
+
       // Listen for the initial session or sign-in event
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           await handleSession(session);
         }
       });
-      
+
       authListener = subscription;
 
-      // Also check if there's already a session available
+      // Also check if there's already a session available immediately
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         await handleSession(session);

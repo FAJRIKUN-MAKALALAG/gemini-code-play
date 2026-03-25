@@ -13,22 +13,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(() => authService.getUser());
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const verify = async () => {
-      if (user) {
-        const { valid, user: verifiedUser } = await authService.verifyToken();
-        if (valid && verifiedUser) {
-          setUser(verifiedUser);
-        } else {
-          setUser(null);
-        }
+    // On every app load, hit /api/me to see if the browser still has a valid session cookie.
+    // This replaces the old localStorage-based check.
+    const init = async () => {
+      try {
+        const verifiedUser = await authService.initSession();
+        setUser(verifiedUser);
+      } catch (e) {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
-    verify();
+    init();
   }, []);
 
   const login = (userData: User) => {

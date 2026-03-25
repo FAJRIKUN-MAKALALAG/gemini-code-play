@@ -3,8 +3,7 @@ import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown,
-  Sparkles, Bug, BookOpen, Download, Upload, X, Zap,
-  Square, GripVertical
+  Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
@@ -18,9 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 
 type OutputItem =
   | { type: "stdout"; text: string }
-  | { type: "stderr"; text: string }
-  | { type: "ai"; text: string }
-  | { type: "info"; text: string };
+  | { type: "stderr"; text: string };
 
 interface Cell {
   id: string;
@@ -28,25 +25,19 @@ interface Cell {
   outputs: OutputItem[];
   executionCount: number | null;
   isRunning: boolean;
-  isAiLoading: boolean;
-  // which AI panel is open for this cell: null | "explain" | "debug"
-  aiPanel: null | "explain" | "debug";
-  aiOutput: string;
+  isAiLoading: boolean; // only used for "AI Generate"
 }
 
 interface NotebookEditorProps {
-  /** Current code of the first cell (for external sync / saving) */
   code: string;
   onChange: (value: string) => void;
-  /** Called when the user asks the AI chat to handle something */
+  /** Sends a message to the AI Chat sidebar */
   onSendToChat?: (message: string) => void;
   isRuntimeReady?: boolean;
 }
 
-// ── Global execution counter (shared across cells) ────────────────────────────
+// ── Global execution counter ──────────────────────────────────────────────────
 let globalExecCounter = 0;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeCell(code = ""): Cell {
   return {
@@ -56,17 +47,7 @@ function makeCell(code = ""): Cell {
     executionCount: null,
     isRunning: false,
     isAiLoading: false,
-    aiPanel: null,
-    aiOutput: "",
   };
-}
-
-function AIBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/30 px-2 py-0.5 rounded-full">
-      <Sparkles className="w-2.5 h-2.5" /> {label}
-    </span>
-  );
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -82,12 +63,10 @@ export const NotebookEditor = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [cells, setCells] = useState<Cell[]>(() => [makeCell(code)]);
   const [activeCell, setActiveCell] = useState<string>(cells[0].id);
 
-  // Sync first cell code when external `code` prop changes
-  // (e.g. AI loads code into editor from chat)
+  // ── Sync first cell ↔ parent prop ─────────────────────────────────────────
   const lastExternalCode = useRef(code);
   useEffect(() => {
     if (code !== lastExternalCode.current) {
@@ -100,20 +79,20 @@ export const NotebookEditor = ({
     }
   }, [code]);
 
-  // Sync first cell back to parent when it changes
   const handleCellCodeChange = useCallback(
     (cellId: string, value: string) => {
       setCells(prev => {
         const updated = prev.map(c => c.id === cellId ? { ...c, code: value } : c);
-        const firstCell = updated.find(c => c.id === cells[0].id) ?? updated[0];
-        if (firstCell) {
-          lastExternalCode.current = firstCell.code;
-          onChange(firstCell.code);
+        // Always sync first cell to parent
+        const first = updated[0];
+        if (first) {
+          lastExternalCode.current = first.code;
+          onChange(first.code);
         }
         return updated;
       });
     },
-    [cells, onChange]
+    [onChange]
   );
 
   useEffect(() => {
@@ -123,51 +102,50 @@ export const NotebookEditor = ({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── Monaco theme setup ─────────────────────────────────────────────────────
+  // ── Monaco themes ─────────────────────────────────────────────────────────
   const handleEditorWillMount = (monaco: any) => {
-    if (monaco.editor.getModel(monaco.Uri.parse("custom://dark"))) return;
-    monaco.editor.defineTheme("nb-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "c792ea" },
-        { token: "keyword.control", foreground: "f97583" },
-        { token: "string", foreground: "c3e88d" },
-        { token: "comment", foreground: "546e7a", fontStyle: "italic" },
-        { token: "number", foreground: "f78c6c" },
-        { token: "entity.name.function", foreground: "82aaff" },
-        { token: "operator", foreground: "89ddff" },
-      ],
-      colors: {
-        "editor.background": "#09090b",
-        "editor.foreground": "#cdd3de",
-        "editor.lineHighlightBackground": "#ffffff08",
-        "editor.selectionBackground": "#4a4a7a66",
-        "editorCursor.foreground": "#c792ea",
-        "editorLineNumber.foreground": "#37474f",
-        "editorLineNumber.activeForeground": "#78909c",
-        "editorGutter.background": "#09090b",
-      },
-    });
-    monaco.editor.defineTheme("nb-light", {
-      base: "vs",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "7c3aed" },
-        { token: "string", foreground: "16803a" },
-        { token: "comment", foreground: "94a3b8", fontStyle: "italic" },
-        { token: "number", foreground: "c2410c" },
-        { token: "entity.name.function", foreground: "1d4ed8" },
-        { token: "operator", foreground: "0369a1" },
-      ],
-      colors: {
-        "editor.background": "#fafafa",
-        "editor.foreground": "#1e293b",
-        "editor.lineHighlightBackground": "#00000008",
-        "editorCursor.foreground": "#7c3aed",
-        "editorLineNumber.foreground": "#94a3b8",
-      },
-    });
+    try {
+      monaco.editor.defineTheme("nb-dark", {
+        base: "vs-dark", inherit: true,
+        rules: [
+          { token: "keyword", foreground: "c792ea" },
+          { token: "keyword.control", foreground: "f97583" },
+          { token: "string", foreground: "c3e88d" },
+          { token: "comment", foreground: "546e7a", fontStyle: "italic" },
+          { token: "number", foreground: "f78c6c" },
+          { token: "entity.name.function", foreground: "82aaff" },
+          { token: "operator", foreground: "89ddff" },
+        ],
+        colors: {
+          "editor.background": "#09090b",
+          "editor.foreground": "#cdd3de",
+          "editor.lineHighlightBackground": "#ffffff08",
+          "editor.selectionBackground": "#4a4a7a66",
+          "editorCursor.foreground": "#c792ea",
+          "editorLineNumber.foreground": "#37474f",
+          "editorLineNumber.activeForeground": "#78909c",
+          "editorGutter.background": "#09090b",
+        },
+      });
+      monaco.editor.defineTheme("nb-light", {
+        base: "vs", inherit: true,
+        rules: [
+          { token: "keyword", foreground: "7c3aed" },
+          { token: "string", foreground: "16803a" },
+          { token: "comment", foreground: "94a3b8", fontStyle: "italic" },
+          { token: "number", foreground: "c2410c" },
+          { token: "entity.name.function", foreground: "1d4ed8" },
+          { token: "operator", foreground: "0369a1" },
+        ],
+        colors: {
+          "editor.background": "#fafafa",
+          "editor.foreground": "#1e293b",
+          "editor.lineHighlightBackground": "#00000008",
+          "editorCursor.foreground": "#7c3aed",
+          "editorLineNumber.foreground": "#94a3b8",
+        },
+      });
+    } catch { /* themes already registered */ }
   };
 
   // ── Cell CRUD ──────────────────────────────────────────────────────────────
@@ -180,7 +158,6 @@ export const NotebookEditor = ({
       return updated;
     });
     setActiveCell(newCell.id);
-    return newCell.id;
   };
 
   const addCellAtEnd = () => {
@@ -194,28 +171,25 @@ export const NotebookEditor = ({
       if (prev.length === 1) return [makeCell()];
       const idx = prev.findIndex(c => c.id === cellId);
       const updated = prev.filter(c => c.id !== cellId);
-      const newActive = updated[Math.min(idx, updated.length - 1)];
-      setActiveCell(newActive.id);
+      setActiveCell(updated[Math.min(idx, updated.length - 1)].id);
       return updated;
     });
   };
 
-  const moveCell = (cellId: string, direction: "up" | "down") => {
+  const moveCell = (cellId: string, dir: "up" | "down") => {
     setCells(prev => {
       const idx = prev.findIndex(c => c.id === cellId);
-      if (direction === "up" && idx === 0) return prev;
-      if (direction === "down" && idx === prev.length - 1) return prev;
+      if (dir === "up" && idx === 0) return prev;
+      if (dir === "down" && idx === prev.length - 1) return prev;
       const updated = [...prev];
-      const target = direction === "up" ? idx - 1 : idx + 1;
-      [updated[idx], updated[target]] = [updated[target], updated[idx]];
+      const t = dir === "up" ? idx - 1 : idx + 1;
+      [updated[idx], updated[t]] = [updated[t], updated[idx]];
       return updated;
     });
   };
 
   const clearCellOutput = (cellId: string) => {
-    setCells(prev =>
-      prev.map(c => c.id === cellId ? { ...c, outputs: [], executionCount: null } : c)
-    );
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [], executionCount: null } : c));
   };
 
   // ── Run a single cell ──────────────────────────────────────────────────────
@@ -223,159 +197,65 @@ export const NotebookEditor = ({
     const cell = cells.find(c => c.id === cellId);
     if (!cell || !cell.code.trim() || cell.isRunning) return;
 
-    setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isRunning: true, outputs: [] } : c
-    ));
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isRunning: true, outputs: [] } : c));
 
     const outputs: OutputItem[] = [];
     let hasError = false;
-    let errorText = "";
 
     await runPythonCode(cell.code, {
       onStdout: (text) => {
         outputs.push({ type: "stdout", text });
-        setCells(prev => prev.map(c =>
-          c.id === cellId ? { ...c, outputs: [...outputs] } : c
-        ));
+        setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
       },
       onStderr: (text) => {
         hasError = true;
-        errorText += text;
         outputs.push({ type: "stderr", text });
-        setCells(prev => prev.map(c =>
-          c.id === cellId ? { ...c, outputs: [...outputs] } : c
-        ));
+        setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
       },
     });
 
     globalExecCounter++;
-    const execCount = globalExecCounter;
-
     setCells(prev => prev.map(c =>
-      c.id === cellId
-        ? { ...c, isRunning: false, executionCount: execCount, outputs }
-        : c
+      c.id === cellId ? { ...c, isRunning: false, executionCount: globalExecCounter, outputs } : c
     ));
 
-    // Auto-open debug panel if there's an error
+    // Nudge user towards AI debug on error
     if (hasError) {
       toast({
         title: "⚠️ Error terdeteksi",
-        description: "Klik 🐛 Auto Debug untuk minta AI membantu.",
+        description: "Klik 🐛 Debug untuk minta bantuan AI Chat.",
         duration: 3000,
       });
     }
   }, [cells, toast]);
 
-  // ── Run all cells in order ─────────────────────────────────────────────────
   const runAllCells = async () => {
-    for (const cell of cells) {
-      await runCell(cell.id);
-    }
+    for (const cell of cells) await runCell(cell.id);
   };
 
-  // ── AI helpers ─────────────────────────────────────────────────────────────
+  // ── AI Generate (only feature that stays in-cell) ─────────────────────────
   const getAiKey = async (): Promise<string | null> => {
     const user = authService.getUser();
     if (!user) {
-      toast({ title: "Belum login", description: "Login dulu untuk pakai fitur AI.", variant: "destructive" });
+      toast({ title: "Belum login", description: "Login untuk pakai fitur AI.", variant: "destructive" });
       return null;
     }
-    const token = authService.getAccessToken() ?? "";
     try {
-      return await fetchUserApiKey(user.id, token);
+      return await fetchUserApiKey(user.id, authService.getAccessToken() ?? "");
     } catch {
       toast({ title: "API Key tidak ditemukan", description: "Tambahkan Gemini API key di Settings.", variant: "destructive" });
       return null;
     }
   };
 
-  const streamAiResponse = async (
-    prompt: string,
-    cellId: string,
-    panelType: "explain" | "debug"
-  ) => {
-    const apiKey = await getAiKey();
-    if (!apiKey) return;
-
-    setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isAiLoading: true, aiPanel: panelType, aiOutput: "" } : c
-    ));
-
-    const messages = [{ role: "user" as const, content: prompt }];
-    let fullText = "";
-
-    const onChunk = (chunk: string) => {
-      fullText += chunk;
-      setCells(prev => prev.map(c =>
-        c.id === cellId ? { ...c, aiOutput: fullText } : c
-      ));
-    };
-
-    try {
-      // Try Gemini first, fall back to Groq
-      const controller = new AbortController();
-      let timedOut = false;
-      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 25_000);
-      try {
-        await streamGeminiResponse(apiKey, messages, onChunk, controller.signal);
-        clearTimeout(timer);
-      } catch {
-        clearTimeout(timer);
-        if (timedOut) {
-          fullText = "";
-          setCells(prev => prev.map(c => c.id === cellId ? { ...c, aiOutput: "" } : c));
-          await streamGroqFallback(messages, onChunk, new AbortController().signal);
-        } else throw new Error("AI error");
-      }
-    } catch (e) {
-      setCells(prev => prev.map(c =>
-        c.id === cellId
-          ? { ...c, aiOutput: "❌ Gagal mendapatkan respons AI. Coba lagi.", isAiLoading: false }
-          : c
-      ));
-      return;
-    }
-
-    setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isAiLoading: false } : c
-    ));
-  };
-
-  const handleExplain = async (cellId: string) => {
-    const cell = cells.find(c => c.id === cellId);
-    if (!cell) return;
-    if (cell.aiPanel === "explain" && !cell.isAiLoading) {
-      // toggle off
-      setCells(prev => prev.map(c => c.id === cellId ? { ...c, aiPanel: null, aiOutput: "" } : c));
-      return;
-    }
-    const prompt = `Jelaskan kode Python berikut secara singkat dan mudah dipahami untuk pemula. Gunakan bahasa Indonesia dan format markdown.\n\n\`\`\`python\n${cell.code}\n\`\`\``;
-    await streamAiResponse(prompt, cellId, "explain");
-  };
-
-  const handleDebug = async (cellId: string) => {
-    const cell = cells.find(c => c.id === cellId);
-    if (!cell) return;
-    if (cell.aiPanel === "debug" && !cell.isAiLoading) {
-      setCells(prev => prev.map(c => c.id === cellId ? { ...c, aiPanel: null, aiOutput: "" } : c));
-      return;
-    }
-    const errorOutput = cell.outputs.filter(o => o.type === "stderr").map(o => o.text).join("\n");
-    const prompt = `Kode Python berikut menghasilkan error. Tolong identifikasi penyebab error dan berikan solusi perbaikannya. Gunakan bahasa Indonesia dan format markdown.\n\n**Kode:**\n\`\`\`python\n${cell.code}\n\`\`\`\n\n**Error:**\n\`\`\`\n${errorOutput || "(tidak ada output error, tapi ada masalah logika)"}\n\`\`\``;
-    await streamAiResponse(prompt, cellId, "debug");
-  };
-
-  const handleAiGenerateToCell = async (cellId: string, prompt: string) => {
+  const handleAiGenerate = async (cellId: string, prompt: string) => {
     if (!prompt.trim()) return;
-    const genPrompt = `Buatkan kode Python untuk: ${prompt}\n\nBalas HANYA dengan blok kode python saja, tanpa penjelasan tambahan di luar code block. Gunakan format:\n\`\`\`python\n# kode di sini\n\`\`\``;
     const apiKey = await getAiKey();
     if (!apiKey) return;
 
-    setCells(prev => prev.map(c =>
-      c.id === cellId ? { ...c, isAiLoading: true } : c
-    ));
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: true } : c));
 
+    const genPrompt = `Buatkan kode Python untuk: ${prompt}\n\nBalas HANYA dengan blok kode python, tanpa penjelasan di luar code block:\n\`\`\`python\n# kode di sini\n\`\`\``;
     const messages = [{ role: "user" as const, content: genPrompt }];
     let fullText = "";
     const onChunk = (chunk: string) => { fullText += chunk; };
@@ -392,7 +272,6 @@ export const NotebookEditor = ({
       }
     }
 
-    // Extract code from markdown block
     const match = fullText.match(/```python\s*([\s\S]*?)```/);
     const extracted = match ? match[1].trim() : fullText.trim();
 
@@ -402,15 +281,34 @@ export const NotebookEditor = ({
     toast({ title: "✨ Kode AI sudah siap!", description: "Klik ▶ untuk menjalankan.", duration: 2500 });
   };
 
+  // ── Explain → kirim ke AI Chat ──────────────────────────────────────────────
+  const handleExplain = (cellId: string) => {
+    const cell = cells.find(c => c.id === cellId);
+    if (!cell || !onSendToChat) return;
+    const message = `📖 **Tolong jelaskan kode Python berikut** secara singkat dan mudah dipahami:\n\n\`\`\`python\n${cell.code}\n\`\`\``;
+    onSendToChat(message);
+    toast({ title: "📖 Explain dikirim ke AI Chat", description: "Lihat balasan di panel AI Chat.", duration: 2000 });
+  };
+
+  // ── Debug → kirim ke AI Chat ───────────────────────────────────────────────
+  const handleDebug = (cellId: string) => {
+    const cell = cells.find(c => c.id === cellId);
+    if (!cell || !onSendToChat) return;
+    const errorOutput = cell.outputs.filter(o => o.type === "stderr").map(o => o.text).join("\n");
+    const message = errorOutput
+      ? `🐛 **Tolong debug kode Python berikut** dan berikan solusi perbaikannya:\n\n**Kode:**\n\`\`\`python\n${cell.code}\n\`\`\`\n\n**Error:**\n\`\`\`\n${errorOutput}\n\`\`\``
+      : `🐛 **Tolong periksa kode Python berikut** — ada kemungkinan bug atau masalah logika:\n\n\`\`\`python\n${cell.code}\n\`\`\``;
+    onSendToChat(message);
+    toast({ title: "🐛 Debug dikirim ke AI Chat", description: "Lihat analisis di panel AI Chat.", duration: 2000 });
+  };
+
   // ── File import/export ─────────────────────────────────────────────────────
-  const handleSaveNotebook = () => {
+  const handleSave = () => {
     const allCode = cells.map((c, i) => `# === Cell ${i + 1} ===\n${c.code}`).join("\n\n");
     const blob = new Blob([allCode], { type: "text/x-python" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "notebook.py";
-    a.click();
+    a.href = url; a.download = "notebook.py"; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -420,11 +318,8 @@ export const NotebookEditor = ({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
-      // Split on cell separator comment or just make single cell
       const parts = content.split(/^# === Cell \d+ ===/m).map(s => s.trim()).filter(Boolean);
-      const newCells = parts.length > 0
-        ? parts.map(code => makeCell(code))
-        : [makeCell(content)];
+      const newCells = parts.length > 0 ? parts.map(code => makeCell(code)) : [makeCell(content)];
       setCells(newCells);
       setActiveCell(newCells[0].id);
       onChange(newCells[0].code);
@@ -439,13 +334,12 @@ export const NotebookEditor = ({
   const isDark = resolvedTheme === "dark";
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* ── Notebook Toolbar ──────────────────────────────────────────────── */}
+    <div className="flex flex-col h-full bg-background overflow-hidden">
+      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div
         className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0 gap-2"
         style={{ background: isDark ? "#101014" : "#f8fafc" }}
       >
-        {/* Left: title & badges */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex gap-1">
             <div className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
@@ -463,14 +357,13 @@ export const NotebookEditor = ({
           )}
         </div>
 
-        {/* Right: actions */}
         <div className="flex items-center gap-1">
           <input type="file" accept=".py" ref={fileInputRef} onChange={handleImport} className="hidden" />
           <Button size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1">
             <Upload className="w-3.5 h-3.5" /><span className="hidden sm:inline">Import</span>
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleSaveNotebook}
+          <Button size="sm" variant="ghost" onClick={handleSave}
             className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1">
             <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">Save</span>
           </Button>
@@ -486,7 +379,7 @@ export const NotebookEditor = ({
         </div>
       </div>
 
-      {/* ── Cell List ─────────────────────────────────────────────────────── */}
+      {/* ── Cell List ────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {cells.map((cell, idx) => (
           <CellCard
@@ -499,6 +392,7 @@ export const NotebookEditor = ({
             isMobile={isMobile}
             isDark={isDark}
             isRuntimeReady={isRuntimeReady}
+            hasChatHandler={!!onSendToChat}
             onActivate={() => setActiveCell(cell.id)}
             onCodeChange={(v) => handleCellCodeChange(cell.id, v)}
             onRun={() => runCell(cell.id)}
@@ -509,13 +403,11 @@ export const NotebookEditor = ({
             onClearOutput={() => clearCellOutput(cell.id)}
             onExplain={() => handleExplain(cell.id)}
             onDebug={() => handleDebug(cell.id)}
-            onAiGenerate={(prompt) => handleAiGenerateToCell(cell.id, prompt)}
-            onSendToChat={onSendToChat}
+            onAiGenerate={(prompt) => handleAiGenerate(cell.id, prompt)}
             onEditorWillMount={handleEditorWillMount}
           />
         ))}
 
-        {/* Add cell footer button */}
         <button
           onClick={addCellAtEnd}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-violet-500/50 hover:bg-violet-500/5 transition-all duration-200 group"
@@ -529,7 +421,7 @@ export const NotebookEditor = ({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CellCard — individual notebook cell
+// CellCard
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CellCardProps {
@@ -541,6 +433,7 @@ interface CellCardProps {
   isMobile: boolean;
   isDark: boolean;
   isRuntimeReady: boolean;
+  hasChatHandler: boolean;
   onActivate: () => void;
   onCodeChange: (v: string) => void;
   onRun: () => void;
@@ -552,30 +445,22 @@ interface CellCardProps {
   onExplain: () => void;
   onDebug: () => void;
   onAiGenerate: (prompt: string) => void;
-  onSendToChat?: (msg: string) => void;
   onEditorWillMount: (monaco: any) => void;
 }
 
 function CellCard({
   cell, index, totalCells, isActive, monacoTheme, isMobile, isDark, isRuntimeReady,
-  onActivate, onCodeChange, onRun, onDelete, onMoveUp, onMoveDown, onAddBelow,
-  onClearOutput, onExplain, onDebug, onAiGenerate, onSendToChat, onEditorWillMount,
+  hasChatHandler, onActivate, onCodeChange, onRun, onDelete, onMoveUp, onMoveDown,
+  onAddBelow, onClearOutput, onExplain, onDebug, onAiGenerate, onEditorWillMount,
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiPrompt, setShowAiPrompt] = useState(false);
+
   const hasError = cell.outputs.some(o => o.type === "stderr");
   const hasOutput = cell.outputs.length > 0;
 
-  // Calculate editor height based on number of lines (min 3, max 30)
   const lineCount = Math.min(30, Math.max(3, cell.code.split("\n").length));
   const editorHeight = lineCount * (isMobile ? 20 : 22) + 32;
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      onRun();
-    }
-  };
 
   return (
     <div
@@ -589,19 +474,20 @@ function CellCard({
       }`}
       style={{ background: isDark ? "#0d0d10" : "#fff" }}
     >
-      {/* Cell header: execution count + run button + cell actions */}
+      {/* ── Cell header ───────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/30">
+
         {/* Execution badge */}
-        <div
-          className={`shrink-0 w-8 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center border transition-colors ${
-            cell.isRunning
-              ? "border-amber-500/60 text-amber-400 bg-amber-500/10 animate-pulse"
-              : cell.executionCount !== null
-              ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-              : "border-border/40 text-muted-foreground/50 bg-secondary/30"
-          }`}
-        >
-          {cell.isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : cell.executionCount !== null ? `[${cell.executionCount}]` : "[ ]"}
+        <div className={`shrink-0 w-8 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center border transition-colors ${
+          cell.isRunning
+            ? "border-amber-500/60 text-amber-400 bg-amber-500/10 animate-pulse"
+            : cell.executionCount !== null
+            ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+            : "border-border/40 text-muted-foreground/50 bg-secondary/30"
+        }`}>
+          {cell.isRunning
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : cell.executionCount !== null ? `[${cell.executionCount}]` : "[ ]"}
         </div>
 
         {/* Run button */}
@@ -625,44 +511,53 @@ function CellCard({
         {/* Cell label */}
         <span className="text-[10px] text-muted-foreground font-mono flex-1 truncate hidden sm:block">
           Cell {index + 1}
-          {cell.isAiLoading && <span className="ml-2 text-violet-400 animate-pulse">AI working…</span>}
+          {cell.isAiLoading && <span className="ml-2 text-violet-400 animate-pulse">AI generating…</span>}
         </span>
 
-        {/* Right-side actions (only visible on hover/active) */}
+        {/* Action buttons — visible on hover / active */}
         <div className={`flex items-center gap-0.5 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-          {/* AI Generate */}
+
+          {/* ✨ AI Generate */}
           <button
             onClick={(e) => { e.stopPropagation(); setShowAiPrompt(v => !v); }}
-            title="AI: Generate code"
-            className="h-6 px-1.5 rounded text-[10px] font-medium text-violet-400 hover:bg-violet-400/10 flex items-center gap-1 transition-colors"
+            title="AI: Buat kode dari deskripsi"
+            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
+              showAiPrompt
+                ? "bg-violet-500/15 text-violet-400"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`}
           >
             <Sparkles className="w-3 h-3" />
             <span className="hidden sm:inline">AI Generate</span>
           </button>
 
-          {/* Explain */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onExplain(); }}
-            title="AI: Explain code"
-            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
-              cell.aiPanel === "explain" ? "bg-blue-500/15 text-blue-400" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="w-3 h-3" />
-            <span className="hidden sm:inline">Explain</span>
-          </button>
+          {/* 📖 Explain → AI Chat */}
+          {hasChatHandler && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onExplain(); }}
+              title="Jelaskan kode ini di AI Chat"
+              className="h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 text-muted-foreground hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
+            >
+              <BookOpen className="w-3 h-3" />
+              <span className="hidden sm:inline">Explain</span>
+            </button>
+          )}
 
-          {/* Debug */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDebug(); }}
-            title="AI: Debug code"
-            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
-              cell.aiPanel === "debug" ? "bg-red-500/15 text-red-400" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            } ${hasError ? "text-red-400 animate-pulse" : ""}`}
-          >
-            <Bug className="w-3 h-3" />
-            <span className="hidden sm:inline">Debug</span>
-          </button>
+          {/* 🐛 Debug → AI Chat */}
+          {hasChatHandler && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDebug(); }}
+              title="Debug kode ini di AI Chat"
+              className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
+                hasError
+                  ? "text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 animate-pulse"
+                  : "text-muted-foreground hover:bg-red-500/10 hover:text-red-400"
+              }`}
+            >
+              <Bug className="w-3 h-3" />
+              <span className="hidden sm:inline">Debug</span>
+            </button>
+          )}
 
           <div className="w-px h-3.5 bg-border/50 mx-0.5" />
 
@@ -686,24 +581,26 @@ function CellCard({
         </div>
       </div>
 
-      {/* AI Prompt input (for generate) */}
+      {/* ── AI Generate prompt bar ─────────────────────────────────────────── */}
       {showAiPrompt && (
-        <div className="px-2 py-1.5 border-b border-border/30 bg-violet-500/5 flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()}>
+        <div
+          className="px-2 py-1.5 border-b border-border/30 bg-violet-500/5 flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Sparkles className="w-3.5 h-3.5 text-violet-400 shrink-0" />
           <input
             autoFocus
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && aiPrompt.trim()) {
                 onAiGenerate(aiPrompt);
                 setAiPrompt("");
                 setShowAiPrompt(false);
               }
               if (e.key === "Escape") setShowAiPrompt(false);
             }}
-            placeholder='Deskripsikan kode yang ingin dibuat… (Enter untuk generate)'
+            placeholder="Deskripsikan kode yang ingin dibuat… (Enter untuk generate)"
             className="flex-1 bg-transparent outline-none text-xs text-foreground placeholder:text-muted-foreground/60"
           />
           <button onClick={() => setShowAiPrompt(false)} className="text-muted-foreground hover:text-foreground">
@@ -712,8 +609,13 @@ function CellCard({
         </div>
       )}
 
-      {/* Monaco editor */}
-      <div onKeyDown={handleKeyDown} style={{ height: editorHeight }}>
+      {/* ── Monaco Editor ──────────────────────────────────────────────────── */}
+      <div
+        style={{ height: editorHeight }}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun(); }
+        }}
+      >
         <Editor
           height={editorHeight}
           defaultLanguage="python"
@@ -721,9 +623,6 @@ function CellCard({
           onChange={(v) => onCodeChange(v ?? "")}
           theme={monacoTheme}
           beforeMount={onEditorWillMount}
-          onMount={(editor) => {
-            // Prevent editor click from bubbling to cell card
-          }}
           options={{
             minimap: { enabled: false },
             fontSize: isMobile ? 12 : 13,
@@ -744,15 +643,21 @@ function CellCard({
         />
       </div>
 
-      {/* Output area */}
+      {/* ── Output ────────────────────────────────────────────────────────── */}
       {hasOutput && (
         <div className="border-t border-border/30">
           <div className="flex items-center justify-between px-3 py-1 bg-secondary/20">
             <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-              Output {hasError && <span className="text-red-400 ml-1">⚠ Error</span>}
+              Output{hasError && (
+                <span className="text-red-400 ml-2 normal-case">
+                  ⚠ Error — klik <strong>Debug</strong> untuk bantuan AI
+                </span>
+              )}
             </span>
-            <button onClick={(e) => { e.stopPropagation(); onClearOutput(); }}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onClearOutput(); }}
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
               <X className="w-3 h-3" /> Clear
             </button>
           </div>
@@ -761,10 +666,6 @@ function CellCard({
               <div key={i} className={
                 out.type === "stderr"
                   ? "text-red-400 whitespace-pre-wrap"
-                  : out.type === "ai"
-                  ? "text-violet-300 whitespace-pre-wrap"
-                  : out.type === "info"
-                  ? "text-blue-400 whitespace-pre-wrap"
                   : "text-foreground/90 whitespace-pre-wrap"
               }>
                 {out.text}
@@ -774,27 +675,7 @@ function CellCard({
         </div>
       )}
 
-      {/* AI output panel (explain / debug) */}
-      {cell.aiPanel && (
-        <div className={`border-t ${cell.aiPanel === "debug" ? "border-red-500/20" : "border-blue-500/20"}`}>
-          <div className={`flex items-center justify-between px-3 py-1.5 ${
-            cell.aiPanel === "debug" ? "bg-red-500/5" : "bg-blue-500/5"
-          }`}>
-            <AIBadge label={cell.aiPanel === "debug" ? "🐛 Auto Debug" : "📖 Explain"} />
-            {cell.isAiLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />}
-            <button
-              onClick={(e) => { e.stopPropagation(); /* close */ }}
-              className="text-muted-foreground hover:text-foreground ml-auto"
-            >
-            </button>
-          </div>
-          <div className="px-3 py-2 max-h-72 overflow-y-auto">
-            <AiOutputRenderer text={cell.aiOutput} isLoading={cell.isAiLoading} onSendToChat={onSendToChat} code={cell.code} />
-          </div>
-        </div>
-      )}
-
-      {/* Add cell below button (shows on hover) */}
+      {/* ── Add cell below (hover button) ─────────────────────────────────── */}
       <div className={`absolute -bottom-3.5 left-1/2 -translate-x-1/2 z-10 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
         <button
           onClick={(e) => { e.stopPropagation(); onAddBelow(); }}
@@ -803,57 +684,6 @@ function CellCard({
           <Plus className="w-3 h-3" /> cell
         </button>
       </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI Output Renderer — simple markdown-aware renderer for AI text
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AiOutputRenderer({
-  text, isLoading, onSendToChat, code
-}: { text: string; isLoading: boolean; onSendToChat?: (msg: string) => void; code: string }) {
-  if (!text && isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-        <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
-        <span>AI sedang menganalisis…</span>
-      </div>
-    );
-  }
-
-  if (!text) return null;
-
-  // Simple text with code block highlighting (no heavy MD library)
-  const parts = text.split(/(```[\s\S]*?```)/g);
-
-  return (
-    <div className="text-xs leading-relaxed space-y-2">
-      {parts.map((part, i) => {
-        if (part.startsWith("```")) {
-          const lines = part.replace(/^```\w*\n?/, "").replace(/```$/, "");
-          return (
-            <div key={i} className="rounded-lg overflow-hidden border border-zinc-700/60 my-1">
-              <div className="bg-zinc-800 px-3 py-1 text-[10px] font-mono text-zinc-400 uppercase tracking-wider">python</div>
-              <pre className="bg-[#1e1e1e] px-3 py-2 text-xs font-mono text-[#c3e88d] overflow-x-auto whitespace-pre-wrap">{lines}</pre>
-            </div>
-          );
-        }
-        // Bold
-        const formatted = part.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-        return <p key={i} className="text-foreground/80 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatted }} />;
-      })}
-
-      {/* Send to AI Chat button */}
-      {onSendToChat && !isLoading && (
-        <button
-          onClick={() => onSendToChat(`Tolong jelaskan lebih lanjut dan bantu saya perbaiki kode ini:\n\`\`\`python\n${code}\n\`\`\``)}
-          className="mt-2 flex items-center gap-1.5 text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/30 hover:border-violet-500/60 bg-violet-500/5 hover:bg-violet-500/10 px-2 py-1 rounded-lg transition-all"
-        >
-          <Sparkles className="w-3 h-3" /> Diskusikan di AI Chat
-        </button>
-      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
-  Save, CheckCircle2, AlertCircle,
+  Save, CheckCircle2, AlertCircle, Target,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
@@ -104,6 +104,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isGeneratingChallenge, setIsGeneratingChallenge] = useState(false);
 
   const [cells, setCells] = useState<Cell[]>(() => parseNotebookCode(code));
   const [activeCell, setActiveCell] = useState<string>(cells[0]?.id || "");
@@ -409,6 +410,56 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     toast({ title: "✨ Kode AI sudah siap!", description: "Klik ▶ untuk menjalankan.", duration: 2500 });
   };
 
+  // ── 🎯 AI Challenge Generator ────────────────────────────────────────────────
+  const handleGenerateChallenge = async () => {
+    const apiKey = await getAiKey();
+    if (!apiKey) return;
+
+    setIsGeneratingChallenge(true);
+    toast({ title: "⏳ Membuat soal latihan...", description: "Mohon tunggu sebentar.", duration: 2500 });
+    
+    // Create an empty cell first to show loading
+    const newCell = makeCell();
+    newCell.isAiLoading = true;
+    setCells(prev => [...prev, newCell]);
+    setActiveCell(newCell.id);
+
+    const prompt = `Berikan 1 soal tantangan ngoding Python untuk latihan mahasiswa.
+Aturan:
+1. Pilih satu topik random dari: Variabel, Looping, Function, List, atau Dictionary.
+2. JANGAN BERIKAN JAWABAN ATAU KODE SOLUSINYA SAMA SEKALI. Teks harus murni soal/instruksi.
+3. Awali dengan tepat tulisan ini (WAJIB): "# 🎯 TANTANGAN: [Topik]" lalu berikan spasi/enter.
+4. Tulis deskripsi soal di dalam format komentar Python (diawali tanda #).
+5. Diakhiri dengan "# Tulis kodemu di bawah ini:"`;
+
+    const messages = [{ role: "user" as const, content: prompt }];
+    let fullText = "";
+    const onChunk = (chunk: string) => { fullText += chunk; };
+
+    try {
+      await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+    } catch {
+      try {
+        await streamGroqFallback(messages, onChunk, new AbortController().signal);
+      } catch {
+        toast({ title: "Gagal membuat soal", variant: "destructive" });
+        setCells(prev => prev.filter(c => c.id !== newCell.id)); // Remove loading cell
+        setIsGeneratingChallenge(false);
+        return;
+      }
+    }
+
+    // Clean up markdown block if the AI returned it
+    const match = fullText.match(/```python\s*([\s\S]*?)```/);
+    const extracted = match ? match[1].trim() : fullText.trim();
+
+    setCells(prev => prev.map(c =>
+      c.id === newCell.id ? { ...c, code: extracted + "\n\n", isAiLoading: false } : c
+    ));
+    setIsGeneratingChallenge(false);
+    toast({ title: "🎯 Soal latihan siap!", description: "Kerjakan secara mandiri di cell tersebut.", duration: 3000 });
+  };
+
   // ── Explain → kirim ke AI Chat ──────────────────────────────────────────────
   const handleExplain = (cellId: string) => {
     const cell = cells.find(c => c.id === cellId);
@@ -537,9 +588,10 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
           )}
 
           <div className="w-px h-4 bg-border mx-1" />
-          <Button size="sm" variant="ghost" onClick={runAllCells} disabled={!isRuntimeReady}
-            className="h-7 px-2.5 text-[11px] gap-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10">
-            <Zap className="w-3.5 h-3.5" /><span className="hidden sm:inline">Run All</span>
+          <Button size="sm" onClick={handleGenerateChallenge} disabled={isGeneratingChallenge}
+            className="h-7 px-2.5 text-[11px] gap-1 bg-blue-600 hover:bg-blue-500 text-white">
+            {isGeneratingChallenge ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Target className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">Latihan Cepat</span>
           </Button>
           <Button size="sm" onClick={addCellAtEnd}
             className="h-7 px-2.5 text-[11px] gap-1 bg-violet-600 hover:bg-violet-500 text-white">
@@ -637,6 +689,9 @@ function CellCard({
   const lineCount = Math.min(30, Math.max(3, cell.code.split("\n").length));
   const editorHeight = lineCount * (isMobile ? 20 : 22) + 32;
 
+  // ── Aturan Tantangan: Jika cell ini berisi soal tantangan, matikan bantuan AI ──
+  const isChallenge = cell.code.includes("🎯 TANTANGAN");
+
   return (
     <div
       onClick={onActivate}
@@ -713,9 +768,14 @@ function CellCard({
 
           {/* ✨ AI Generate */}
           <button
-            onClick={(e) => { e.stopPropagation(); setShowAiPrompt(v => !v); }}
-            title="AI: Buat kode dari deskripsi"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (!isChallenge) setShowAiPrompt(v => !v); 
+            }}
+            disabled={isChallenge}
+            title={isChallenge ? "Fitur dimatikan: Kerjakan tantangan ini sendiri! 🚀" : "AI: Buat kode dari deskripsi"}
             className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
+              isChallenge ? "opacity-30 cursor-not-allowed" :
               showAiPrompt
                 ? "bg-violet-500/15 text-violet-400"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -728,9 +788,13 @@ function CellCard({
           {/* 📖 Explain → AI Chat */}
           {hasChatHandler && (
             <button
-              onClick={(e) => { e.stopPropagation(); onExplain(); }}
-              title="Jelaskan kode ini di AI Chat"
-              className="h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 text-muted-foreground hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
+              onClick={(e) => { e.stopPropagation(); if (!isChallenge) onExplain(); }}
+              disabled={isChallenge}
+              title={isChallenge ? "Fitur dimatikan: Coba artikan kodenya secara mandiri!" : "Jelaskan kode ini di AI Chat"}
+              className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
+                isChallenge ? "opacity-30 cursor-not-allowed text-muted-foreground" :
+                "text-muted-foreground hover:bg-blue-500/10 hover:text-blue-400"
+              }`}
             >
               <BookOpen className="w-3 h-3" />
               <span className="hidden sm:inline">Explain</span>
@@ -740,9 +804,11 @@ function CellCard({
           {/* 🐛 Debug → AI Chat */}
           {hasChatHandler && (
             <button
-              onClick={(e) => { e.stopPropagation(); onDebug(); }}
-              title="Debug kode ini di AI Chat"
+              onClick={(e) => { e.stopPropagation(); if (!isChallenge) onDebug(); }}
+              disabled={isChallenge}
+              title={isChallenge ? "Fitur dimatikan: Cari dan perbaiki bug sendiri!" : "Debug kode ini di AI Chat"}
               className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
+                isChallenge ? "opacity-30 cursor-not-allowed text-muted-foreground" :
                 hasError
                   ? "text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 animate-pulse"
                   : "text-muted-foreground hover:bg-red-500/10 hover:text-red-400"

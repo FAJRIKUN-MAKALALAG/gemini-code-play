@@ -119,6 +119,8 @@ const Index = () => {
     />
   );
 
+  const isChallengeActive = code.includes("🎯 TANTANGAN");
+
   const chatNode = (
     <ChatInterface
       ref={chatRef}
@@ -126,6 +128,7 @@ const Index = () => {
       getNotebookContext={() => notebookRef.current?.getCells()}
       onLoadCode={(c) => setCode(c)}
       onSignInClick={() => setShowAuth(true)}
+      isChallengeActive={isChallengeActive}
     />
   );
 

@@ -64,6 +64,7 @@ type ChatProps = {
   getNotebookContext?: () => CellSnapshot[] | undefined;
   onLoadCode?: (code: string) => void;
   onSignInClick?: () => void;
+  isChallengeActive?: boolean;
 };
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
@@ -554,7 +555,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         />
 
         {/* No API key warning */}
-        {noApiKey && (
+        {noApiKey && !props.isChallengeActive && (
           <div className="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
@@ -563,9 +564,29 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           </div>
         )}
 
-        {/* Messages */}
-        <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4 space-y-3 sm:space-y-4">
-          {loadingHistory && (
+        {/* Challenge Lock Screen */}
+        {props.isChallengeActive ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-500">
+            <Card className="w-full max-w-sm border-dashed border-2 border-orange-500/50 bg-orange-500/5 shadow-xl">
+              <CardHeader className="text-center pb-4">
+                <div className="mx-auto w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                  <span className="text-3xl">🎯</span>
+                </div>
+                <CardTitle className="text-xl text-orange-600 dark:text-orange-400 font-bold tracking-tight">Mode Latihan Aktif</CardTitle>
+                <CardDescription className="text-sm mt-2 text-muted-foreground leading-relaxed">
+                  AI Chat dinonaktifkan sementara. Uji kemampuanmu dan selesaikan tantangan ngoding ini <strong>tanpa bantuan AI</strong>!
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-[10px] sm:text-xs text-orange-600/70 font-medium">Hapus atau ubah teks "# 🎯 TANTANGAN" di dalam cell untuk mengaktifkan AI kembali.</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <>
+            {/* Messages */}
+            <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4 space-y-3 sm:space-y-4">
+              {loadingHistory && (
             <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading history...</div>
           )}
           {messages.length === 0 && !loadingHistory ? (
@@ -637,8 +658,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <Button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading || noApiKey}
-                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'
-                  }`}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'}`}
               >
                 {isLoading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </Button>
@@ -648,7 +668,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             </p>
           </div>
         </div>
-      </div>
+      </>
+      )}
+    </div>
 
       {/* New Chat Modal */}
       {showNewModal && (

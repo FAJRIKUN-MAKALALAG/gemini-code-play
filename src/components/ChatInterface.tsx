@@ -17,6 +17,7 @@ import { AIStatusIndicator } from "./AIStatusIndicator";
 import { ErrorAlert } from "./ErrorAlert";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { buildContext, type CellSnapshot } from "@/utils/notebookContext";
 
 // ─── Chat-specific error mapping ─────────────────────────────────────────────
 function mapChatError(err: any): { title: string; message: string; status: number | string } {
@@ -59,6 +60,7 @@ export type ChatInterfaceHandle = {
 
 type ChatProps = {
   getCurrentCode?: () => string;
+  getNotebookContext?: () => CellSnapshot[] | undefined;
   onLoadCode?: (code: string) => void;
   onSignInClick?: () => void;
 };
@@ -232,9 +234,26 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
       // ── 7. Sliding window — ambil N pesan terakhir saja untuk dikirim ke AI ─
       // allMessages masih lengkap untuk disimpan di DB (step 3 di atas).
-      const windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
+      let windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
         ? allMessages.slice(-CHAT_WINDOW_SIZE)
-        : allMessages;
+        : [...allMessages];
+
+      // ── 7.5. Inject Notebook Context ─────────────────────────────────────────
+      // Inject context HANYA pada pesan terakhir yang akan dikirim ke API
+      // (UI/State 'allMessages' tidak terpengaruh, jadi chat UI tetap bersih)
+      if (props.getNotebookContext) {
+        const cells = props.getNotebookContext();
+        if (cells) {
+          const lastMsg = windowedMessages[windowedMessages.length - 1];
+          const injectedContext = buildContext(lastMsg.content, cells);
+          if (injectedContext) {
+            windowedMessages[windowedMessages.length - 1] = {
+              ...lastMsg,
+              content: lastMsg.content + injectedContext,
+            };
+          }
+        }
+      }
 
       // ── 8. Gemini stream + 30-detik timeout ──────────────────────────────────
       // AbortController khusus untuk Gemini (agar bisa di-abort tanpa

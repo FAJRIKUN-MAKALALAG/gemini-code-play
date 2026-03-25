@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { NotebookEditor } from "@/components/NotebookEditor";
+import { NotebookEditor, type NotebookEditorHandle } from "@/components/NotebookEditor";
 import { ChatInterface, ChatInterfaceHandle } from "@/components/ChatInterface";
 import { Navbar } from "@/components/Navbar";
 import { AuthScreen } from "@/components/AuthScreen";
@@ -24,6 +24,7 @@ const Index = () => {
   const [skulptReady, setSkulptReady] = useState(false);
   const { toast } = useToast();
   const chatRef = useRef<ChatInterfaceHandle | null>(null);
+  const notebookRef = useRef<NotebookEditorHandle | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [viewMode, setViewMode] = useState<"code" | "chat" | "both">("both");
 
@@ -109,6 +110,7 @@ const Index = () => {
   // ── Shared nodes for reuse across layouts ─────────────────────────────────
   const editorNode = (
     <NotebookEditor
+      ref={notebookRef}
       code={code}
       onChange={setCode}
       onSendToChat={handleSendToChat}
@@ -121,6 +123,7 @@ const Index = () => {
     <ChatInterface
       ref={chatRef}
       getCurrentCode={() => code}
+      getNotebookContext={() => notebookRef.current?.getCells()}
       onLoadCode={(c) => setCode(c)}
       onSignInClick={() => setShowAuth(true)}
     />

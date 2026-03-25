@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import { fetchUserApiKey, streamGeminiResponse } from "@/services/geminiService"
 import { streamGroqFallback } from "@/services/groqFallbackService";
 import { runPythonCode } from "@/utils/skulptRunner";
 import { v4 as uuidv4 } from "uuid";
+import { type CellSnapshot } from "@/utils/notebookContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,12 @@ interface Cell {
 }
 
 type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
+
+/** Imperative handle exposed by NotebookEditor */
+export type NotebookEditorHandle = {
+  /** Returns a snapshot of all cells for context injection */
+  getCells: () => CellSnapshot[];
+};
 
 interface NotebookEditorProps {
   code: string;
@@ -57,13 +64,16 @@ function makeCell(code = ""): Cell {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export const NotebookEditor = ({
-  code,
-  onChange,
-  onSendToChat,
-  onSaveCode,
-  isRuntimeReady = true,
-}: NotebookEditorProps) => {
+export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorProps>((
+  {
+    code,
+    onChange,
+    onSendToChat,
+    onSaveCode,
+    isRuntimeReady = true,
+  },
+  ref
+) => {
   const { resolvedTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +85,17 @@ export const NotebookEditor = ({
   // ── Save status ───────────────────────────────────────────────────────────
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Expose getCells() to parent via ref ───────────────────────────────────
+  useImperativeHandle(ref, () => ({
+    getCells: () =>
+      cells.map((c, i) => ({
+        index: i + 1,
+        code: c.code,
+        outputs: c.outputs as CellSnapshot["outputs"],
+        executionCount: c.executionCount,
+      })),
+  }));
 
   // ── Sync first cell ↔ parent prop ─────────────────────────────────────────
   const lastExternalCode = useRef(code);
@@ -495,7 +516,7 @@ export const NotebookEditor = ({
       </div>
     </div>
   );
-};
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CellCard

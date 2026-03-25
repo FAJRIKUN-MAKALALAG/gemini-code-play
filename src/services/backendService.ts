@@ -28,12 +28,16 @@ export interface CodeSnippet {
   created_at: string;
 }
 
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  return fetch(url, { ...options, credentials: 'include' });
+};
+
 class BackendService {
   // ===== CONVERSATIONS =====
 
   async getConversations(userId: string, limit = 50): Promise<{ data: Conversation[] | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/conversations/${userId}?limit=${limit}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/conversations/${userId}?limit=${limit}`, {
         headers: authService.getAuthHeaders()
       });
       if (!response.ok) throw new Error(`Failed to fetch conversations: ${response.statusText}`);
@@ -46,7 +50,7 @@ class BackendService {
 
   async getConversation(id: string): Promise<{ data: Conversation | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/conversations/${id}`, {
         headers: authService.getAuthHeaders()
       });
       if (!response.ok) throw new Error(`Failed to fetch conversation: ${response.statusText}`);
@@ -59,7 +63,7 @@ class BackendService {
 
   async createConversation(userId: string, title: string): Promise<{ data: Conversation | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/conversations`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/conversations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +81,7 @@ class BackendService {
 
   async updateConversation(id: string, updates: Partial<Conversation>): Promise<{ error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/conversations/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +98,7 @@ class BackendService {
 
   async deleteConversation(id: string): Promise<{ error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/conversations/${id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/conversations/${id}`, {
         method: 'DELETE',
         headers: authService.getAuthHeaders()
       });
@@ -109,7 +113,7 @@ class BackendService {
 
   async getMessages(conversationId: string): Promise<{ data: ChatMessage[] | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/messages/${conversationId}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/messages/${conversationId}`, {
         headers: authService.getAuthHeaders()
       });
       if (!response.ok) throw new Error(`Failed to fetch messages: ${response.statusText}`);
@@ -122,7 +126,7 @@ class BackendService {
 
   async addMessage(conversationId: string, userId: string, role: 'user' | 'assistant', content: string): Promise<{ data: ChatMessage | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/messages`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +144,7 @@ class BackendService {
 
   async deleteMessage(id: string): Promise<{ error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/messages/${id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/messages/${id}`, {
         method: 'DELETE',
         headers: authService.getAuthHeaders()
       });
@@ -155,7 +159,7 @@ class BackendService {
 
   async getCodeByConversation(conversationId: string): Promise<{ data: CodeSnippet[] | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/code/conversation/${conversationId}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/code/conversation/${conversationId}`, {
         headers: authService.getAuthHeaders()
       });
       if (!response.ok) throw new Error(`Failed to fetch code by conversation: ${response.statusText}`);
@@ -168,7 +172,7 @@ class BackendService {
 
   async getCodeSnippets(userId: string): Promise<{ data: CodeSnippet[] | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/code/${userId}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/code/${userId}`, {
         headers: authService.getAuthHeaders()
       });
       if (!response.ok) throw new Error(`Failed to fetch code snippets: ${response.statusText}`);
@@ -181,7 +185,7 @@ class BackendService {
 
   async saveCodeSnippet(userId: string, code: string, language: string, conversationId?: string, title?: string): Promise<{ data: CodeSnippet | null; error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/code`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +203,7 @@ class BackendService {
 
   async deleteCodeSnippet(id: string): Promise<{ error: Error | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/code/${id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/code/${id}`, {
         method: 'DELETE',
         headers: authService.getAuthHeaders()
       });

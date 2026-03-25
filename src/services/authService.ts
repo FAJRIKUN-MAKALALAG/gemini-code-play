@@ -1,6 +1,6 @@
-import { safeLocalStorage } from "@/utils/storageUtils";
 import { API_BASE_URL } from "@/config";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import Cookies from "js-cookie";
 
 export interface User {
   id: string;
@@ -22,6 +22,7 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, username })
       });
@@ -57,7 +58,7 @@ class AuthService {
         }
       };
 
-      this.saveSession(session);
+      await this.saveSession(session);
       return { session, error: null };
     } catch (error) {
       console.error('Signup error:', error);
@@ -70,6 +71,7 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
@@ -105,7 +107,7 @@ class AuthService {
         }
       };
 
-      this.saveSession(session);
+      await this.saveSession(session);
       return { session, error: null };
     } catch (error) {
       console.error('Login error:', error);
@@ -120,13 +122,14 @@ class AuthService {
     try {
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (error) {
       console.error('Logout request failed:', error);
     }
 
-    this.clearSession();
+    await this.clearSession();
   }
 
   // ===== VERIFY TOKEN =====
@@ -137,6 +140,7 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/verify`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -162,20 +166,21 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token })
       });
 
       if (!response.ok) {
-        this.clearSession();
+        await this.clearSession();
         return false;
       }
 
       const data = await response.json();
-      this.saveSession(data.session);
+      await this.saveSession(data.session);
       return true;
     } catch (error) {
-      this.clearSession();
+      await this.clearSession();
       return false;
     }
   }
@@ -198,6 +203,7 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
@@ -219,6 +225,7 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ access_token, refresh_token, password: newPassword })
       });
@@ -235,55 +242,92 @@ class AuthService {
     }
   }
 
-  // ===== SESSION MANAGEMENT =====
+  // ===== SESSION MANAGEMENT (COOKIE BASED) =====
 
-  private saveSession(session: AuthSession): void {
-    safeLocalStorage.setItem('access_token', session.access_token);
-    safeLocalStorage.setItem('refresh_token', session.refresh_token);
-    safeLocalStorage.setItem('user_id', session.user.id);
-    safeLocalStorage.setItem('user_email', session.user.email);
-    if (session.user.username) {
-      safeLocalStorage.setItem('user_username', session.user.username);
+  private async saveSession(session: AuthSession): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/auth/set-session`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          access_token: session.access_token, 
+          refresh_token: session.refresh_token, 
+          user: session.user 
+        })
+      });
+    } catch (error) {
+      console.warn('Failed to securely save session cookies via backend', error);
+      // Fallback manual approach if endpoint not ready
+      const inOneHour = 1 / 24;
+      Cookies.set('access_token', session.access_token, { expires: inOneHour, sameSite: 'strict', secure: true });
+      Cookies.set('refresh_token', session.refresh_token, { expires: inOneHour, sameSite: 'strict', secure: true });
+      Cookies.set('user_data', JSON.stringify(session.user), { expires: inOneHour, sameSite: 'strict', secure: true });
     }
-    safeLocalStorage.setItem('expires_at', session.expires_at.toString());
   }
 
-  private clearSession(): void {
-    safeLocalStorage.removeItem('access_token');
-    safeLocalStorage.removeItem('refresh_token');
-    safeLocalStorage.removeItem('user_id');
-    safeLocalStorage.removeItem('user_email');
-    safeLocalStorage.removeItem('user_username');
-    safeLocalStorage.removeItem('expires_at');
+  private async clearSession(): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/auth/clear-session`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (e) {}
+
+    // Fallback purely frontend side
+    Cookies.remove('access_token');
+    Cookies.remove('refresh_token');
+    Cookies.remove('user_data');
+    Cookies.remove('user_id');
+    Cookies.remove('user_email');
+    Cookies.remove('user_username');
+    Cookies.remove('expires_at');
   }
 
   getAccessToken(): string | null {
-    return safeLocalStorage.getItem('access_token');
+    // If HttpOnly cookie is completely adopted, this will return undefined.
+    return Cookies.get('access_token') || null;
   }
 
   getRefreshToken(): string | null {
-    return safeLocalStorage.getItem('refresh_token');
+    return Cookies.get('refresh_token') || null;
   }
 
   getUser(): User | null {
-    const id = safeLocalStorage.getItem('user_id');
-    const email = safeLocalStorage.getItem('user_email');
-    const username = safeLocalStorage.getItem('user_username');
+    // Rely on user_data cookie parsing
+    const userData = Cookies.get('user_data');
+    if (userData) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(userData));
+        if (parsed && typeof parsed === 'object') {
+          return { id: parsed.id, email: parsed.email, username: parsed.username };
+        }
+      } catch (e) {
+        // format is incorrectly formed, allow fallback to legacy storage temporarily
+      }
+    }
 
+    // Fallback if user_data wasn't set, try reading legacy loose cookies
+    const id = Cookies.get('user_id');
+    const email = Cookies.get('user_email');
+    const username = Cookies.get('user_username');
     if (!id || !email) return null;
 
     return { id, email, username: username || undefined };
   }
 
   isAuthenticated(): boolean {
-    return !!this.getAccessToken();
+    return !!this.getUser();
   }
 
   // ===== HELPER FOR API REQUESTS =====
   getAuthHeaders(): Record<string, string> {
     const token = this.getAccessToken();
+    // Return empty since credentials: 'include' will handle sending HttpOnly cookies.
+    // However, as a graceful fallback during transition, send Bearer if access_token is accessible
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   }
 }
 
 export const authService = new AuthService();
+

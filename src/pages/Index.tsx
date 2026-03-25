@@ -108,8 +108,20 @@ const Index = () => {
   };
 
   const handleRemoveChallenge = () => {
-    const unlockedCode = code.replace(/# 🎯 TANTANGAN:.*\n?/g, "");
-    setCode(unlockedCode);
+    try {
+      const cellList = JSON.parse(code);
+      if (Array.isArray(cellList)) {
+        const updated = cellList.map((c: any) => ({
+          ...c,
+          code: c.code.replace(/# 🎯 TANTANGAN:.*\n?/g, "").trimStart()
+        }));
+        setCode(JSON.stringify(updated));
+      }
+    } catch (e) {
+      // Fallback if not JSON
+      const unlockedCode = code.replace(/# 🎯 TANTANGAN:.*\n?/g, "");
+      setCode(unlockedCode);
+    }
   };
 
   // ── Shared nodes for reuse across layouts ─────────────────────────────────

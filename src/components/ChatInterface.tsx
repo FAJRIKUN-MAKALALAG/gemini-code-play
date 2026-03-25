@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
+import { useAuth } from "@/context/AuthContext";
 import { backendService } from "@/services/backendService";
 import { fetchUserApiKey, streamGeminiResponse, clearCachedApiKey } from "@/services/geminiService";
 import { streamGroqFallback } from "@/services/groqFallbackService";
@@ -66,6 +67,7 @@ type ChatProps = {
 };
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -116,9 +118,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   }, [input]);
 
   // ── Init: load user + conversations ───────────────────────────────────────
+  // Wait until AuthContext has finished checking the cookie session (isLoading=false)
+  // before attempting to fetch data. This prevents the /conversations/undefined bug.
   useEffect(() => {
+    if (authLoading) return; // Wait for auth check to complete first
+
     const init = async () => {
-      const user = authService.getUser();
+      const user = authUser; // Use user from AuthContext (already hydrated)
       if (!user) return;
       const userId = user.id;
       setCurrentUserId(userId);
@@ -146,7 +152,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     init();
 
     return () => { abortControllerRef.current?.abort(); };
-  }, []);
+  }, [authLoading, authUser]);
 
   // ── Sliding Window — batasi history yang dikirim ke AI ─────────────────────
   // History lengkap tetap tampil di UI & tersimpan di DB.

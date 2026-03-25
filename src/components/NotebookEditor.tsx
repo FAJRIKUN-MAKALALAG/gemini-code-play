@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
+  Save, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
@@ -28,11 +29,15 @@ interface Cell {
   isAiLoading: boolean; // only used for "AI Generate"
 }
 
+type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
+
 interface NotebookEditorProps {
   code: string;
   onChange: (value: string) => void;
   /** Sends a message to the AI Chat sidebar */
   onSendToChat?: (message: string) => void;
+  /** Called when user clicks Save — should persist code to DB */
+  onSaveCode?: (code: string) => Promise<{ success: boolean }>;
   isRuntimeReady?: boolean;
 }
 
@@ -56,6 +61,7 @@ export const NotebookEditor = ({
   code,
   onChange,
   onSendToChat,
+  onSaveCode,
   isRuntimeReady = true,
 }: NotebookEditorProps) => {
   const { resolvedTheme } = useTheme();
@@ -65,6 +71,10 @@ export const NotebookEditor = ({
 
   const [cells, setCells] = useState<Cell[]>(() => [makeCell(code)]);
   const [activeCell, setActiveCell] = useState<string>(cells[0].id);
+
+  // ── Save status ───────────────────────────────────────────────────────────
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Sync first cell ↔ parent prop ─────────────────────────────────────────
   const lastExternalCode = useRef(code);
@@ -91,6 +101,8 @@ export const NotebookEditor = ({
         }
         return updated;
       });
+      // Mark as unsaved whenever any cell code changes
+      setSaveStatus("unsaved");
     },
     [onChange]
   );
@@ -190,6 +202,30 @@ export const NotebookEditor = ({
 
   const clearCellOutput = (cellId: string) => {
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [], executionCount: null } : c));
+  };
+
+  // ── Manual Save to DB ─────────────────────────────────────────────────────
+  const handleSaveToDb = async () => {
+    if (!onSaveCode || saveStatus === "saving") return;
+    const allCode = cells.map(c => c.code).join("\n\n# ─────────────────────\n\n");
+    setSaveStatus("saving");
+    try {
+      const result = await onSaveCode(allCode);
+      if (result.success) {
+        setSaveStatus("saved");
+        // Auto-reset to idle after 3s
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+      } else {
+        setSaveStatus("error");
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => setSaveStatus("unsaved"), 4000);
+      }
+    } catch {
+      setSaveStatus("error");
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => setSaveStatus("unsaved"), 4000);
+    }
   };
 
   // ── Run a single cell ──────────────────────────────────────────────────────
@@ -365,8 +401,49 @@ export const NotebookEditor = ({
           </Button>
           <Button size="sm" variant="ghost" onClick={handleSave}
             className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1">
-            <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">Save</span>
+            <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">.py</span>
           </Button>
+
+          <div className="w-px h-4 bg-border mx-1" />
+
+          {/* ── Save to DB button ── */}
+          {onSaveCode && (
+            <button
+              onClick={handleSaveToDb}
+              disabled={saveStatus === "saving" || saveStatus === "idle" || saveStatus === "saved"}
+              title={
+                saveStatus === "unsaved" ? "Simpan kode ke database"
+                : saveStatus === "saving" ? "Menyimpan…"
+                : saveStatus === "saved" ? "Tersimpan!"
+                : saveStatus === "error" ? "Gagal simpan — klik untuk coba lagi"
+                : "Kode belum diubah"
+              }
+              className={`h-7 px-2.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-all duration-200 ${
+                saveStatus === "unsaved"
+                  ? "border-amber-500/60 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 cursor-pointer animate-pulse"
+                  : saveStatus === "saving"
+                  ? "border-blue-500/40 bg-blue-500/10 text-blue-400 cursor-not-allowed"
+                  : saveStatus === "saved"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 cursor-default"
+                  : saveStatus === "error"
+                  ? "border-red-500/60 bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer animate-pulse"
+                  : "border-border/40 bg-secondary/30 text-muted-foreground/50 cursor-default"
+              }`}
+            >
+              {saveStatus === "saving" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {saveStatus === "saved" && <CheckCircle2 className="w-3.5 h-3.5" />}
+              {saveStatus === "error" && <AlertCircle className="w-3.5 h-3.5" />}
+              {(saveStatus === "idle" || saveStatus === "unsaved") && <Save className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">
+                {saveStatus === "saving" ? "Saving…"
+                  : saveStatus === "saved" ? "Saved!"
+                  : saveStatus === "error" ? "Retry"
+                  : saveStatus === "unsaved" ? "Save"
+                  : "Saved"}
+              </span>
+            </button>
+          )}
+
           <div className="w-px h-4 bg-border mx-1" />
           <Button size="sm" variant="ghost" onClick={runAllCells} disabled={!isRuntimeReady}
             className="h-7 px-2.5 text-[11px] gap-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10">

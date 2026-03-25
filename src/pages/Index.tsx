@@ -11,6 +11,8 @@ import { Particles } from "@/components/ui/Particles";
 import { Helmet } from "react-helmet-async";
 import { useLocation } from "react-router-dom";
 import { Code, MessageSquare } from "lucide-react";
+import { backendService } from "@/services/backendService";
+import { authService } from "@/services/authService";
 
 // ── Mobile tab type (code | chat) ───────────────────────────────────────────
 type MobileTab = "code" | "chat";
@@ -62,12 +64,55 @@ const Index = () => {
     }
   };
 
+  // ── Save code to DB ─────────────────────────────────────────────────────
+  const handleSaveCode = async (codeToSave: string): Promise<{ success: boolean }> => {
+    const user = authService.getUser();
+    if (!user) {
+      toast({
+        title: "Belum login",
+        description: "Login dulu untuk menyimpan kode ke database.",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    // Grab the active conversation ID from ChatInterface if available
+    const conversationId = chatRef.current?.getConversationId() ?? undefined;
+
+    const { error } = await backendService.saveCodeSnippet(
+      user.id,
+      codeToSave,
+      "python",
+      conversationId,
+      `Manual save — ${new Date().toLocaleTimeString()}`
+    );
+
+    if (error) {
+      toast({
+        title: "Gagal menyimpan",
+        description: "Coba lagi atau periksa koneksi internet.",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+
+    toast({
+      title: "✅ Kode tersimpan!",
+      description: conversationId
+        ? "Kode berhasil disimpan ke database, terhubung ke chat aktif."
+        : "Kode berhasil disimpan ke database.",
+      duration: 2500,
+    });
+    return { success: true };
+  };
+
   // ── Shared nodes for reuse across layouts ─────────────────────────────────
   const editorNode = (
     <NotebookEditor
       code={code}
       onChange={setCode}
       onSendToChat={handleSendToChat}
+      onSaveCode={handleSaveCode}
       isRuntimeReady={skulptReady}
     />
   );

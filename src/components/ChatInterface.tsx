@@ -53,6 +53,8 @@ interface Message {
 
 export type ChatInterfaceHandle = {
   sendMessage: (content: string) => void;
+  getConversationId: () => string | null;
+  getCurrentUserId: () => string | null;
 };
 
 type ChatProps = {
@@ -349,6 +351,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         return next;
       });
     },
+    getConversationId: () => conversationId,
+    getCurrentUserId: () => currentUserId,
   }));
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -55,8 +55,8 @@ interface NotebookEditorProps {
   onChange: (value: string) => void;
   /** Sends a user message to the AI Chat sidebar (triggers Gemini) */
   onSendToChat?: (message: string) => void;
-  /** Sends AI result directly as assistant message — dengan token usage untuk ditampilkan di chat */
-  onSendAIResult?: (message: string, usage?: { inputTokens: number; outputTokens: number }) => void;
+  /** Sends AI result directly as assistant message — isPass=true membuka AI chat setelah tantangan lulus */
+  onSendAIResult?: (message: string, usage?: { inputTokens: number; outputTokens: number }, isPass?: boolean) => void;
   /** Called when user clicks Save — should persist code to DB */
   onSaveCode?: (code: string) => Promise<{ success: boolean }>;
   isRuntimeReady?: boolean;
@@ -659,7 +659,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       // 2. Kirim hasil evaluasi langsung ke AI Chat sebagai pesan asisten
       if (onSendAIResult) {
         const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*AI Chat sudah terbuka kembali. Lanjutkan belajar atau tanyakan hal lain!* 🚀`;
-        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
+        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined, true); // isPass=true
       }
 
       toast({
@@ -672,7 +672,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       // Kirim hint langsung ke AI Chat sebagai pesan asisten
       if (onSendAIResult) {
         const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*Perbaiki kodemu dan coba lagi! Semangat! 💪*`;
-        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
+        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined, false); // isPass=false — lock screen tetap
       }
 
       toast({

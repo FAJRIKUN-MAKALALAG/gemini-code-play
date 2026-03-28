@@ -69,13 +69,32 @@ const Index = () => {
   };
 
   // Tampilkan hasil AI (Explain/Debug/CheckAnswer) langsung sebagai pesan asisten
-  // (tanpa memanggil Gemini ulang — typewriter animation aktif)
-  const handleSendAIResult = (message: string, usage?: { inputTokens: number; outputTokens: number }) => {
+  // isPass: true = tantangan lulus (AI chat dibuka), false/undefined = challenge masih aktif / fitur lain
+  const handleSendAIResult = (
+    message: string,
+    usage?: { inputTokens: number; outputTokens: number },
+    isPass?: boolean
+  ) => {
     chatRef.current?.displayAssistantMessage(message, usage);
-    if (isMobile) {
-      setMobileTab("chat");
-    } else if (viewMode === "code") {
-      setViewMode("both");
+
+    if (isPass) {
+      // Beri delay agar React selesai update isChallengeActive dari syncSetCells
+      // sebelum switch view, sehingga chat panel tidak lagi menampilkan lock screen
+      setTimeout(() => {
+        if (isMobile) {
+          setMobileTab("chat");
+        } else {
+          // Pastikan panel chat terbuka
+          if (viewMode === "code") setViewMode("both");
+        }
+      }, 150);
+    } else {
+      // Explain/Debug/Cek BELUM: buka panel chat jika tertutup
+      if (isMobile) {
+        setMobileTab("chat");
+      } else if (viewMode === "code") {
+        setViewMode("both");
+      }
     }
   };
 

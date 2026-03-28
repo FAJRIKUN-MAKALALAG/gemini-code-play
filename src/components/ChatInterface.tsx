@@ -63,6 +63,8 @@ export type ChatInterfaceHandle = {
   /** Tampilkan pesan langsung sebagai balasan AI — dengan typewriter animation & token info */
   displayAssistantMessage: (content: string, usage?: { inputTokens: number; outputTokens: number }) => void;
   getConversationId: () => string | null;
+  /** Membuat chat baru (jika belum ada) dan update state chatnya, mereturn conversationId */
+  getOrCreateConversationId: (title: string) => Promise<string | null>;
   getCurrentUserId: () => string | null;
 };
 
@@ -431,6 +433,23 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       }
     },
     getConversationId: () => conversationId,
+    getOrCreateConversationId: async (title: string) => {
+      if (conversationId) return conversationId;
+      if (!currentUserId) return null;
+      try {
+        const { data: newConv } = await backendService.createConversation(currentUserId, title);
+        if (newConv) {
+          setConversationId(newConv.id);
+          setCurrentTitle(newConv.title);
+          const { data: convList } = await backendService.getConversations(currentUserId, 50);
+          setConversations(convList || []);
+          return newConv.id;
+        }
+      } catch (err) {
+        console.error("Gagal buat auto-conversation", err);
+      }
+      return null;
+    },
     getCurrentUserId: () => currentUserId,
   }));
 

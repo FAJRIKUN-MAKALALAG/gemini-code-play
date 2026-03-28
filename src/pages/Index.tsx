@@ -95,14 +95,15 @@ const Index = () => {
       return { success: false };
     }
 
-    // Grab the active conversation ID from ChatInterface if available
-    const conversationId = chatRef.current?.getConversationId() ?? undefined;
+    // Grab the active conversation ID, or auto-create one if none exists
+    const title = `Snippet Kode — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    let conversationId = await chatRef.current?.getOrCreateConversationId(title);
 
     const { error } = await backendService.saveCodeSnippet(
       user.id,
       codeToSave,
       "python",
-      conversationId,
+      conversationId || undefined,
       `Manual save — ${new Date().toLocaleTimeString()}`
     );
 

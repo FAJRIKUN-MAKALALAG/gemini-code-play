@@ -47,14 +47,17 @@ const Index = () => {
   }, [location]);
 
   useEffect(() => {
-    loadSkulpt()
-      .then(() => setSkulptReady(true))
-      .catch((error) => {
-        console.error("Failed to load Skulpt:", error);
-        toast({ title: "Python Runtime Error", description: "Gagal load Python runtime. Coba refresh halaman.", variant: "destructive" });
-        setSkulptReady(false);
-      });
-  }, [toast]);
+    // Only load Python runtime after user leaves landing page
+    if (!showStart && !skulptReady) {
+      loadSkulpt()
+        .then(() => setSkulptReady(true))
+        .catch((error) => {
+          console.error("Failed to load Skulpt:", error);
+          toast({ title: "Python Runtime Error", description: "Gagal load Python runtime. Coba refresh halaman.", variant: "destructive" });
+          setSkulptReady(false);
+        });
+    }
+  }, [showStart, skulptReady, toast]);
 
   const handleSendToChat = (message: string) => {
     chatRef.current?.sendMessage(message);

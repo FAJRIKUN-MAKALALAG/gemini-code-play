@@ -4,8 +4,17 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
-  Save, CheckCircle2, AlertCircle, Target,
+  Save, CheckCircle2, AlertCircle, Target, Sparkles as SparklesIcon,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
@@ -28,6 +37,7 @@ interface Cell {
   executionCount: number | null;
   isRunning: boolean;
   isAiLoading: boolean; // only used for "AI Generate"
+  isVerifying?: boolean; // for challenge validation
   activeInput?: { prompt: string; resolve: (val: string) => void };
   abortController?: AbortController;
 }
@@ -105,6 +115,8 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isGeneratingChallenge, setIsGeneratingChallenge] = useState(false);
+  const [showChallengeDialog, setShowChallengeDialog] = useState(false);
+  const [customTopic, setCustomTopic] = useState("");
 
   const [cells, setCells] = useState<Cell[]>(() => parseNotebookCode(code));
   const [activeCell, setActiveCell] = useState<string>(cells[0]?.id || "");
@@ -417,20 +429,25 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     const apiKey = await getAiKey();
     if (!apiKey) return;
 
+    setShowChallengeDialog(false);
     setIsGeneratingChallenge(true);
     toast({ title: "⏳ Membuat soal latihan...", description: "Mohon tunggu sebentar.", duration: 2500 });
-    
+
     // Create an empty cell first to show loading
     const newCell = makeCell();
     newCell.isAiLoading = true;
-    setCells(prev => [...prev, newCell]);
+    setCells((prev) => [...prev, newCell]);
     setActiveCell(newCell.id);
 
-    const prompt = `Berikan 1 soal tantangan ngoding Python untuk latihan mahasiswa.
+    const topicDesc = customTopic.trim() 
+      ? `berfokus pada "${customTopic.trim()}"` 
+      : "dengan topik random (Variabel, Looping, Function, List, atau Dictionary)";
+
+    const prompt = `Berikan 1 soal tantangan ngoding Python untuk latihan mahasiswa ${topicDesc}.
 Aturan:
-1. Pilih satu topik random dari: Variabel, Looping, Function, List, atau Dictionary.
+1. Soal harus mendidik dan menantang sesuai level pemula/menengah.
 2. JANGAN BERIKAN JAWABAN ATAU KODE SOLUSINYA SAMA SEKALI. Teks harus murni soal/instruksi.
-3. Awali dengan tepat tulisan ini (WAJIB): "# 🎯 TANTANGAN: [Topik]" lalu berikan spasi/enter.
+3. Awali dengan tepat tulisan ini (WAJIB): "# 🎯 TANTANGAN: ${customTopic.trim() || "Python Practice"}" lalu berikan spasi/enter.
 4. Tulis deskripsi soal di dalam format komentar Python (diawali tanda #).
 5. Diakhiri dengan "# Tulis kodemu di bawah ini:"`;
 
@@ -483,8 +500,66 @@ Aturan:
     toast({ title: "🐛 Debug dikirim ke AI Chat", description: "Lihat analisis di panel AI Chat.", duration: 2000 });
   };
 
+  // ── ✅ Check Answer → AI Challenge Validation ─────────────────────────────
+  const handleCheckChallenge = async (cellId: string) => {
+    const cell = cells.find(c => c.id === cellId);
+    if (!cell || !cell.code.includes("🎯 TANTANGAN")) return;
+
+    const apiKey = await getAiKey();
+    if (!apiKey) return;
+
+    // Must run code first to have output
+    if (cell.outputs.length === 0) {
+      toast({ title: "Belum dijalankan", description: "Jalankan kodenya dulu (▶) baru cek jawaban.", variant: "destructive" });
+      return;
+    }
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: true } : c));
+    toast({ title: "🔍 Sedang memeriksa...", description: "AI sedang mengevaluasi kodemu." });
+
+    const outputsText = cell.outputs.map(o => o.text).join("");
+    const verifyPrompt = `Evaluasi kode Python mahasiswa berikut untuk tantangan ini.\n\nKODE:\n\`\`\`python\n${cell.code}\n\`\`\`\n\nOUTPUT:\n\`\`\`\n${outputsText}\n\`\`\`\n\nAturan Evaluasi:\n1. Cek apakah kode sudah menyelesaikan instruksi di komentar soal.\n2. Jika BENAR, balas awali dengan "LULUS: " lalu feedback singkat & apresiasi.\n3. Jika SALAH, balas awali dengan "BELUM: " lalu feedback hint singkat.\n\nContoh balasan: "LULUS: Luar biasa! Logika if-else kamu sudah benar."`;
+
+    const messages = [{ role: "user" as const, content: verifyPrompt }];
+    let resultText = "";
+    
+    try {
+      await streamGeminiResponse(apiKey, messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
+    } catch {
+      try {
+        await streamGroqFallback(messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
+      } catch {
+        toast({ title: "Gagal verifikasi", variant: "destructive" });
+        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+        return;
+      }
+    }
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+
+    if (resultText.toUpperCase().includes("LULUS:")) {
+      // Remove challenge tag to unlock AI Chat
+      const cleanCode = cell.code.replace(/# 🎯 TANTANGAN:.*?\n/g, "# ✅ TANTANGAN SELESAI\n");
+      syncSetCells(prev => prev.map(c => c.id === cellId ? { ...c, code: cleanCode } : c));
+      
+      toast({ 
+        title: "🎉 Selamat! Kamu Lulus!", 
+        description: resultText.replace(/LULUS:\s*/i, ""),
+        className: "bg-emerald-500 text-white border-none",
+        duration: 5000 
+      });
+    } else {
+      toast({ 
+        title: "❌ Belum Tepat", 
+        description: resultText.replace(/BELUM:\s*/i, ""),
+        variant: "destructive",
+        duration: 5000
+      });
+    }
+  };
+
   // ── File import/export ─────────────────────────────────────────────────────
-  const handleSave = () => {
+  const handleSavePy = () => {
     const allCode = cells.map((c, i) => `# === Cell ${i + 1} ===\n${c.code}`).join("\n\n");
     const blob = new Blob([allCode], { type: "text/x-python" });
     const url = URL.createObjectURL(blob);
@@ -493,17 +568,67 @@ Aturan:
     URL.revokeObjectURL(url);
   };
 
+  const handleSaveIpynb = () => {
+    const ipynb = {
+      cells: cells.map((c) => ({
+        cell_type: "code",
+        execution_count: c.executionCount,
+        metadata: {},
+        outputs: [],
+        source: c.code.split("\n").map((line, i, arr) => (i === arr.length - 1 ? line : line + "\n")),
+      })),
+      metadata: {
+        kernelspec: { display_name: "Python 3", language: "python", name: "python3" },
+        language_info: { name: "python" },
+      },
+      nbformat: 4,
+      nbformat_minor: 4,
+    };
+    const blob = new Blob([JSON.stringify(ipynb, null, 2)], { type: "application/x-ipynb+json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "notebook.ipynb"; a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "🚀 File .ipynb siap!", description: "Bisa langsung dibuka di Google Colab." });
+  };
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
+
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
-      const parts = content.split(/^# === Cell \d+ ===/m).map(s => s.trim()).filter(Boolean);
-      const newCells = parts.length > 0 ? parts.map(cCode => makeCell(cCode)) : [makeCell(content)];
-      syncSetCells(() => newCells);
-      setActiveCell(newCells[0].id);
-      toast({ title: "📂 File diimport!", description: `${file.name} → ${newCells.length} cell(s).`, duration: 2500 });
+      let newCells: Cell[] = [];
+
+      try {
+        // Try parsing as IPYNB (JSON)
+        if (file.name.endsWith(".ipynb")) {
+          const ipynb = JSON.parse(content);
+          if (ipynb.cells && Array.isArray(ipynb.cells)) {
+            newCells = ipynb.cells
+              .filter((c: any) => c.cell_type === "code")
+              .map((c: any) => {
+                const source = Array.isArray(c.source) ? c.source.join("") : (c.source || "");
+                return makeCell(source);
+              });
+          }
+        } else {
+          // Assume .py or raw text
+          const parts = content.split(/^# === Cell \d+ ===/m).map(s => s.trim()).filter(Boolean);
+          newCells = parts.length > 0 ? parts.map(cCode => makeCell(cCode)) : [makeCell(content)];
+        }
+      } catch (err) {
+        console.error("Import error:", err);
+        toast({ title: "Gagal import file", description: "Format file tidak dikenali atau rusak.", variant: "destructive" });
+        return;
+      }
+
+      if (newCells.length > 0) {
+        syncSetCells(() => newCells);
+        setActiveCell(newCells[0].id);
+        toast({ title: "📂 File diimport!", description: `${file.name} → ${newCells.length} cell(s).`, duration: 2500 });
+      }
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -538,15 +663,22 @@ Aturan:
         </div>
 
         <div className="flex items-center gap-1">
-          <input type="file" accept=".py" ref={fileInputRef} onChange={handleImport} className="hidden" />
+          <input type="file" accept=".py,.ipynb" ref={fileInputRef} onChange={handleImport} className="hidden" />
           <Button size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1">
             <Upload className="w-3.5 h-3.5" /><span className="hidden sm:inline">Import</span>
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleSave}
-            className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1">
-            <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">.py</span>
-          </Button>
+
+          <div className="flex bg-secondary/50 rounded-lg p-0.5 border border-border/50">
+            <Button size="sm" variant="ghost" onClick={handleSavePy}
+              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1 hover:bg-background">
+              <Download className="w-3 h-3" />.py
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleSaveIpynb}
+              className="h-6 px-1.5 text-[10px] text-amber-500 hover:text-amber-400 gap-1 hover:bg-background">
+              <Download className="w-3 h-3" />.ipynb
+            </Button>
+          </div>
 
           <div className="w-px h-4 bg-border mx-1" />
 
@@ -589,8 +721,8 @@ Aturan:
           )}
 
           <div className="w-px h-4 bg-border mx-1" />
-          <Button size="sm" onClick={handleGenerateChallenge} disabled={isGeneratingChallenge}
-            className="h-7 px-2.5 text-[11px] gap-1 bg-blue-600 hover:bg-blue-500 text-white">
+          <Button size="sm" onClick={() => setShowChallengeDialog(true)} disabled={isGeneratingChallenge}
+            className="h-7 px-2.5 text-[11px] gap-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20">
             {isGeneratingChallenge ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Target className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">Latihan Cepat</span>
           </Button>
@@ -626,6 +758,7 @@ Aturan:
             onClearOutput={() => clearCellOutput(cell.id)}
             onExplain={() => handleExplain(cell.id)}
             onDebug={() => handleDebug(cell.id)}
+            onCheckChallenge={() => handleCheckChallenge(cell.id)}
             onAiGenerate={(prompt) => handleAiGenerate(cell.id, prompt)}
             onEditorWillMount={handleEditorWillMount}
             onProvideInput={(val) => handleProvideInput(cell.id, val)}
@@ -640,6 +773,39 @@ Aturan:
           Add cell
         </button>
       </div>
+
+      {/* ── Challenge Customization Dialog ── */}
+      <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-blue-500" />
+              Custom Latihan Cepat
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="topic">Topik atau Keinginan Soal</Label>
+              <Input
+                id="topic"
+                placeholder="Contoh: Soal if else sederhana, Manipulasi List, dll."
+                value={customTopic}
+                onChange={(e) => setCustomTopic(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleGenerateChallenge()}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Kosongkan untuk mendapatkan topik acak.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowChallengeDialog(false)}>Batal</Button>
+            <Button onClick={handleGenerateChallenge} className="bg-blue-600 hover:bg-blue-500 text-white">
+              Buat Tantangan ✨
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });
@@ -669,6 +835,7 @@ interface CellCardProps {
   onClearOutput: () => void;
   onExplain: () => void;
   onDebug: () => void;
+  onCheckChallenge: () => void;
   onAiGenerate: (prompt: string) => void;
   onEditorWillMount: (monaco: any) => void;
   onProvideInput: (val: string) => void;
@@ -677,7 +844,7 @@ interface CellCardProps {
 function CellCard({
   cell, index, totalCells, isActive, monacoTheme, isMobile, isDark, isRuntimeReady,
   hasChatHandler, onActivate, onCodeChange, onRun, onStop, onDelete, onMoveUp, onMoveDown,
-  onAddBelow, onClearOutput, onExplain, onDebug, onAiGenerate, onEditorWillMount, onProvideInput
+  onAddBelow, onClearOutput, onExplain, onDebug, onCheckChallenge, onAiGenerate, onEditorWillMount, onProvideInput
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAiPrompt, setShowAiPrompt] = useState(false);
@@ -772,18 +939,20 @@ function CellCard({
             onClick={(e) => { 
               e.stopPropagation(); 
               if (!isChallenge) setShowAiPrompt(v => !v); 
+              else onCheckChallenge();
             }}
-            disabled={isChallenge}
-            title={isChallenge ? "Fitur dimatikan: Kerjakan tantangan ini sendiri! 🚀" : "AI: Buat kode dari deskripsi"}
-            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-colors ${
-              isChallenge ? "opacity-30 cursor-not-allowed" :
-              showAiPrompt
+            title={isChallenge ? "Validasi jawabanmu dengan AI ✨" : "AI: Buat kode dari deskripsi"}
+            disabled={cell.isVerifying}
+            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-all ${
+              isChallenge 
+                ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
+                : showAiPrompt
                 ? "bg-violet-500/15 text-violet-400"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
-            <Sparkles className="w-3 h-3" />
-            <span className="hidden sm:inline">AI Generate</span>
+            {cell.isVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : (isChallenge ? <CheckCircle2 className="w-3 h-3" /> : <SparklesIcon className="w-3 h-3" />)}
+            <span className="hidden sm:inline">{isChallenge ? (cell.isVerifying ? "Memeriksa..." : "Cek Jawaban ✨") : "AI Generate"}</span>
           </button>
 
           {/* 📖 Explain → AI Chat */}

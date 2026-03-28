@@ -51,6 +51,9 @@ function mapChatError(err: any): { title: string; message: string; status: numbe
 interface Message {
   role: "user" | "assistant";
   content: string;
+  /** Token usage info — hanya ada di pesan assistant dari Gemini */
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export type ChatInterfaceHandle = {
@@ -231,6 +234,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       // ── 6. Shared streaming state ────────────────────────────────────────
       let isFirstChunk = true;
       let fullText = "";
+      let msgInputTokens = 0;
+      let msgOutputTokens = 0;
 
       // Chunk handler — dipakai oleh Gemini DAN Groq
       const handleChunk = (chunk: string) => {
@@ -295,11 +300,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
       try {
         // Race: siapa yang selesai duluan — Gemini atau timeout?
-        await Promise.race([
+        const geminiResult = await Promise.race([
           streamGeminiResponse(apiKey, windowedMessages, handleChunk, geminiAbort.signal),
           timeoutPromise,
         ]);
         clearTimeout(timeoutHandle!);
+        // Tangkap token usage dari Gemini
+        msgInputTokens = geminiResult.usage.inputTokens;
+        msgOutputTokens = geminiResult.usage.outputTokens;
 
       } catch (geminiErr: any) {
         clearTimeout(timeoutHandle!);
@@ -344,9 +352,24 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         setAiStage('idle');
       }
 
-      // ── 9. Simpan balasan AI ke DB (fire-and-forget) ─────────────────────
+      // ── 9. Simpan balasan AI ke DB + update pesan dengan token info ────────
       if (fullText && convId) {
         backendService.addMessage(convId, userId, "assistant", fullText).catch(console.warn);
+      }
+      // Update pesan terakhir (assistant) dengan token usage
+      if (msgInputTokens > 0 || msgOutputTokens > 0) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...last,
+              inputTokens: msgInputTokens,
+              outputTokens: msgOutputTokens,
+            };
+          }
+          return updated;
+        });
       }
 
     } catch (error: any) {
@@ -651,7 +674,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               // Hide empty streaming placeholder while status indicator shows
               if (isLoading && aiStage !== 'idle' && idx === messages.length - 1 && msg.role === 'assistant' && !msg.content) return null;
               return (
-                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div key={idx} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
                   <div className={`
                     ${msg.role === "user" ? "max-w-[85%]" : "max-w-[98%] w-full"}
                     rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2.5
@@ -662,6 +685,17 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                   `}>
                     <ChatMessageContent role={msg.role} content={msg.content} animate={isLoading && idx === messages.length - 1 && msg.role === "assistant"} />
                   </div>
+                  {/* Token info — hanya tampil di pesan AI yang punya data token */}
+                  {msg.role === "assistant" && msg.inputTokens !== undefined && msg.outputTokens !== undefined && (
+                    <div className="flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground/50 select-none">
+                      <span>⚡</span>
+                      <span>{msg.inputTokens.toLocaleString()} in</span>
+                      <span>·</span>
+                      <span>{msg.outputTokens.toLocaleString()} out</span>
+                      <span>·</span>
+                      <span>{(msg.inputTokens + msg.outputTokens).toLocaleString()} tok</span>
+                    </div>
+                  )}
                 </div>
               );
             })

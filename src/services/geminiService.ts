@@ -93,6 +93,12 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
 /**
  * Stream a Gemini response directly from the frontend.
  * Calls `onChunk` for every text chunk received.
@@ -103,7 +109,7 @@ export async function streamGeminiResponse(
   messages: ChatMessage[],
   onChunk: (chunk: string) => void,
   signal?: AbortSignal
-): Promise<string> {
+): Promise<{ fullText: string; usage: TokenUsage }> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: "gemini-3-flash-preview",
@@ -134,5 +140,21 @@ export async function streamGeminiResponse(
     }
   }
 
-  return fullText;
+  // Ambil token usage dari Gemini SDK (data akurat dari Google)
+  let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  try {
+    const finalResponse = await result.response;
+    const meta = finalResponse.usageMetadata;
+    if (meta) {
+      usage = {
+        inputTokens: meta.promptTokenCount ?? 0,
+        outputTokens: meta.candidatesTokenCount ?? 0,
+        totalTokens: meta.totalTokenCount ?? 0,
+      };
+    }
+  } catch {
+    // usageMetadata tidak tersedia (stream di-abort, dll) — pakai 0
+  }
+
+  return { fullText, usage };
 }

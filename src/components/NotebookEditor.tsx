@@ -394,6 +394,16 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     }
   };
 
+  // ── Helper: tampilkan token usage toast ──────────────────────────────────
+  const showTokenToast = (inputTokens: number, outputTokens: number, label: string) => {
+    if (inputTokens === 0 && outputTokens === 0) return; // skip jika tidak ada data
+    toast({
+      title: `⚡ ${label} — Token dipakai`,
+      description: `Input: ${inputTokens.toLocaleString()} tok · Output: ${outputTokens.toLocaleString()} tok · Total: ${(inputTokens + outputTokens).toLocaleString()} tok`,
+      duration: 3500,
+    });
+  };
+
   const handleAiGenerate = async (cellId: string, prompt: string) => {
     if (!prompt.trim()) return;
     const apiKey = await getAiKey();
@@ -406,11 +416,15 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     let fullText = "";
     const onChunk = (chunk: string) => { fullText += chunk; };
 
+    let inputTokens = 0, outputTokens = 0;
     try {
-      await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      const result = await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      fullText = result.fullText;
+      inputTokens = result.usage.inputTokens;
+      outputTokens = result.usage.outputTokens;
     } catch {
       try {
-        await streamGroqFallback(messages, onChunk, new AbortController().signal);
+        fullText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
       } catch {
         toast({ title: "AI gagal generate kode", variant: "destructive" });
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
@@ -425,6 +439,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       c.id === cellId ? { ...c, code: extracted, isAiLoading: false } : c
     ));
     toast({ title: "✨ Kode AI sudah siap!", description: "Klik ▶ untuk menjalankan.", duration: 2500 });
+    showTokenToast(inputTokens, outputTokens, "AI Generate");
   };
 
   // ── 🎯 AI Challenge Generator ────────────────────────────────────────────────
@@ -458,14 +473,18 @@ Aturan:
     let fullText = "";
     const onChunk = (chunk: string) => { fullText += chunk; };
 
+    let inputTokens = 0, outputTokens = 0;
     try {
-      await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      const result = await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      fullText = result.fullText;
+      inputTokens = result.usage.inputTokens;
+      outputTokens = result.usage.outputTokens;
     } catch {
       try {
-        await streamGroqFallback(messages, onChunk, new AbortController().signal);
+        fullText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
       } catch {
         toast({ title: "Gagal membuat soal", variant: "destructive" });
-        setCells(prev => prev.filter(c => c.id !== newCell.id)); // Remove loading cell
+        setCells(prev => prev.filter(c => c.id !== newCell.id));
         setIsGeneratingChallenge(false);
         return;
       }
@@ -480,27 +499,89 @@ Aturan:
     ));
     setIsGeneratingChallenge(false);
     toast({ title: "🎯 Soal latihan siap!", description: "Kerjakan secara mandiri di cell tersebut.", duration: 3000 });
+    showTokenToast(inputTokens, outputTokens, "Latihan Cepat");
   };
 
-  // ── Explain → kirim ke AI Chat ──────────────────────────────────────────────
-  const handleExplain = (cellId: string) => {
+  // ── Explain → langsung call Gemini, hasil tampil di AI Chat sebagai pesan AI ─
+  const handleExplain = async (cellId: string) => {
     const cell = cells.find(c => c.id === cellId);
-    if (!cell || !onSendToChat) return;
-    const message = `📖 **Tolong jelaskan kode Python berikut** secara singkat dan mudah dipahami:\n\n\`\`\`python\n${cell.code}\n\`\`\``;
-    onSendToChat(message);
-    toast({ title: "📖 Explain dikirim ke AI Chat", description: "Lihat balasan di panel AI Chat.", duration: 2000 });
+    if (!cell || !onSendAIResult) return;
+
+    const apiKey = await getAiKey();
+    if (!apiKey) return;
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: true } : c));
+    toast({ title: "📖 Menjelaskan kode...", description: "AI sedang menganalisis kodemu.", duration: 2000 });
+
+    const prompt = `📖 **Tolong jelaskan kode Python berikut** secara singkat dan mudah dipahami:\n\n\`\`\`python\n${cell.code}\n\`\`\``;
+    const messages = [{ role: "user" as const, content: prompt }];
+    let resultText = "";
+    const onChunk = (chunk: string) => { resultText += chunk; };
+
+    let inputTokens = 0, outputTokens = 0;
+    try {
+      const result = await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      resultText = result.fullText;
+      inputTokens = result.usage.inputTokens;
+      outputTokens = result.usage.outputTokens;
+    } catch {
+      try {
+        resultText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
+      } catch {
+        toast({ title: "AI gagal menjelaskan kode", variant: "destructive" });
+        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+        return;
+      }
+    }
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+
+    // Tampilkan prompt asli sebagai context + jawaban AI langsung di chat
+    const chatMessage = `📖 **Penjelasan Kode** *(dari cell anda)*\n\n${resultText}`;
+    onSendAIResult(chatMessage);
+    showTokenToast(inputTokens, outputTokens, "Explain");
   };
 
-  // ── Debug → kirim ke AI Chat ───────────────────────────────────────────────
-  const handleDebug = (cellId: string) => {
+  // ── Debug → langsung call Gemini, hasil tampil di AI Chat sebagai pesan AI ──
+  const handleDebug = async (cellId: string) => {
     const cell = cells.find(c => c.id === cellId);
-    if (!cell || !onSendToChat) return;
+    if (!cell || !onSendAIResult) return;
+
+    const apiKey = await getAiKey();
+    if (!apiKey) return;
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: true } : c));
+    toast({ title: "🐛 Menganalisis bug...", description: "AI sedang memeriksa kodemu.", duration: 2000 });
+
     const errorOutput = cell.outputs.filter(o => o.type === "stderr").map(o => o.text).join("\n");
-    const message = errorOutput
+    const prompt = errorOutput
       ? `🐛 **Tolong debug kode Python berikut** dan berikan solusi perbaikannya:\n\n**Kode:**\n\`\`\`python\n${cell.code}\n\`\`\`\n\n**Error:**\n\`\`\`\n${errorOutput}\n\`\`\``
       : `🐛 **Tolong periksa kode Python berikut** — ada kemungkinan bug atau masalah logika:\n\n\`\`\`python\n${cell.code}\n\`\`\``;
-    onSendToChat(message);
-    toast({ title: "🐛 Debug dikirim ke AI Chat", description: "Lihat analisis di panel AI Chat.", duration: 2000 });
+    const messages = [{ role: "user" as const, content: prompt }];
+    let resultText = "";
+    const onChunk = (chunk: string) => { resultText += chunk; };
+
+    let inputTokens = 0, outputTokens = 0;
+    try {
+      const result = await streamGeminiResponse(apiKey, messages, onChunk, new AbortController().signal);
+      resultText = result.fullText;
+      inputTokens = result.usage.inputTokens;
+      outputTokens = result.usage.outputTokens;
+    } catch {
+      try {
+        resultText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
+      } catch {
+        toast({ title: "AI gagal debug kode", variant: "destructive" });
+        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+        return;
+      }
+    }
+
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+
+    const chatMessage = `🐛 **Analisis Debug Kode** *(dari cell anda)*\n\n${resultText}`;
+    onSendAIResult(chatMessage);
+    showTokenToast(inputTokens, outputTokens, "Debug");
   };
 
   // ── ✅ Check Answer → AI Challenge Validation ─────────────────────────────
@@ -549,11 +630,15 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
     const messages = [{ role: "user" as const, content: verifyPrompt }];
     let resultText = "";
 
+    let inputTokens = 0, outputTokens = 0;
     try {
-      await streamGeminiResponse(apiKey, messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
+      const result = await streamGeminiResponse(apiKey, messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
+      resultText = result.fullText;
+      inputTokens = result.usage.inputTokens;
+      outputTokens = result.usage.outputTokens;
     } catch {
       try {
-        await streamGroqFallback(messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
+        resultText = await streamGroqFallback(messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
       } catch {
         toast({ title: "Gagal verifikasi", variant: "destructive" });
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
@@ -562,6 +647,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+    showTokenToast(inputTokens, outputTokens, "Cek Jawaban");
 
     const isPass = resultText.toUpperCase().includes("✅ LULUS:") || resultText.toUpperCase().includes("LULUS:");
 

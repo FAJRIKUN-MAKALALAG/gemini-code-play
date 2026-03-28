@@ -652,8 +652,9 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
     const isPass = resultText.toUpperCase().includes("✅ LULUS:") || resultText.toUpperCase().includes("LULUS:");
 
     if (isPass) {
-      // 1. Hapus tag tantangan → AI Chat otomatis terbuka kembali
-      const cleanCode = cell.code.replace(/# 🎯 TANTANGAN:.*?\n/g, "# ✅ TANTANGAN SELESAI\n");
+      // 1. Hapus tag tantangan → isChallengeActive jadi false → lock screen hilang
+      // Regex: [^\r\n]* agar match Windows (\r\n) dan Unix (\n) line endings
+      const cleanCode = cell.code.replace(/# 🎯 TANTANGAN:[^\r\n]*/g, "# ✅ TANTANGAN SELESAI");
       syncSetCells(prev => prev.map(c => c.id === cellId ? { ...c, code: cleanCode } : c));
 
       // 2. Kirim hasil evaluasi langsung ke AI Chat sebagai pesan asisten

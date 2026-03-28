@@ -69,32 +69,17 @@ const Index = () => {
   };
 
   // Tampilkan hasil AI (Explain/Debug/CheckAnswer) langsung sebagai pesan asisten
-  // isPass: true = tantangan lulus (AI chat dibuka), false/undefined = challenge masih aktif / fitur lain
   const handleSendAIResult = (
     message: string,
     usage?: { inputTokens: number; outputTokens: number },
-    isPass?: boolean
+    _isPass?: boolean  // unused — view switch dihandle oleh useEffect di bawah
   ) => {
     chatRef.current?.displayAssistantMessage(message, usage);
-
-    if (isPass) {
-      // Beri delay agar React selesai update isChallengeActive dari syncSetCells
-      // sebelum switch view, sehingga chat panel tidak lagi menampilkan lock screen
-      setTimeout(() => {
-        if (isMobile) {
-          setMobileTab("chat");
-        } else {
-          // Pastikan panel chat terbuka
-          if (viewMode === "code") setViewMode("both");
-        }
-      }, 150);
-    } else {
-      // Explain/Debug/Cek BELUM: buka panel chat jika tertutup
-      if (isMobile) {
-        setMobileTab("chat");
-      } else if (viewMode === "code") {
-        setViewMode("both");
-      }
+    // Buka panel chat untuk Explain/Debug/BELUM — LULUS dihandle oleh useEffect
+    if (isMobile) {
+      setMobileTab("chat");
+    } else if (viewMode === "code") {
+      setViewMode("both");
     }
   };
 
@@ -142,24 +127,41 @@ const Index = () => {
 
   const handleRemoveChallenge = () => {
     try {
-      // 1. Deteksi apakah formatnya JSON (Notebook) atau teks biasa (Legacy)
       const isJson = code.trim().startsWith("[") && code.trim().endsWith("]");
-      
       if (isJson) {
         const cellList = JSON.parse(code);
         const updated = cellList.map((c: any) => ({
           ...c,
-          code: c.code.replace(/# 🎯 TANTANGAN:.*\n?/g, "").trimStart()
+          // Regex: [^\r\n]* agar match Windows (\r\n) dan Unix (\n) line endings
+          code: c.code.replace(/# 🎯 TANTANGAN:[^\r\n]*/g, "").trimStart()
         }));
         setCode(JSON.stringify(updated));
       } else {
-        // Fallback untuk teks biasa
-        setCode(code.replace(/# 🎯 TANTANGAN:.*\n?/g, "").trimStart());
+        setCode(code.replace(/# 🎯 TANTANGAN:[^\r\n]*/g, "").trimStart());
       }
     } catch (e) {
       console.error("Failed to unlock challenge:", e);
     }
   };
+
+  // Hitung lebih awal agar bisa dipakai oleh useEffect di bawah
+  const isChallengeActive = code.includes("🎯 TANTANGAN");
+
+  // ── Auto-buka AI Chat ketika challenge selesai (isChallengeActive: true → false) ───
+  // Menggunakan useEffect agar tidak ada stale closure issue (tidak perlu setTimeout)
+  const prevChallengeRef = useRef(false);
+  useEffect(() => {
+    const wasActive = prevChallengeRef.current;
+    prevChallengeRef.current = isChallengeActive;
+    if (wasActive && !isChallengeActive) {
+      // Tantangan baru saja selesai — buka panel chat
+      if (isMobile) {
+        setMobileTab("chat");
+      }
+      // Desktop: lock screen otomatis hilang saat isChallengeActive false,
+      // chat panel sudah terlihat — tidak perlu ubah viewMode
+    }
+  }, [isChallengeActive, isMobile]);
 
   // ── Shared nodes for reuse across layouts ─────────────────────────────────
   const editorNode = (
@@ -173,8 +175,6 @@ const Index = () => {
       isRuntimeReady={skulptReady}
     />
   );
-
-  const isChallengeActive = code.includes("🎯 TANTANGAN");
 
   const chatNode = (
     <ChatInterface

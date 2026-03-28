@@ -31,9 +31,8 @@ const Profile = () => {
                 setUser(user);
                 // Check if API key exists in backend
                 try {
-                    const token = authService.getAccessToken();
                     const response = await fetch(`${API_BASE_URL}/keys/${user.id}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     if (response.ok) {
                         const data = await response.json();
@@ -53,12 +52,11 @@ const Profile = () => {
     const handleSaveKey = async () => {
         if (user && tempKey.trim()) {
             try {
-                const token = authService.getAccessToken();
                 const response = await fetch(`${API_BASE_URL}/keys`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ apiKey: tempKey.trim() })  // userId diambil dari token
                 });

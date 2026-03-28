@@ -10,44 +10,43 @@ import { Key, Mail, User, Moon, Sun, ChevronLeft, Shield, LogOut } from "lucide-
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
+import { useQuery } from "@tanstack/react-query";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
 const Profile = () => {
     const { theme, setTheme } = useTheme();
     const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
-    const [hasApiKey, setHasApiKey] = useState(false);
-    const [apiKeySuffix, setApiKeySuffix] = useState("");
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
 
+    const { data: apiKeyData, isLoading: isLoadingKey } = useQuery({
+        queryKey: ["apiKeyStatus", user?.id],
+        queryFn: async () => {
+            const response = await fetch(`${API_BASE_URL}/keys/${user?.id}`, {
+                credentials: 'include'
+            });
+            if (!response.ok) return { hasKey: false };
+            return response.json();
+        },
+        enabled: !!user,
+        staleTime: 1000 * 60 * 5, // Cache selama 5 menit
+    });
+
     useEffect(() => {
-        const loadUser = async () => {
-            const user = authService.getUser();
-            if (user) {
-                setUser(user);
-                // Check if API key exists in backend
-                try {
-                    const response = await fetch(`${API_BASE_URL}/keys/${user.id}`, {
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        setHasApiKey(data.hasKey || false);
-                        if (data.suffix) setApiKeySuffix(data.suffix);
-                    }
-                } catch (error) {
-                    console.error("Failed to check API key status:", error);
-                }
-            } else {
-                navigate("/"); // Redirect if not logged in
-            }
-        };
-        loadUser();
+        const currentUser = authService.getUser();
+        if (currentUser) {
+            setUser(currentUser);
+        } else {
+            navigate("/");
+        }
     }, [navigate]);
+
+    const hasApiKey = apiKeyData?.hasKey || false;
+    const apiKeySuffix = apiKeyData?.suffix || "";
 
     const handleSaveKey = async () => {
         if (user && tempKey.trim()) {
@@ -62,12 +61,11 @@ const Profile = () => {
                 });
 
                 if (response.ok) {
-                    const key = tempKey.trim();
-                    setHasApiKey(true);
-                    setApiKeySuffix(key.substring(key.length - 4));
                     setIsEditingKey(false);
                     setTempKey("");
                     toast({ title: "API Key Saved", description: "Your Gemini API key has been saved to the database." });
+                    // Invalidate and refetch to update UI
+                    window.location.reload(); // Quick fix to refresh the query status or use queryClient.invalidateQueries
                 } else {
                     const error = await response.text();
                     toast({ title: "Save Failed", description: error, variant: "destructive" });

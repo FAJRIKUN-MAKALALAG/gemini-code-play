@@ -54,12 +54,14 @@ interface Message {
   /** Token usage info — hanya ada di pesan assistant dari Gemini */
   inputTokens?: number;
   outputTokens?: number;
+  /** Aktifkan typewriter animation saat pesan pertama kali ditambahkan */
+  animateOnAdd?: boolean;
 }
 
 export type ChatInterfaceHandle = {
   sendMessage: (content: string) => void;
-  /** Tampilkan pesan langsung sebagai balasan AI — tanpa memanggil Gemini */
-  displayAssistantMessage: (content: string) => void;
+  /** Tampilkan pesan langsung sebagai balasan AI — dengan typewriter animation & token info */
+  displayAssistantMessage: (content: string, usage?: { inputTokens: number; outputTokens: number }) => void;
   getConversationId: () => string | null;
   getCurrentUserId: () => string | null;
 };
@@ -412,9 +414,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         return next;
       });
     },
-    displayAssistantMessage: (content: string) => {
-      // Tampilkan langsung sebagai pesan AI tanpa trigger Gemini
-      setMessages((prev) => [...prev, { role: "assistant" as const, content }]);
+    displayAssistantMessage: (content: string, usage?: { inputTokens: number; outputTokens: number }) => {
+      // Tampilkan langsung sebagai pesan AI dengan typewriter animation
+      setMessages((prev) => [...prev, {
+        role: "assistant" as const,
+        content,
+        animateOnAdd: true,
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+      }]);
       // Jika challenge masih aktif, simpan sebagai hint untuk ditampilkan di lock screen
       setLastChallengeHint(content);
       // Simpan ke DB jika ada conversation aktif
@@ -683,7 +691,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                       : "text-foreground bg-secondary/40 border border-border/40"
                     }
                   `}>
-                    <ChatMessageContent role={msg.role} content={msg.content} animate={isLoading && idx === messages.length - 1 && msg.role === "assistant"} />
+                    <ChatMessageContent
+                      role={msg.role}
+                      content={msg.content}
+                      animate={
+                        // Streaming real dari Gemini (chat normal)
+                        (isLoading && idx === messages.length - 1 && msg.role === "assistant") ||
+                        // Typewriter untuk hasil Explain/Debug/CheckAnswer (displayAssistantMessage)
+                        (!!msg.animateOnAdd && idx === messages.length - 1 && msg.role === "assistant")
+                      }
+                    />
                   </div>
                   {/* Token info — hanya tampil di pesan AI yang punya data token */}
                   {msg.role === "assistant" && msg.inputTokens !== undefined && msg.outputTokens !== undefined && (

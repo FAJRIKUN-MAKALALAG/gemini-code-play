@@ -68,10 +68,10 @@ const Index = () => {
     }
   };
 
-  // Tampilkan hasil cek jawaban AI langsung sebagai pesan asisten
-  // (tanpa memanggil Gemini ulang)
-  const handleSendAIResult = (message: string) => {
-    chatRef.current?.displayAssistantMessage(message);
+  // Tampilkan hasil AI (Explain/Debug/CheckAnswer) langsung sebagai pesan asisten
+  // (tanpa memanggil Gemini ulang — typewriter animation aktif)
+  const handleSendAIResult = (message: string, usage?: { inputTokens: number; outputTokens: number }) => {
+    chatRef.current?.displayAssistantMessage(message, usage);
     if (isMobile) {
       setMobileTab("chat");
     } else if (viewMode === "code") {

@@ -55,8 +55,8 @@ interface NotebookEditorProps {
   onChange: (value: string) => void;
   /** Sends a user message to the AI Chat sidebar (triggers Gemini) */
   onSendToChat?: (message: string) => void;
-  /** Sends AI evaluation result directly as assistant message (no Gemini call) */
-  onSendAIResult?: (message: string) => void;
+  /** Sends AI result directly as assistant message — dengan token usage untuk ditampilkan di chat */
+  onSendAIResult?: (message: string, usage?: { inputTokens: number; outputTokens: number }) => void;
   /** Called when user clicks Save — should persist code to DB */
   onSaveCode?: (code: string) => Promise<{ success: boolean }>;
   isRuntimeReady?: boolean;
@@ -538,7 +538,7 @@ Aturan:
 
     // Tampilkan prompt asli sebagai context + jawaban AI langsung di chat
     const chatMessage = `📖 **Penjelasan Kode** *(dari cell anda)*\n\n${resultText}`;
-    onSendAIResult(chatMessage);
+    onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
     showTokenToast(inputTokens, outputTokens, "Explain");
   };
 
@@ -580,7 +580,7 @@ Aturan:
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
 
     const chatMessage = `🐛 **Analisis Debug Kode** *(dari cell anda)*\n\n${resultText}`;
-    onSendAIResult(chatMessage);
+    onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
     showTokenToast(inputTokens, outputTokens, "Debug");
   };
 
@@ -659,7 +659,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       // 2. Kirim hasil evaluasi langsung ke AI Chat sebagai pesan asisten
       if (onSendAIResult) {
         const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*AI Chat sudah terbuka kembali. Lanjutkan belajar atau tanyakan hal lain!* 🚀`;
-        onSendAIResult(chatMessage);
+        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
       }
 
       toast({
@@ -672,7 +672,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       // Kirim hint langsung ke AI Chat sebagai pesan asisten
       if (onSendAIResult) {
         const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*Perbaiki kodemu dan coba lagi! Semangat! 💪*`;
-        onSendAIResult(chatMessage);
+        onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
       }
 
       toast({

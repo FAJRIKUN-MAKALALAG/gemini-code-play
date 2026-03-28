@@ -55,6 +55,8 @@ interface Message {
 
 export type ChatInterfaceHandle = {
   sendMessage: (content: string) => void;
+  /** Tampilkan pesan langsung sebagai balasan AI — tanpa memanggil Gemini */
+  displayAssistantMessage: (content: string) => void;
   getConversationId: () => string | null;
   getCurrentUserId: () => string | null;
 };
@@ -93,6 +95,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   // Global chat error state (shown in ErrorAlert)
   const [chatError, setChatError] = useState<{ title: string; message: string } | null>(null);
+
+  // Hint terakhir dari cek jawaban (ditampilkan di lock screen saat challenge aktif)
+  const [lastChallengeHint, setLastChallengeHint] = useState<string | null>(null);
 
   // Ref to avoid stale closure in useImperativeHandle
   const isLoadingRef = useRef(false);
@@ -155,6 +160,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
     return () => { abortControllerRef.current?.abort(); };
   }, [authLoading, authUser]);
+
+  // ── Reset hint saat tantangan selesai ─────────────────────────────────────
+  useEffect(() => {
+    if (!props.isChallengeActive) {
+      setLastChallengeHint(null);
+    }
+  }, [props.isChallengeActive]);
 
   // ── Sliding Window — batasi history yang dikirim ke AI ─────────────────────
   // History lengkap tetap tampil di UI & tersimpan di DB.
@@ -377,6 +389,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         return next;
       });
     },
+    displayAssistantMessage: (content: string) => {
+      // Tampilkan langsung sebagai pesan AI tanpa trigger Gemini
+      setMessages((prev) => [...prev, { role: "assistant" as const, content }]);
+      // Jika challenge masih aktif, simpan sebagai hint untuk ditampilkan di lock screen
+      setLastChallengeHint(content);
+      // Simpan ke DB jika ada conversation aktif
+      if (conversationId && currentUserId) {
+        backendService.addMessage(conversationId, currentUserId, "assistant", content).catch(console.warn);
+      }
+    },
     getConversationId: () => conversationId,
     getCurrentUserId: () => currentUserId,
   }));
@@ -567,7 +589,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
         {/* Challenge Lock Screen */}
         {props.isChallengeActive ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-500">
+          <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto gap-4 animate-in fade-in zoom-in-95 duration-500">
             <Card className="w-full max-w-sm border-dashed border-2 border-orange-500/50 bg-orange-500/5 shadow-xl">
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
@@ -591,6 +613,23 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 )}
               </CardContent>
             </Card>
+
+            {/* Tampilkan feedback cek jawaban terakhir */}
+            {lastChallengeHint && (
+              <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-3 duration-400">
+                <div className={`rounded-xl border p-4 text-left shadow-md ${
+                  lastChallengeHint.includes("✅ LULUS") || lastChallengeHint.includes("LULUS:")
+                    ? "bg-emerald-500/5 border-emerald-500/40"
+                    : "bg-secondary/60 border-border/50"
+                }`}>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-base">🤖</span>
+                    <span className="text-xs font-semibold text-foreground/80">Feedback Cek Jawaban</span>
+                  </div>
+                  <MarkdownMessage content={lastChallengeHint} />
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>

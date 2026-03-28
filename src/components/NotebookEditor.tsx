@@ -53,8 +53,10 @@ export type NotebookEditorHandle = {
 interface NotebookEditorProps {
   code: string;
   onChange: (value: string) => void;
-  /** Sends a message to the AI Chat sidebar */
+  /** Sends a user message to the AI Chat sidebar (triggers Gemini) */
   onSendToChat?: (message: string) => void;
+  /** Sends AI evaluation result directly as assistant message (no Gemini call) */
+  onSendAIResult?: (message: string) => void;
   /** Called when user clicks Save — should persist code to DB */
   onSaveCode?: (code: string) => Promise<{ success: boolean }>;
   isRuntimeReady?: boolean;
@@ -105,6 +107,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     code,
     onChange,
     onSendToChat,
+    onSendAIResult,
     onSaveCode,
     isRuntimeReady = true,
   },
@@ -515,14 +518,37 @@ Aturan:
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: true } : c));
-    toast({ title: "🔍 Sedang memeriksa...", description: "AI sedang mengevaluasi kodemu." });
+    toast({ title: "🔍 Sedang memeriksa...", description: "AI sedang mengevaluasi kodemu.", duration: 2000 });
 
     const outputsText = cell.outputs.map(o => o.text).join("");
-    const verifyPrompt = `Evaluasi kode Python mahasiswa berikut untuk tantangan ini.\n\nKODE:\n\`\`\`python\n${cell.code}\n\`\`\`\n\nOUTPUT:\n\`\`\`\n${outputsText}\n\`\`\`\n\nAturan Evaluasi:\n1. Cek apakah kode sudah menyelesaikan instruksi di komentar soal.\n2. Jika BENAR, balas awali dengan "LULUS: " lalu feedback singkat & apresiasi.\n3. Jika SALAH, balas awali dengan "BELUM: " lalu feedback hint singkat.\n\nContoh balasan: "LULUS: Luar biasa! Logika if-else kamu sudah benar."`;
+
+    // Extract challenge description from code comments
+    const challengeLines = cell.code.split("\n").filter(l => l.trim().startsWith("#")).join("\n");
+
+    const verifyPrompt = `Kamu adalah evaluator kode Python yang memberi feedback kepada mahasiswa.
+
+**Soal Tantangan:**
+\`\`\`
+${challengeLines}
+\`\`\`
+
+**Kode yang Ditulis Mahasiswa:**
+\`\`\`python
+${cell.code}
+\`\`\`
+
+**Output Eksekusi:**
+\`\`\`
+${outputsText}
+\`\`\`
+
+Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Berikan balasan yang ramah dan mendidik:
+- Jika **BENAR/LULUS**: Mulai dengan "✅ LULUS:" lalu berikan apresiasi dan penjelasan mengapa jawabannya bagus.
+- Jika **SALAH/BELUM**: Mulai dengan "❌ BELUM:" lalu berikan hint/petunjuk perbaikan yang mengarahkan (JANGAN berikan jawaban lengkap).`;
 
     const messages = [{ role: "user" as const, content: verifyPrompt }];
     let resultText = "";
-    
+
     try {
       await streamGeminiResponse(apiKey, messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
     } catch {
@@ -537,23 +563,37 @@ Aturan:
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
 
-    if (resultText.toUpperCase().includes("LULUS:")) {
-      // Remove challenge tag to unlock AI Chat
+    const isPass = resultText.toUpperCase().includes("✅ LULUS:") || resultText.toUpperCase().includes("LULUS:");
+
+    if (isPass) {
+      // 1. Hapus tag tantangan → AI Chat otomatis terbuka kembali
       const cleanCode = cell.code.replace(/# 🎯 TANTANGAN:.*?\n/g, "# ✅ TANTANGAN SELESAI\n");
       syncSetCells(prev => prev.map(c => c.id === cellId ? { ...c, code: cleanCode } : c));
-      
-      toast({ 
-        title: "🎉 Selamat! Kamu Lulus!", 
-        description: resultText.replace(/LULUS:\s*/i, ""),
+
+      // 2. Kirim hasil evaluasi langsung ke AI Chat sebagai pesan asisten
+      if (onSendAIResult) {
+        const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*AI Chat sudah terbuka kembali. Lanjutkan belajar atau tanyakan hal lain!* 🚀`;
+        onSendAIResult(chatMessage);
+      }
+
+      toast({
+        title: "🎉 Selamat! Kamu Lulus!",
+        description: "Lihat feedback lengkap di panel AI Chat →",
         className: "bg-emerald-500 text-white border-none",
-        duration: 5000 
+        duration: 4000,
       });
     } else {
-      toast({ 
-        title: "❌ Belum Tepat", 
-        description: resultText.replace(/BELUM:\s*/i, ""),
+      // Kirim hint langsung ke AI Chat sebagai pesan asisten
+      if (onSendAIResult) {
+        const chatMessage = `🎯 **Hasil Cek Jawaban Tantangan**\n\n${resultText}\n\n---\n*Perbaiki kodemu dan coba lagi! Semangat! 💪*`;
+        onSendAIResult(chatMessage);
+      }
+
+      toast({
+        title: "❌ Belum Tepat",
+        description: "Lihat hint dari AI di panel AI Chat →",
         variant: "destructive",
-        duration: 5000
+        duration: 4000,
       });
     }
   };

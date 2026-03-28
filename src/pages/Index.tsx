@@ -68,6 +68,17 @@ const Index = () => {
     }
   };
 
+  // Tampilkan hasil cek jawaban AI langsung sebagai pesan asisten
+  // (tanpa memanggil Gemini ulang)
+  const handleSendAIResult = (message: string) => {
+    chatRef.current?.displayAssistantMessage(message);
+    if (isMobile) {
+      setMobileTab("chat");
+    } else if (viewMode === "code") {
+      setViewMode("both");
+    }
+  };
+
   // ── Save code to DB ─────────────────────────────────────────────────────
   const handleSaveCode = async (codeToSave: string): Promise<{ success: boolean }> => {
     const user = authService.getUser();
@@ -138,6 +149,7 @@ const Index = () => {
       code={code}
       onChange={setCode}
       onSendToChat={handleSendToChat}
+      onSendAIResult={handleSendAIResult}
       onSaveCode={handleSaveCode}
       isRuntimeReady={skulptReady}
     />

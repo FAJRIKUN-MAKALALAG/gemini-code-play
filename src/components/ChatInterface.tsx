@@ -19,6 +19,7 @@ import { ErrorAlert } from "./ErrorAlert";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { buildContext, type CellSnapshot } from "@/utils/notebookContext";
+import { containsProfanity } from "@/utils/profanityFilter";
 
 // ─── Chat-specific error mapping ─────────────────────────────────────────────
 function mapChatError(err: any): { title: string; message: string; status: number | string } {
@@ -227,6 +228,24 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       // ── 3. Save user message to DB (fire-and-forget) ────────────────────
       const lastUserMsg = allMessages[allMessages.length - 1];
       backendService.addMessage(convId, userId, "user", lastUserMsg.content).catch(console.warn);
+
+      if (containsProfanity(lastUserMsg.content)) {
+        const reply = "Kalau lagi marah jangan coding dulu ya 😊 Santai tarik napas dulu...";
+        
+        setMessages((prev) => [...prev, {
+          role: "assistant", 
+          content: reply, 
+          animateOnAdd: true 
+        }]);
+        
+        backendService.addMessage(convId, userId, "assistant", reply).catch(console.warn);
+        
+        setIsLoading(false);
+        isLoadingRef.current = false;
+        setAiStage('idle');
+        abortControllerRef.current = null;
+        return;
+      }
 
       // ── 4. Show thinking indicator ───────────────────────────────────────
       setAiStage('thinking');

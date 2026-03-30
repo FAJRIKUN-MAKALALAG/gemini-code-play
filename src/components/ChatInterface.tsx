@@ -9,17 +9,13 @@ import { useAuth } from "@/context/AuthContext";
 import { backendService } from "@/services/backendService";
 import { fetchUserApiKey, streamGeminiResponse, clearCachedApiKey } from "@/services/geminiService";
 import { streamGroqFallback } from "@/services/groqFallbackService";
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatSidebar } from "./ChatSidebar";
-import { useTypewriter } from "@/hooks/useTypewriter";
 import { AIStatusIndicator } from "./AIStatusIndicator";
 import { ErrorAlert } from "./ErrorAlert";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { buildContext, type CellSnapshot } from "@/utils/notebookContext";
 import { containsProfanity } from "@/utils/profanityFilter";
+import { ChatInputForm } from "./chat/ChatInputForm";
 
 // ─── Chat-specific error mapping ─────────────────────────────────────────────
 function mapChatError(err: any): { title: string; message: string; status: number | string } {
@@ -81,10 +77,8 @@ type ChatProps = {
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, ref) => {
   const { user: authUser, isLoading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -122,15 +116,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // ── Auto-resize textarea ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const h = Math.max(44, Math.min(textareaRef.current.scrollHeight, 200));
-      textareaRef.current.style.height = h + 'px';
-    }
-  }, [input]);
 
   // ── Init: load user + conversations ───────────────────────────────────────
   // Wait until AuthContext has finished checking the cookie session (isLoading=false)
@@ -280,8 +265,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       };
 
       // ── 7. Sliding window — ambil N pesan terakhir saja untuk dikirim ke AI ─
-      // allMessages masih lengkap untuk disimpan di DB (step 3 di atas).
-      let windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
+      const windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
         ? allMessages.slice(-CHAT_WINDOW_SIZE)
         : [...allMessages];
 
@@ -414,10 +398,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   };
 
   // ── Send handler ───────────────────────────────────────────────────────────
-  const handleSend = async () => {
-    if (!input.trim() || isLoadingRef.current) return;
-    const content = input.trim();
-    setInput("");
+  const handleSend = async (content: string) => {
+    if (!content.trim() || isLoadingRef.current) return;
     setMessages((prev) => {
       const next = [...prev, { role: "user" as const, content }];
       // Using setTimeout(0) to call chatOnce outside the render cycle
@@ -471,10 +453,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
     },
     getCurrentUserId: () => currentUserId,
   }));
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
 
   // ── Conversation switching ─────────────────────────────────────────────────
   const handleSwitchConversation = async (id: string) => {
@@ -695,7 +673,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                     <span className="text-base">🤖</span>
                     <span className="text-xs font-semibold text-foreground/80">Feedback Cek Jawaban</span>
                   </div>
-                  <MarkdownMessage content={lastChallengeHint} />
+                  <ChatMessageBubble role="assistant" content={lastChallengeHint} animate={false} />
                 </div>
               </div>
             )}
@@ -729,13 +707,11 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                       : "text-foreground bg-secondary/40 border border-border/40"
                     }
                   `}>
-                    <ChatMessageContent
+                    <ChatMessageBubble
                       role={msg.role}
                       content={msg.content}
                       animate={
-                        // Streaming real dari Gemini (chat normal)
                         (isLoading && idx === messages.length - 1 && msg.role === "assistant") ||
-                        // Typewriter untuk hasil Explain/Debug/CheckAnswer (displayAssistantMessage)
                         (!!msg.animateOnAdd && idx === messages.length - 1 && msg.role === "assistant")
                       }
                     />
@@ -780,32 +756,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         </div>
 
         {/* Input bar */}
-        <div className="p-2 sm:p-4 shrink-0">
-          <div className="relative max-w-3xl mx-auto">
-            <div className="bg-secondary/60 backdrop-blur-md rounded-2xl border border-border/50 shadow-md p-2 flex items-end gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-200">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={noApiKey ? "Add an API key to start chatting..." : "Ask UNKLAB AI..."}
-                className="flex-1 min-h-[36px] sm:min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1.5 sm:py-2.5 resize-none text-base sm:text-sm placeholder:text-muted-foreground/60 leading-relaxed"
-                disabled={isLoading || noApiKey}
-                rows={1}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading || noApiKey}
-                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'}`}
-              >
-                {isLoading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-              </Button>
-            </div>
-            <p className="text-[10px] text-center text-muted-foreground/40 mt-1.5 px-2 italic">
-              AI can make mistakes. Always verify important information.
-            </p>
-          </div>
-        </div>
+        <ChatInputForm onSend={handleSend} isLoading={isLoading} noApiKey={noApiKey} />
       </>
       )}
     </div>
@@ -876,226 +827,3 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   );
 });
 
-// ── Message rendering ──────────────────────────────────────────────────────────
-
-function ChatMessageContent({ role, content, animate = false }: { role: "user" | "assistant"; content: string; animate?: boolean }) {
-  const displayed = useTypewriter(content, animate);
-  if (role === "user") return <div className="text-[13px] sm:text-sm whitespace-pre-wrap break-words">{content}</div>;
-  return <MarkdownMessage content={displayed} />;
-}
-
-// ── Reusable CodeBlock (dipakai oleh react-markdown custom component)
-function CodeBlock({ code, lang }: { code: string; lang?: string }) {
-  const [copied, setCopied] = useState(false);
-  const isDark = document.documentElement.classList.contains('dark');
-  const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { }
-  };
-  return (
-    <div className="relative rounded-lg overflow-hidden border my-2 border-zinc-700/80">
-      {/* Header bar — selalu dark seperti VS Code */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b bg-zinc-800 border-zinc-700/80">
-        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400">
-          {lang || "code"}
-        </span>
-        <button
-          onClick={handleCopy}
-          className="text-[10px] transition-colors px-2 py-0.5 rounded font-medium text-zinc-400 hover:text-white hover:bg-zinc-700"
-        >
-          {copied ? "✓ Copied!" : "Copy"}
-        </button>
-      </div>
-      {/* Body — selalu pakai vscDarkPlus (hitam gelap) di semua mode */}
-      <SyntaxHighlighter
-        language={lang || 'text'}
-        style={vscDarkPlus}
-        customStyle={{ margin: 0, padding: '0.875rem 1rem', fontSize: '0.8125rem', background: '#1e1e1e' }}
-        wrapLines wrapLongLines
-      >
-        {code}
-      </SyntaxHighlighter>
-    </div>
-  );
-}
-
-// ── react-markdown powered renderer with colored custom components
-function MarkdownMessage({ content }: { content: string }) {
-  const isDark = document.documentElement.classList.contains('dark');
-
-  return (
-    <div className="text-[13px] sm:text-sm leading-relaxed space-y-2">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          // ── Headings ──────────────────────────────────────────────────
-          h1: ({ children }) => (
-            <h1 className="text-lg font-bold mt-3 mb-1 pb-1 border-b border-blue-400/40"
-              style={{ color: isDark ? '#60a5fa' : '#2563eb' }}>
-              {children}
-            </h1>
-          ),
-          h2: ({ children }) => (
-            <h2 className="text-base font-bold mt-2.5 mb-1"
-              style={{ color: isDark ? '#a78bfa' : '#7c3aed' }}>
-              {children}
-            </h2>
-          ),
-          h3: ({ children }) => (
-            <h3 className="text-sm font-semibold mt-2 mb-0.5"
-              style={{ color: isDark ? '#2dd4bf' : '#0d9488' }}>
-              {children}
-            </h3>
-          ),
-          h4: ({ children }) => (
-            <h4 className="text-sm font-semibold mt-1.5"
-              style={{ color: isDark ? '#34d399' : '#059669' }}>
-              {children}
-            </h4>
-          ),
-          h5: ({ children }) => (
-            <h5 className="text-sm font-medium mt-1"
-              style={{ color: isDark ? '#94a3b8' : '#475569' }}>
-              {children}
-            </h5>
-          ),
-          h6: ({ children }) => (
-            <h6 className="text-xs font-medium mt-1 uppercase tracking-wide"
-              style={{ color: isDark ? '#64748b' : '#64748b' }}>
-              {children}
-            </h6>
-          ),
-
-          // ── Paragraf ─────────────────────────────────────────────────
-          p: ({ children }) => (
-            <p className="whitespace-pre-wrap my-1 leading-relaxed">{children}</p>
-          ),
-
-          // ── Bold & Italic ─────────────────────────────────────────────
-          strong: ({ children }) => (
-            <strong className="font-bold" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
-              {children}
-            </strong>
-          ),
-          em: ({ children }) => (
-            <em className="italic" style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>
-              {children}
-            </em>
-          ),
-
-          // ── Code block (pre > code) — react-markdown v10 ─────────────
-          // Di v10, block code selalu dibungkus <pre>, kita handle di sini
-          pre: ({ children }) => {
-            // Ambil node <code> di dalam <pre>
-            const codeEl = (children as any)?.[0] ?? children;
-            const className: string = codeEl?.props?.className ?? '';
-            const lang = /language-(\w+)/.exec(className)?.[1];
-            const code = String(codeEl?.props?.children ?? '').replace(/\n$/, '');
-            return <CodeBlock code={code} lang={lang} />;
-          },
-
-          // ── Inline code ───────────────────────────────────────────────
-          code: ({ className, children, ...props }: any) => {
-            // Kalau punya className language-*, ini adalah block → skip (sudah dihandle di `pre`)
-            if (className?.startsWith('language-')) return null;
-            return (
-              <code
-                className="px-1.5 py-0.5 rounded text-[0.8em] font-mono border"
-                style={{
-                  background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
-                  color: isDark ? '#6ee7b7' : '#047857',
-                  borderColor: isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.3)',
-                }}
-                {...props}
-              >
-                {children}
-              </code>
-            );
-          },
-
-          // ── Lists ─────────────────────────────────────────────────────
-          ul: ({ children }) => (
-            <ul className="pl-5 space-y-0.5 my-1" style={{ listStyleType: 'disc' }}>{children}</ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="pl-5 space-y-0.5 my-1" style={{ listStyleType: 'decimal' }}>{children}</ol>
-          ),
-          li: ({ children }) => (
-            <li className="leading-relaxed"
-              style={{ color: 'inherit' }}>
-              <span>{children}</span>
-            </li>
-          ),
-
-          // ── Blockquote ────────────────────────────────────────────────
-          blockquote: ({ children }) => (
-            <blockquote
-              className="pl-3 py-1 my-2 rounded-r-md text-sm italic"
-              style={{
-                borderLeft: `3px solid ${isDark ? '#f97316' : '#ea580c'}`,
-                background: isDark ? 'rgba(249,115,22,0.08)' : 'rgba(234,88,12,0.06)',
-                color: isDark ? '#fdba74' : '#9a3412',
-              }}
-            >
-              {children}
-            </blockquote>
-          ),
-
-          // ── Horizontal rule ───────────────────────────────────────────
-          hr: () => (
-            <hr className="my-3 border-0 h-px"
-              style={{ background: 'linear-gradient(to right, transparent, currentColor, transparent)', opacity: 0.3 }}
-            />
-          ),
-
-          // ── Links ─────────────────────────────────────────────────────
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 transition-colors"
-              style={{ color: isDark ? '#818cf8' : '#4f46e5' }}
-            >
-              {children}
-            </a>
-          ),
-
-          // ── Table ─────────────────────────────────────────────────────
-          table: ({ children }) => (
-            <div className="overflow-x-auto my-2 rounded-md border"
-              style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-              <table className="text-xs w-full border-collapse">{children}</table>
-            </div>
-          ),
-          thead: ({ children }) => (
-            <thead style={{ background: isDark ? 'rgba(51,65,85,0.8)' : 'rgba(241,245,249,0.9)' }}>
-              {children}
-            </thead>
-          ),
-          th: ({ children }) => (
-            <th className="px-3 py-2 text-left font-semibold border-b"
-              style={{
-                color: isDark ? '#94a3b8' : '#475569',
-                borderColor: isDark ? '#334155' : '#e2e8f0',
-              }}>
-              {children}
-            </th>
-          ),
-          td: ({ children }) => (
-            <td className="px-3 py-2 border-b"
-              style={{ borderColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-              {children}
-            </td>
-          ),
-
-          // ── del (strikethrough dari GFM) ──────────────────────────────
-          del: ({ children }) => (
-            <del className="opacity-60 line-through">{children}</del>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-}

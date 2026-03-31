@@ -14,7 +14,6 @@ import { AIStatusIndicator } from "./AIStatusIndicator";
 import { ErrorAlert } from "./ErrorAlert";
 import { ChatMessageBubble } from "./chat/ChatMessageBubble";
 import { buildContext, type CellSnapshot } from "@/utils/notebookContext";
-import { containsProfanity } from "@/utils/profanityFilter";
 import { ChatInputForm } from "./chat/ChatInputForm";
 
 // ─── Chat-specific error mapping ─────────────────────────────────────────────
@@ -213,24 +212,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       // ── 3. Save user message to DB (fire-and-forget) ────────────────────
       const lastUserMsg = allMessages[allMessages.length - 1];
       backendService.addMessage(convId, userId, "user", lastUserMsg.content).catch(console.warn);
-
-      if (containsProfanity(lastUserMsg.content)) {
-        const reply = "Kalau lagi marah jangan coding dulu ya 😊 Santai tarik napas dulu...";
-        
-        setMessages((prev) => [...prev, {
-          role: "assistant", 
-          content: reply, 
-          animateOnAdd: true 
-        }]);
-        
-        backendService.addMessage(convId, userId, "assistant", reply).catch(console.warn);
-        
-        setIsLoading(false);
-        isLoadingRef.current = false;
-        setAiStage('idle');
-        abortControllerRef.current = null;
-        return;
-      }
 
       // ── 4. Show thinking indicator ───────────────────────────────────────
       setAiStage('thinking');

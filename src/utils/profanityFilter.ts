@@ -19,14 +19,23 @@ export const BAD_WORDS = [
   "xxx", "yateam", "yatim"
 ];
 
+const ANIMAL_WORDS = ["anjing", "babi", "kirik", "asu"];
+const SAFE_CONTEXT_WORDS = ["hewan", "binatang", "ternak", "peliharaan", "satwa", "fauna"];
+
 export function containsProfanity(text: string): boolean {
   if (!text) return false;
   // Ganti karakter non-alfanumerik dengan spasi untuk mengisolasi kata
   const normalizedText = text.toLowerCase().replace(/[^a-z0-9]/g, ' ');
   const words = normalizedText.split(/\s+/);
 
+  const hasSafeContext = SAFE_CONTEXT_WORDS.some(safeWord => words.includes(safeWord));
+
   for (const w of words) {
     if (BAD_WORDS.includes(w)) {
+      // Jika kata kasar merupakan nama hewan dan terdapat kata konteks aman, abaikan
+      if (hasSafeContext && ANIMAL_WORDS.includes(w)) {
+        continue;
+      }
       return true;
     }
   }

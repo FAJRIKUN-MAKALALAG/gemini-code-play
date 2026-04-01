@@ -13,14 +13,18 @@ import { useLocation } from "react-router-dom";
 import { Code, MessageSquare } from "lucide-react";
 import { backendService } from "@/services/backendService";
 import { authService } from "@/services/authService";
+import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
 
 // ── Mobile tab type (code | chat) ───────────────────────────────────────────
 type MobileTab = "code" | "chat";
 
 const Index = () => {
   const location = useLocation();
+  const { user, isLoading } = useAuth();
   const [code, setCode] = useState(`# Selamat datang di AI Coding Assistant!\n# Tulis kode Python kamu di sini dan klik Run per cell\n\nprint("Halo, Dunia! Selamat belajar Python!")\n`);
-  const [showStart, setShowStart] = useState(true);
+  
+  const [showStart, setShowStart] = useState(false);
   const [skulptReady, setSkulptReady] = useState(false);
   const { toast } = useToast();
   const chatRef = useRef<ChatInterfaceHandle | null>(null);
@@ -40,11 +44,18 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    if (location.state?.showLanding) {
-      setShowStart(true);
-      window.history.replaceState({}, document.title);
+    if (!isLoading) {
+      if (location.state?.showLanding) {
+        setShowStart(true);
+        // Clear state so refresh doesn't keep showing it
+        window.history.replaceState({}, document.title);
+      } else if (!user) {
+        setShowStart(true);
+      } else {
+        setShowStart(false);
+      }
     }
-  }, [location]);
+  }, [location, isLoading, user]);
 
   useEffect(() => {
     // Only load Python runtime after user leaves landing page
@@ -188,6 +199,15 @@ const Index = () => {
       onRemoveChallenge={handleRemoveChallenge}
     />
   );
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+        <p className="text-muted-foreground font-medium animate-pulse">Menyiapkan Workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden relative bg-background">

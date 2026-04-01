@@ -137,10 +137,15 @@ export async function streamGeminiResponse(
   });
 
   // Convert history (all but last message) for the chat
-  const history = messages.slice(0, -1).map((m) => ({
+  const rawHistory = messages.slice(0, -1).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
+
+  // Gemini API requires the first message in history to be from a 'user'
+  const firstUserIndex = rawHistory.findIndex(m => m.role === "user");
+  const history = firstUserIndex !== -1 ? rawHistory.slice(firstUserIndex) : [];
+
 
   const chat = model.startChat({ history });
 

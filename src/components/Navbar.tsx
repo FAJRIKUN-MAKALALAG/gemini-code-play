@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LogOut, ChevronDown, Key, Check, X, Code, MessageSquare,
-  Columns, Moon, Sun, ExternalLink, Plus, Settings
+  Columns, Moon, Sun, ExternalLink, Plus, Settings, FilePlus, Keyboard
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -187,6 +187,24 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                         <Settings className="w-4 h-4 text-primary" />
                       </div>
                       <span className="text-sm font-medium">Profile Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link to="/challenges/create" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
+                      <div className="bg-orange-500/10 p-2 rounded-lg group-hover:bg-orange-500/20 transition-colors">
+                        <FilePlus className="w-4 h-4 text-orange-500" />
+                      </div>
+                      <span className="text-sm font-medium">Buat Soal / Ujian</span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link to="/challenges/join" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
+                      <div className="bg-blue-500/10 p-2 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                        <Keyboard className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <span className="text-sm font-medium">Masukkan Kode Soal</span>
                     </Link>
                   </DropdownMenuItem>
 

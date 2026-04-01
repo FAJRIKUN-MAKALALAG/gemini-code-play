@@ -22,6 +22,7 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const CreateChallenge = lazy(() => import("./pages/CreateChallenge"));
 const JoinChallenge = lazy(() => import("./pages/JoinChallenge"));
 const SolveChallenge = lazy(() => import("./pages/SolveChallenge"));
+const ReviewAnswers = lazy(() => import("./pages/ReviewAnswers"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ const App = () => (
                   <Route path="/challenges/create" element={<CreateChallenge />} />
                   <Route path="/challenges/join" element={<JoinChallenge />} />
                   <Route path="/challenges/solve/:id" element={<SolveChallenge />} />
+                  <Route path="/challenges/:id/answers" element={<ReviewAnswers />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

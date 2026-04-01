@@ -86,9 +86,9 @@ export default function ReviewAnswers() {
     setEditorKey(prev => prev + 1);
   };
 
-  // Fungsi helper nama user (karena join DB profile kadang beda struktur tergantung backend admin)
+  // Fungsi helper nama user
   const getUserName = (ans: any) => {
-    if (ans.profiles && ans.profiles.full_name) return ans.profiles.full_name;
+    if (ans.student_name) return ans.student_name;
     if (ans.user_id) return ans.user_id.split('-')[0]; // fallback pakai uuid dpnnya
     return "User Anonim";
   };
@@ -228,10 +228,11 @@ export default function ReviewAnswers() {
                     // onChange tetap berfungsi agar dosen bisa otak atik jawaban siswa & mencoba nge-run (tapi tidak merubah DB otomatis jika guru ga save)
                     onChange={() => {}} 
                     isRuntimeReady={skulptReady}
+                    disableAI={true}
                   />
                   
                   {/* Watermark / Bantuan */}
-                  <div className="absolute top-2 right-4 pointer-events-none text-[10px] font-mono font-medium text-orange-500/70 border border-orange-500/20 bg-orange-500/5 px-2 py-1 rounded">
+                  <div className="absolute bottom-6 right-6 pointer-events-none text-[10px] font-mono font-medium text-orange-500/70 border border-orange-500/20 bg-orange-500/5 px-2 py-1 rounded shadow-sm z-50">
                     Tekan (Run) Pada Cell untuk menguji jawaban murid ini.
                   </div>
                 </div>

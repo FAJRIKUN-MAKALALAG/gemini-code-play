@@ -14,6 +14,7 @@ export default function JoinChallenge() {
   const navigate = useNavigate();
 
   const [roomCode, setRoomCode] = useState("");
+  const [studentName, setStudentName] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,6 +48,8 @@ export default function JoinChallenge() {
       // 2. Join (ini juga akan membuat record jawaban baru atau melanjutkan jika in_progress)
       const joinRes = await fetch(`${API_BASE_URL}/challenges/${challenge.id}/join`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_name: studentName }),
         credentials: "include"
       });
 
@@ -91,16 +94,24 @@ export default function JoinChallenge() {
         </p>
 
         <form onSubmit={handleJoin} className="w-full space-y-6">
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Input 
               type="text"
-              placeholder="Contoh: X7B9QA" 
+              placeholder="Masukkan Nama Lengkap Anda" 
+              value={studentName} 
+              onChange={e => setStudentName(e.target.value)} 
+              className="h-14 bg-background/50 text-center text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-500/50"
+              required
+              autoFocus
+            />
+            <Input 
+              type="text"
+              placeholder="KODE RUANG LATIHAN" 
               value={roomCode} 
               onChange={e => setRoomCode(e.target.value.toUpperCase())} 
               className="h-14 bg-background/50 text-center text-xl tracking-widest font-bold uppercase rounded-xl border-2 focus-visible:ring-indigo-500/50"
               maxLength={8}
               required
-              autoFocus
             />
           </div>
 

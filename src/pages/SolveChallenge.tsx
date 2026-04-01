@@ -8,6 +8,16 @@ import { NotebookEditor } from "@/components/NotebookEditor";
 import { loadSkulpt } from "@/utils/skulptRunner";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Helmet } from "react-helmet-async";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
@@ -28,6 +38,10 @@ export default function SolveChallenge() {
   
   const [endTime, setEndTime] = useState<number | null>(null);
   const [timeRemainingStr, setTimeRemainingStr] = useState<string>("");
+
+  const [cheatWarning, setCheatWarning] = useState<string | null>(null);
+  const [showTimeUp, setShowTimeUp] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const cheatsRef = useRef(0);
   const codeRef = useRef(code);
@@ -135,10 +149,10 @@ export default function SolveChallenge() {
         setCheatsDetected(newCheats);
 
         if (newCheats === 1) {
-          alert(`⚠️ PERINGATAN SISTEM: Anda terbar mendeteksi pemindahan tab atau aplikasi. Ini adalah peringatan pertama. Jika Anda melakukannya lagi, jawaban ujian Anda akan OTOMATIS DIKIRIM dan ujian dihentikan!`);
+          setCheatWarning(`⚠️ PERINGATAN SISTEM: Sistem mendeteksi pemindahan tab atau aplikasi. Ini adalah peringatan pertama. Jika Anda melakukannya lagi, ujian Anda akan OTOMATIS DIHENTIKAN!`);
           saveProgress(codeRef.current, "in_progress", newCheats);
         } else if (newCheats >= 2) {
-          alert(`🚫 PELANGGARAN TERDETEKSI: Anda telah melanggar aturan ujian (pindah tab/app 2 kali). Jawaban Anda disubmit secara otomatis.`);
+          setCheatWarning(`🚫 PELANGGARAN TERDETEKSI: Anda telah melanggar aturan ujian (pindah tab/app 2 kali). Jawaban Anda sedang disubmit secara otomatis...`);
           await handleFinalSubmit(true);
         }
       }
@@ -186,7 +200,7 @@ export default function SolveChallenge() {
         clearInterval(interval);
         setTimeRemainingStr("00:00");
         if (!submittingRef.current) {
-          alert("⏰ WAKTU HABIS! Jawaban Anda terkirim secara otomatis.");
+          setShowTimeUp(true);
           handleFinalSubmit(true);
         }
       } else {
@@ -229,11 +243,9 @@ export default function SolveChallenge() {
   };
 
   const handleFinalSubmit = async (forced = false) => {
-    if (!forced && !window.confirm("Apakah Anda yakin ingin menyelesaikan dan mengirim jawaban ini? Anda tidak bisa mengubahnya setelah ini.")) {
-      return;
-    }
-    
     setSubmitting(true);
+    // Jika tidak forced, pastikan dialog konfirmasi kita tutup
+    if (!forced) setShowSubmitConfirm(false);
     const success = await saveProgress(codeRef.current, "submitted", cheatsRef.current);
     setSubmitting(false);
 
@@ -260,6 +272,63 @@ export default function SolveChallenge() {
         <title>Ujian Aktif - AI Coding Assistant</title>
       </Helmet>
 
+      {/* Dialog Peringatan Anti-Cheat */}
+      <AlertDialog open={!!cheatWarning} onOpenChange={() => !submitting && setCheatWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-500 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5"/> Peringatan Sistem
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-medium leading-relaxed">
+              {cheatWarning}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setCheatWarning(null)} disabled={submitting}>
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin"/> : "Saya Mengerti"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog Waktu Habis */}
+      <AlertDialog open={showTimeUp}>
+        <AlertDialogContent className="pointer-events-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-500 flex items-center gap-2">
+               <Timer className="w-5 h-5 animate-pulse"/> Waktu Ujian Habis!
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Waktu pengerjaan telah selesai. Menyiapkan pengiriman dan menyimpan jawaban secara otomatis ke server...
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-start">
+             <div className="flex items-center text-muted-foreground gap-2 text-sm pt-2">
+               <Loader2 className="w-4 h-4 animate-spin text-blue-500"/> Sedang mengirimkan...
+             </div>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog Konfirmasi Submit Manual */}
+      <AlertDialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pengumpulan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menyelesaikan dan mengirim jawaban ini? <br/>
+              <b>Anda tidak akan bisa mengubah kodenya setelah ini dikirim.</b>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleFinalSubmit(false)} className="bg-green-600 hover:bg-green-700 text-white font-bold">
+              Ya, Kirim Sekarang
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Top Navbar for Evaluation */}
       <div className="h-14 bg-red-600/10 border-b border-red-500/20 flex items-center justify-between px-6 shrink-0 z-10 shadow-sm relative">
         <div className="flex items-center gap-3">
@@ -285,7 +354,7 @@ export default function SolveChallenge() {
           </div>
           
           <Button 
-            onClick={() => handleFinalSubmit(false)} 
+            onClick={() => setShowSubmitConfirm(true)} 
             disabled={submitting}
             className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 px-6 shadow-md"
           >
@@ -303,8 +372,8 @@ export default function SolveChallenge() {
                 <h2 className="text-2xl font-bold text-foreground mb-4 leading-tight">{challenge?.title}</h2>
                 <div className="flex gap-4 mb-6 text-xs font-medium border-b border-border/50 pb-4">
                   <div className="flex flex-col gap-1 text-muted-foreground">
-                    <span className="uppercase text-[10px] font-bold">Author ID</span>
-                    <span className="font-mono text-foreground">{challenge?.creator_id?.slice(0, 8)}...</span>
+                    <span className="uppercase text-[10px] font-bold">Dibuat Oleh</span>
+                    <span className="font-mono text-foreground font-medium">{challenge?.creator_name || "Author"}</span>
                   </div>
                   {challenge?.time_limit_minutes && (
                     <div className="flex flex-col gap-1 text-orange-500">

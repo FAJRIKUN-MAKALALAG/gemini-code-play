@@ -161,6 +161,16 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             >
               Start Coding Now
             </Button>
+            {/* Privacy Policy link — visible di hero agar Google OAuth verifier mendeteksinya */}
+            <p className="mt-4 text-xs text-muted-foreground">
+              By using this service, you agree to our{" "}
+              <a
+                href="/privacy"
+                className="underline text-primary hover:text-primary/80 transition-colors font-medium"
+              >
+                Privacy Policy
+              </a>
+            </p>
           </div>
         </div> {/* end z-10 wrapper */}
 
@@ -310,8 +320,8 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <img src="/AicodeLogo.png" alt="Logo" className="w-12 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500" />
           <p className="text-sm">© {new Date().getFullYear()} aicode-unklab. Built for developers.</p>
           <div className="flex gap-6 mt-2">
-            <a href="https://unklab-aicode.online/privacy" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Privacy Policy</a>
-            <a href="https://unklab-aicode.online/terms" className="text-xs hover:text-primary transition-colors underline-offset-4 hover:underline">Terms of Service</a>
+            <a href="/privacy" className="text-xs underline hover:text-primary transition-colors font-medium">Privacy Policy</a>
+            <a href="/terms" className="text-xs underline hover:text-primary transition-colors">Terms of Service</a>
           </div>
         </div>
       </footer>

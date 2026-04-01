@@ -17,8 +17,20 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://api.unklab-aicode.online/api";
 
-// System prompt — same content as backend prompts.js
-const SYSTEM_PROMPT = `Kamu adalah asisten AI Python yang ramah dan edukatif, dirancang khusus untuk membantu pemula belajar pemrograman Python.
+// Fungsi pembuat prompt dinamis dengan injeksi RAG Memory
+const getSystemPrompt = (context_dari_supabase: string, user_message: string) => `Kamu adalah asisten AI yang cerdas. Untuk membantu user, kamu diberikan akses ke Memori Jangka Panjang yang berisi riwayat percakapan masa lalu yang paling relevan dengan pertanyaan saat ini.
+
+Aturan Penggunaan Konteks:
+Setiap kali user bertanya, sistem akan memberikan potongan riwayat chat (Context) yang dicari berdasarkan kemiripan makna (Semantic Search).
+Gunakan informasi dari 'Context' tersebut untuk memberikan jawaban yang konsisten dengan percakapan sebelumnya (misalnya mengingat kode yang pernah dibahas, gaya bahasa, atau preferensi user).
+Jika 'Context' yang diberikan tidak relevan dengan pertanyaan user, abaikan saja dan jawablah secara umum.
+Jangan pernah menyebutkan 'Saya sedang membaca database' atau 'Berdasarkan konteks yang diberikan'. Jawablah seolah-olah kamu memang mengingat hal tersebut secara alami.
+
+Konteks Riwayat yang Relevan:
+${context_dari_supabase || "Tidak ada riwayat memori relevan."}
+
+Pertanyaan User Sekarang:
+${user_message}
 
 PRINSIP MENGAJAR:
 1. **Jelaskan dengan Sederhana**: Gunakan bahasa yang mudah dipahami, hindari jargon teknis yang rumit
@@ -112,12 +124,16 @@ export async function streamGeminiResponse(
   apiKey: string,
   messages: ChatMessage[],
   onChunk: (chunk: string) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  memoryContext: string = ""
 ): Promise<{ fullText: string; usage: TokenUsage }> {
   const genAI = new GoogleGenerativeAI(apiKey);
+  
+  const lastMessage = messages[messages.length - 1];
+
   const model = genAI.getGenerativeModel({
     model: "gemini-3-flash-preview",
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: getSystemPrompt(memoryContext, lastMessage.content),
   });
 
   // Convert history (all but last message) for the chat
@@ -125,8 +141,6 @@ export async function streamGeminiResponse(
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
-
-  const lastMessage = messages[messages.length - 1];
 
   const chat = model.startChat({ history });
 

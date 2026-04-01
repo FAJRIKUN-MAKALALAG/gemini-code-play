@@ -124,6 +124,24 @@ class BackendService {
     }
   }
 
+  async getChatContext(query: string): Promise<{ data: { context: string } | null; error: Error | null }> {
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL}/messages/context`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeaders()
+        },
+        body: JSON.stringify({ query })
+      });
+      if (!response.ok) throw new Error(`Failed to fetch chat context: ${response.statusText}`);
+      const data = await response.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  }
+
   async addMessage(conversationId: string, userId: string, role: 'user' | 'assistant', content: string): Promise<{ data: ChatMessage | null; error: Error | null }> {
     try {
       const response = await fetchWithAuth(`${API_BASE_URL}/messages`, {

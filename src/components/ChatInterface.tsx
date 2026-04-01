@@ -245,10 +245,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
       };
 
-      // ── 7. Sliding window — ambil N pesan terakhir saja untuk dikirim ke AI ─
-      const windowedMessages = allMessages.length > CHAT_WINDOW_SIZE
-        ? allMessages.slice(-CHAT_WINDOW_SIZE)
-        : [...allMessages];
+      // ── 7. Tarik memori (RAG) dan biarkan pesan utuh tanpa limit ─
+      // Mengambil konteks Vector AI dari backend berdasarkan pertanyaan user terakhir
+      const contextRes = await backendService.getChatContext(lastUserMsg.content);
+      const memoryContext = contextRes.data?.context || "";
+
+      const windowedMessages = [...allMessages];
 
       // ── 7.5. Inject Notebook Context ─────────────────────────────────────────
       // Inject context HANYA pada pesan terakhir yang akan dikirim ke API
@@ -289,7 +291,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       try {
         // Race: siapa yang selesai duluan — Gemini atau timeout?
         const geminiResult = await Promise.race([
-          streamGeminiResponse(apiKey, windowedMessages, handleChunk, geminiAbort.signal),
+          streamGeminiResponse(apiKey, windowedMessages, handleChunk, geminiAbort.signal, memoryContext),
           timeoutPromise,
         ]);
         clearTimeout(timeoutHandle!);

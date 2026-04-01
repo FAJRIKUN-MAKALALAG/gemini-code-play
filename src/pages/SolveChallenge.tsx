@@ -25,9 +25,17 @@ export default function SolveChallenge() {
   const [skulptReady, setSkulptReady] = useState(false);
   const [cheatsDetected, setCheatsDetected] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [endTime, setEndTime] = useState<number | null>(null);
+  const [timeRemainingStr, setTimeRemainingStr] = useState<string>("");
 
   const cheatsRef = useRef(0);
   const codeRef = useRef(code);
+  const submittingRef = useRef(submitting);
+
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
 
   // Selalu perbarui ref kode agar interval save bisa baca data terbaru
   useEffect(() => {
@@ -88,6 +96,14 @@ export default function SolveChallenge() {
         
         setCheatsDetected(joinData.answer.cheats_detected || 0);
         cheatsRef.current = joinData.answer.cheats_detected || 0;
+
+        // Inisialisasi Timer Ujian dari waktu answer dibuat
+        if (chData.time_limit_minutes) {
+          // Fallback ke Date.now() jika created_at entah kenapa string kosong
+          const startTimestamp = joinData.answer.created_at ? new Date(joinData.answer.created_at).getTime() : Date.now();
+          const calculatedEndTime = startTimestamp + (chData.time_limit_minutes * 60 * 1000);
+          setEndTime(calculatedEndTime);
+        }
       }
 
     } catch (err) {
@@ -150,6 +166,47 @@ export default function SolveChallenge() {
     };
   }, [loading]);
 
+  // 4. Hitung Mundur Waktu Ujian (Realtime)
+  useEffect(() => {
+    if (!endTime) return;
+
+    // Evaluasi awal agar komponen langsung update tanpa delay 1 detik
+    const nowInit = Date.now();
+    if (endTime - nowInit <= 0 && !submittingRef.current) {
+      setTimeRemainingStr("00:00");
+      handleFinalSubmit(true);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = endTime - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setTimeRemainingStr("00:00");
+        if (!submittingRef.current) {
+          alert("⏰ WAKTU HABIS! Jawaban Anda terkirim secara otomatis.");
+          handleFinalSubmit(true);
+        }
+      } else {
+        const totalSecs = Math.floor(diff / 1000);
+        const h = Math.floor(totalSecs / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        const s = totalSecs % 60;
+        
+        const formatTime = (v: number) => v.toString().padStart(2, "0");
+        if (h > 0) {
+          setTimeRemainingStr(`${formatTime(h)}:${formatTime(m)}:${formatTime(s)}`);
+        } else {
+          setTimeRemainingStr(`${formatTime(m)}:${formatTime(s)}`);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [endTime]);
+
 
   const saveProgress = async (currentCode: string, status: "in_progress" | "submitted" = "in_progress", cheats = cheatsDetected) => {
     if (!answerId) return false;
@@ -207,13 +264,24 @@ export default function SolveChallenge() {
       <div className="h-14 bg-red-600/10 border-b border-red-500/20 flex items-center justify-between px-6 shrink-0 z-10 shadow-sm relative">
         <div className="flex items-center gap-3">
           <ShieldAlert className="w-5 h-5 text-red-500" />
-          <h1 className="font-bold text-red-500 tracking-wider">MODE PENILAIAN TERAWASI AKTIF</h1>
+          <h1 className="font-bold text-red-500 tracking-wider text-sm md:text-base hidden sm:block">MODE PENILAIAN & AI DISABLED</h1>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-xs font-bold font-mono">
+          {endTime && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold font-mono border ${
+              timeRemainingStr.length === 5 && parseInt(timeRemainingStr.split(":")[0]) < 3 
+                ? "bg-red-500 text-white border-red-600 animate-pulse" 
+                : "bg-orange-500/10 text-orange-500 border-orange-500/20"
+            }`}>
+              <Timer className="w-4 h-4" />
+              <span>{timeRemainingStr || "--:--"}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-xs font-bold font-mono border border-red-500/20">
             <AlertTriangle className="w-4 h-4" />
-            <span>PELANGGARAN: {cheatsDetected}/2</span>
+            <span className="hidden sm:inline">PELANGGARAN:</span> {cheatsDetected}/2
           </div>
           
           <Button 
@@ -273,11 +341,6 @@ export default function SolveChallenge() {
               isRuntimeReady={skulptReady}
               disableAI={true}
             />
-            
-            {/* Overlay Cover untuk AI Chat / Tombol Send AI yang mungkin ad di notebook */}
-            <div className="absolute top-2 right-4 pointer-events-none opacity-50 text-xs font-mono text-muted-foreground flex items-center gap-2">
-              <ShieldAlert className="w-3 h-3 text-red-500"/> AI ASSISTANCE DISABLED
-            </div>
           </Panel>
         </PanelGroup>
       </div>

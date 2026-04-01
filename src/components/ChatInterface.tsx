@@ -8,7 +8,6 @@ import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
 import { backendService } from "@/services/backendService";
 import { fetchUserApiKey, streamGeminiResponse, clearCachedApiKey } from "@/services/geminiService";
-import { streamGroqFallback } from "@/services/groqFallbackService";
 import { ChatSidebar } from "./ChatSidebar";
 import { AIStatusIndicator } from "./AIStatusIndicator";
 import { ErrorAlert } from "./ErrorAlert";
@@ -91,8 +90,6 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [aiStage, setAiStage] = useState<'idle' | 'thinking' | 'verifying' | 'done'>('idle');
   const [noApiKey, setNoApiKey] = useState(false);
-  // true while Groq fallback is actively streaming
-  const [usingFallback, setUsingFallback] = useState(false);
 
   // Global chat error state (shown in ErrorAlert)
   const [chatError, setChatError] = useState<{ title: string; message: string } | null>(null);
@@ -165,14 +162,13 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
   // Hanya N pesan terakhir yang dikirim ke Gemini/Groq agar hemat token.
   const CHAT_WINDOW_SIZE = 10; // 5 pasang tanya-jawab
 
-  // ── Core chat function — calls Gemini (with 30s timeout) → Groq fallback ────
+  // ── Core chat function — calls Gemini (with 30s timeout) ────────────────────
   // `allMessages` = the complete conversation to send (including the new user msg)
   const chatOnce = async (allMessages: Message[]) => {
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
     setIsLoading(true);
     setNoApiKey(false);
-    setUsingFallback(false);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
@@ -226,7 +222,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       let msgInputTokens = 0;
       let msgOutputTokens = 0;
 
-      // Chunk handler — dipakai oleh Gemini DAN Groq
+      // Chunk handler — dipakai saat Gemini streaming
       const handleChunk = (chunk: string) => {
         if (isFirstChunk) {
           isFirstChunk = false;
@@ -301,37 +297,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
       } catch (geminiErr: any) {
         clearTimeout(timeoutHandle!);
-
-        if (timedOut && !mainSignal.aborted) {
-          // ── 8. FALLBACK: Gemini timeout → switch ke Groq ───────────────
-          // Reset state streaming agar Groq mulai dari awal (bersih)
-          isFirstChunk = true;
-          fullText = "";
-          setAiStage('thinking');
-          setMessages((prev) => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last?.role === 'assistant') {
-              updated[updated.length - 1] = { role: 'assistant', content: '' };
-            }
-            return updated;
-          });
-
-          toast({
-            title: "⚡ Backup AI Aktif",
-            description: "Gemini lambat (>30 detik), beralih ke Kimi K2 (Groq)...",
-            duration: 4000,
-          });
-
-          setUsingFallback(true);
-          try {
-            await streamGroqFallback(windowedMessages, handleChunk, mainSignal);
-          } finally {
-            setUsingFallback(false);
-          }
-
-        } else if (!mainSignal.aborted) {
-          // Error Gemini bukan timeout dan bukan user cancel → lempar
+        // Lempar error ke handler utama (tampilkan pesan error ke user)
+        if (!mainSignal.aborted) {
           throw geminiErr;
         }
       }
@@ -717,16 +684,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
           <AIStatusIndicator stage={aiStage} />
 
-          {/* Banner: tampil saat Groq backup sedang streaming */}
-          {usingFallback && (
-            <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 rounded-full px-3 py-1 shadow-sm">
-                <span>⚡</span>
-                <span>AI Sedang Memberikan Jawaban</span>
-                <Loader2 className="w-3 h-3 animate-spin ml-0.5" />
-              </div>
-            </div>
-          )}
+
 
           {isLoading && aiStage === 'idle' && (
             <div className="flex justify-start">

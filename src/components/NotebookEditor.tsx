@@ -305,13 +305,18 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
         const promptText = c.activeInput.prompt;
         // Append both the prompt and user's answer into stdout to mirror terminal behavior
         const newStdout = `${promptText}${value}\n`;
-        c.outputs.push({ type: "stdout", text: newStdout });
+        const newOutputs = [...c.outputs];
+        if (newOutputs.length > 0 && newOutputs[newOutputs.length - 1].type === "stdout") {
+          newOutputs[newOutputs.length - 1] = { type: "stdout", text: newOutputs[newOutputs.length - 1].text + newStdout };
+        } else {
+          newOutputs.push({ type: "stdout", text: newStdout });
+        }
         c.activeInput = undefined;
 
         // Resolve input request out-of-band to prevent React hook collisions
         setTimeout(() => resolve(value), 0);
 
-        return { ...c, outputs: [...c.outputs] };
+        return { ...c, outputs: newOutputs };
       }
       return c;
     }));
@@ -332,12 +337,20 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     await runPythonCode(cell.code, {
       signal: abortController.signal,
       onStdout: (text) => {
-        outputs.push({ type: "stdout", text });
+        if (outputs.length > 0 && outputs[outputs.length - 1].type === "stdout") {
+          outputs[outputs.length - 1] = { type: "stdout", text: outputs[outputs.length - 1].text + text };
+        } else {
+          outputs.push({ type: "stdout", text });
+        }
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
       },
       onStderr: (text) => {
         hasError = true;
-        outputs.push({ type: "stderr", text });
+        if (outputs.length > 0 && outputs[outputs.length - 1].type === "stderr") {
+          outputs[outputs.length - 1] = { type: "stderr", text: outputs[outputs.length - 1].text + text };
+        } else {
+          outputs.push({ type: "stderr", text });
+        }
         setCells(prev => prev.map(c => c.id === cellId ? { ...c, outputs: [...outputs] } : c));
       },
       inputProvider: (promptText) => {

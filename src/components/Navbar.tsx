@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LogOut, ChevronDown, Key, Check, X, Code, MessageSquare,
-  Columns, Moon, Sun, ExternalLink, Plus, Settings, FilePlus, Keyboard
+  Columns, Moon, Sun, ExternalLink, Plus, Settings, FilePlus, Keyboard, HelpCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
+import { FAQModal } from "./FAQModal";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
@@ -42,6 +43,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
   const [apiKeySuffix, setApiKeySuffix] = useState("");
   const [editingApiKey, setEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
+  const [isFAQOpen, setIsFAQOpen] = useState(false);
   const { toast } = useToast();
 
   const loadApiKey = async (uid: string) => {
@@ -209,6 +211,16 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                   </DropdownMenuItem>
 
                   <DropdownMenuItem
+                    onClick={() => setIsFAQOpen(true)}
+                    className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group"
+                  >
+                    <div className="bg-purple-500/10 p-2 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                      <HelpCircle className="w-4 h-4 text-purple-500" />
+                    </div>
+                    <span className="text-sm font-medium">Bantuan & FAQ</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                     className="flex items-center justify-between cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group"
                   >
@@ -304,6 +316,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
           ) : null}
         </div>
       </div>
+      <FAQModal open={isFAQOpen} onOpenChange={setIsFAQOpen} />
     </nav>
   );
 };

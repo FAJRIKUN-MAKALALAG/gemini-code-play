@@ -241,12 +241,17 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         });
       };
 
-      // ── 7. Tarik memori (RAG) dan biarkan pesan utuh tanpa limit ─
-      // Mengambil konteks Vector AI dari backend berdasarkan pertanyaan user terakhir
+      // ── 7. HYBRID MEMORY: Sliding Window (sesi ini) + RAG (sesi lama) ──
+      // - Sliding window: ambil 10 pesan terakhir untuk konteks percakapan saat ini
+      // - RAG context: cari memori relevan dari histori lama via vector search
+      // Kombinasi ini hemat token tapi AI tetap "ingat" jangka panjang.
+      const WINDOW_SIZE = 10;
       const contextRes = await backendService.getChatContext(lastUserMsg.content);
       const memoryContext = contextRes.data?.context || "";
 
-      const windowedMessages = [...allMessages];
+      const windowedMessages = allMessages.length > WINDOW_SIZE
+        ? allMessages.slice(-WINDOW_SIZE)
+        : [...allMessages];
 
       // ── 7.5. Inject Notebook Context ─────────────────────────────────────────
       // Inject context HANYA pada pesan terakhir yang akan dikirim ke API

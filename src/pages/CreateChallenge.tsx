@@ -3,8 +3,18 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, ArrowLeft, Copy, Eye, CopyCheck } from "lucide-react";
+import { Loader2, Plus, ArrowLeft, Copy, Eye, CopyCheck, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
@@ -22,6 +32,9 @@ export default function CreateChallenge() {
   const [fetching, setFetching] = useState(true);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -92,6 +105,29 @@ export default function CreateChallenge() {
     setCopiedId(code);
     toast({ title: "Disalin", description: `Kode ${code} telah disalin ke clipboard.`, duration: 2000 });
     setTimeout(() => setCopiedId(null), 3000);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/challenges/${deleteTargetId}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+      if (res.ok) {
+        toast({ title: "Terhapus", description: "Soal Ujian berhasil dihapus permanen beserta seluruh laporan jawaban siswanya." });
+        fetchChallenges(); // Panggil ulang list
+      } else {
+        const err = await res.json();
+        toast({ title: "Gagal Menghapus", description: err.error || "Gagal menghapus ke database.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Kesalahan Jaringan", description: "Tidak dapat terhubung saat menghapus soal.", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setDeleteTargetId(null);
+    }
   };
 
   return (
@@ -192,11 +228,22 @@ export default function CreateChallenge() {
                     <div className="flex justify-between items-center text-[10px] text-muted-foreground border-t border-border/40 pt-2">
                       <span>Dibuat: {new Date(c.created_at).toLocaleDateString()}</span>
                       
-                      <Link to={`/challenges/${c.id}/answers`}>
-                        <Button variant="outline" size="sm" className="h-7 text-[10px]">
-                          <Eye className="w-3 h-3 mr-1" /> LIHAT JAWABAN
+                      <div className="flex gap-2">
+                        <Link to={`/challenges/${c.id}/answers`}>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                            <Eye className="w-3 h-3 mr-1" /> LIHAT JAWABAN
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="h-7 w-7 p-0 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                          onClick={() => setDeleteTargetId(c.id)}
+                          title="Hapus Soal Permanen"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
-                      </Link>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -204,6 +251,25 @@ export default function CreateChallenge() {
             )}
           </div>
         </div>
+
+        {/* Modal Hapus Soal */}
+        <AlertDialog open={!!deleteTargetId} onOpenChange={() => !isDeleting && setDeleteTargetId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-red-500">Hapus Soal Permanen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini tidak dapat dibatalkan. Menghapus soal ini juga berpotensi menghapus rekam jejak jawaban atau hasil ujian siswa yang sudah tersubmit berafiliasi dengan soal ini. Lanjutkan?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white font-bold">
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : null} 
+                Ya, Hapus Permanen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </div>

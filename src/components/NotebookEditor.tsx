@@ -60,6 +60,7 @@ interface NotebookEditorProps {
   /** Called when user clicks Save — should persist code to DB */
   onSaveCode?: (code: string) => Promise<{ success: boolean }>;
   isRuntimeReady?: boolean;
+  disableAI?: boolean;
 }
 
 // ── Global execution counter ──────────────────────────────────────────────────
@@ -110,6 +111,7 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     onSendAIResult,
     onSaveCode,
     isRuntimeReady = true,
+    disableAI = false,
   },
   ref
 ) => {
@@ -861,11 +863,13 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
           )}
 
           <div className="w-px h-4 bg-border mx-1" />
-          <Button size="sm" onClick={() => setShowChallengeDialog(true)} disabled={isGeneratingChallenge}
-            className="h-7 px-2.5 text-[11px] gap-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20">
-            {isGeneratingChallenge ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Target className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">Latihan Cepat</span>
-          </Button>
+          {!disableAI && (
+            <Button size="sm" onClick={() => setShowChallengeDialog(true)} disabled={isGeneratingChallenge}
+              className="h-7 px-2.5 text-[11px] gap-1 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20">
+              {isGeneratingChallenge ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Target className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">Latihan Cepat</span>
+            </Button>
+          )}
           <Button size="sm" onClick={addCellAtEnd}
             className="h-7 px-2.5 text-[11px] gap-1 bg-violet-600 hover:bg-violet-500 text-white">
             <Plus className="w-3.5 h-3.5" /><span className="hidden sm:inline">Cell</span>
@@ -886,7 +890,8 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
             isMobile={isMobile}
             isDark={isDark}
             isRuntimeReady={isRuntimeReady}
-            hasChatHandler={!!onSendToChat}
+            hasChatHandler={!!onSendToChat && !disableAI}
+            disableAI={disableAI}
             onActivate={() => setActiveCell(cell.id)}
             onCodeChange={(v) => handleCellCodeChange(cell.id, v)}
             onRun={() => runCell(cell.id)}
@@ -964,6 +969,7 @@ interface CellCardProps {
   isDark: boolean;
   isRuntimeReady: boolean;
   hasChatHandler: boolean;
+  disableAI?: boolean;
   onActivate: () => void;
   onCodeChange: (v: string) => void;
   onRun: () => void;
@@ -983,7 +989,7 @@ interface CellCardProps {
 
 function CellCard({
   cell, index, totalCells, isActive, monacoTheme, isMobile, isDark, isRuntimeReady,
-  hasChatHandler, onActivate, onCodeChange, onRun, onStop, onDelete, onMoveUp, onMoveDown,
+  hasChatHandler, disableAI, onActivate, onCodeChange, onRun, onStop, onDelete, onMoveUp, onMoveDown,
   onAddBelow, onClearOutput, onExplain, onDebug, onCheckChallenge, onAiGenerate, onEditorWillMount, onProvideInput
 }: CellCardProps) {
   const [aiPrompt, setAiPrompt] = useState("");
@@ -1075,25 +1081,27 @@ function CellCard({
         <div className={`flex items-center gap-0.5 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
 
           {/* ✨ AI Generate */}
-          <button
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              if (!isChallenge) setShowAiPrompt(v => !v); 
-              else onCheckChallenge();
-            }}
-            title={isChallenge ? "Validasi jawabanmu dengan AI ✨" : "AI: Buat kode dari deskripsi"}
-            disabled={cell.isVerifying}
-            className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-all ${
-              isChallenge 
-                ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
-                : showAiPrompt
-                ? "bg-violet-500/15 text-violet-400"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {cell.isVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : (isChallenge ? <CheckCircle2 className="w-3 h-3" /> : <SparklesIcon className="w-3 h-3" />)}
-            <span className="hidden sm:inline">{isChallenge ? (cell.isVerifying ? "Memeriksa..." : "Cek Jawaban ✨") : "AI Generate"}</span>
-          </button>
+          {!disableAI && (
+            <button
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (!isChallenge) setShowAiPrompt(v => !v); 
+                else onCheckChallenge();
+              }}
+              title={isChallenge ? "Validasi jawabanmu dengan AI ✨" : "AI: Buat kode dari deskripsi"}
+              disabled={cell.isVerifying}
+              className={`h-6 px-1.5 rounded text-[10px] font-medium flex items-center gap-1 transition-all ${
+                isChallenge 
+                  ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
+                  : showAiPrompt
+                  ? "bg-violet-500/15 text-violet-400"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              {cell.isVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : (isChallenge ? <CheckCircle2 className="w-3 h-3" /> : <SparklesIcon className="w-3 h-3" />)}
+              <span className="hidden sm:inline">{isChallenge ? (cell.isVerifying ? "Memeriksa..." : "Cek Jawaban ✨") : "AI Generate"}</span>
+            </button>
+          )}
 
           {/* 📖 Explain → AI Chat */}
           {hasChatHandler && (

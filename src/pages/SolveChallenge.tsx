@@ -271,7 +271,7 @@ export default function SolveChallenge() {
               code={code}
               onChange={setCode}
               isRuntimeReady={skulptReady}
-              // Override fiturnya untuk ujian: tidak bisa kirim ke AI (disabled contextually)
+              disableAI={true}
             />
             
             {/* Overlay Cover untuk AI Chat / Tombol Send AI yang mungkin ad di notebook */}

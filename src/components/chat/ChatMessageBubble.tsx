@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTypewriter } from "@/hooks/useTypewriter";
+import { useTheme } from "@/components/ThemeProvider";
 
 // ── Reusable CodeBlock (dipakai oleh react-markdown custom component)
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
@@ -46,7 +47,8 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
 
 // ── react-markdown powered renderer with colored custom components
 function MarkdownMessage({ content }: { content: string }) {
-  const isDark = document.documentElement.classList.contains('dark');
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   return (
     <div className="text-[13px] sm:text-sm leading-relaxed space-y-2">

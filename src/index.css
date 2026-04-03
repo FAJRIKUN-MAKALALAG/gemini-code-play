@@ -71,8 +71,8 @@ All colors MUST be HSL.
     --ring: 262 83% 58%;
     
     --terminal-bg: 0 0% 5%;
-    --terminal-text: 0 0% 98%;
-    --terminal-error: 0 62.8% 30.6%;
+    --terminal-text: 0 0% 90%;
+    --terminal-error: 0 90% 65%;
     --editor-bg: 0 0% 2%;
     --editor-line: 0 0% 10%;
 

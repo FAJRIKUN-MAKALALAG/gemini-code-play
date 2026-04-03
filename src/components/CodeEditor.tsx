@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Play, Trash2, SquareTerminal, Loader2, Download, Upload } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ThemeProvider";
 import { DebugButton } from "./DebugButton";
 import { useToast } from "@/hooks/use-toast";
 

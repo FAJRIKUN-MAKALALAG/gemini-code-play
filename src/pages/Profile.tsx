@@ -11,12 +11,13 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
 
 const Profile = () => {
     const { theme, setTheme } = useTheme();
-    const [user, setUser] = useState<{ email: string; id: string; username?: string; avatar_url?: string } | null>(null);
+    const { user, updateUser, isLoading: isAuthLoading } = useAuth();
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
     
@@ -43,14 +44,13 @@ const Profile = () => {
     });
 
     useEffect(() => {
-        const currentUser = authService.getUser();
-        if (currentUser) {
-            setUser(currentUser);
-            setTempUsername(currentUser.username || "");
-        } else {
+        if (!isAuthLoading && !user) {
             navigate("/");
+        } else if (user) {
+            // Initiate tempUsername based on the globally synced user Context
+            setTempUsername(user.username || "");
         }
-    }, [navigate]);
+    }, [user, isAuthLoading, navigate]);
 
     const hasApiKey = apiKeyData?.hasKey || false;
     const apiKeySuffix = apiKeyData?.suffix || "";
@@ -93,10 +93,9 @@ const Profile = () => {
             if (error) throw error;
             
             if (updatedUser) {
-                setUser(updatedUser);
+                updateUser(updatedUser); // Update the global context instantly
                 setIsEditingUsername(false);
                 toast({ title: "Profile Updated", description: "Your username has been updated successfully." });
-                // Note: authService.getUser() is automatically updated by updateProfile
             }
         } catch (error: any) {
             console.error("Failed to update profile:", error);

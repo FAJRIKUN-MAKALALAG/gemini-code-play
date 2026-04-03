@@ -36,40 +36,12 @@ export default defineConfig(({ mode }) => ({
     cssMinify: true,
     rollupOptions: {
       output: {
-        // Chunking yang lebih granular
-        manualChunks: (id) => {
-          // Monaco Editor — load lazy, pisah sendiri
-          if (id.includes("@monaco-editor") || id.includes("monaco-editor")) {
-            return "monaco";
-          }
-          // Supabase — cukup besar, pisah sendiri
-          if (id.includes("@supabase")) {
-            return "supabase";
-          }
-          // React core
-          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
-            return "react-core";
-          }
-          // React Router
-          if (id.includes("react-router-dom") || id.includes("react-router/")) {
-            return "router";
-          }
-          // Markdown + Syntax Highlighter (sekarang jauh lebih kecil setelah pakai PrismLight)
-          if (id.includes("react-markdown") || id.includes("react-syntax-highlighter") || id.includes("remark")) {
-            return "markdown";
-          }
-          // Radix UI components — pisah agar bisa di-cache lama
-          if (id.includes("@radix-ui")) {
-            return "radix";
-          }
-          // Icons — sering dipakai, cache terpisah
-          if (id.includes("lucide-react")) {
-            return "icons";
-          }
-          // Semua node_modules lainnya → vendor
-          if (id.includes("node_modules")) {
-            return "vendor";
-          }
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+          monaco: ["@monaco-editor/react"],
+          markdown: ["react-markdown", "react-syntax-highlighter", "remark-gfm"],
+          supabase: ["@supabase/supabase-js"],
+          ui: ["lucide-react", "clsx", "tailwind-merge"],
         },
       },
     },

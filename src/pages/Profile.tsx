@@ -16,7 +16,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-ai
 
 const Profile = () => {
     const { theme, setTheme } = useTheme();
-    const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
+    const [user, setUser] = useState<{ email: string; id: string; username?: string; avatar_url?: string } | null>(null);
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
     
@@ -145,7 +145,7 @@ const Profile = () => {
                         <CardContent className="space-y-6">
                             <div className="flex items-center gap-6">
                                 <Avatar className="h-24 w-24">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user.email}`} />
+                                    <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${user.email}`} />
                                     <AvatarFallback>{user.username?.substring(0, 2).toUpperCase() || "US"}</AvatarFallback>
                                 </Avatar>
                                 <div>

@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
@@ -162,6 +162,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 group p-1.5 rounded-full border border-border/50 hover:bg-muted/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 shrink-0">
                   <Avatar className="h-6 w-6 sm:h-8 sm:w-8 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                    <AvatarImage src={user?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${userEmail}`} />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white text-xs font-bold">
                       {displayName.substring(0, 2).toUpperCase()}
                     </AvatarFallback>

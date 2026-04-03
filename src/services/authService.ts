@@ -5,6 +5,7 @@ export interface User {
   id: string;
   email: string;
   username?: string;
+  avatar_url?: string;
 }
 
 // Removed AuthSession since tokens are now entirely handled by backend HttpOnly cookies
@@ -37,7 +38,7 @@ class AuthService {
       const data = await response.json();
       if (!data.user) throw new Error('Invalid response from backend');
 
-      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username, avatar_url: data.user.avatar_url };
       cachedUser = user;
 
       return { user, error: null };
@@ -71,7 +72,7 @@ class AuthService {
       const data = await response.json();
       if (!data.user) throw new Error('Invalid response from backend');
 
-      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username, avatar_url: data.user.avatar_url };
       cachedUser = user;
 
       return { user, error: null };
@@ -119,7 +120,7 @@ class AuthService {
       }
 
       const data = await response.json();
-      const user: User = { id: data.id, email: data.email, username: data.username };
+      const user: User = { id: data.id, email: data.email, username: data.username, avatar_url: data.avatar_url };
       cachedUser = user;
       return { valid: true, user };
     } catch (error) {
@@ -151,7 +152,7 @@ class AuthService {
       const data = await response.json();
       if (!data.user) throw new Error('Invalid response from backend');
 
-      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username, avatar_url: data.user.avatar_url };
       cachedUser = user;
 
       return { user, error: null };
@@ -263,7 +264,7 @@ class AuthService {
         return null;
       }
       const data = await response.json();
-      cachedUser = { id: data.id, email: data.email, username: data.username };
+      cachedUser = { id: data.id, email: data.email, username: data.username, avatar_url: data.avatar_url };
       return cachedUser;
     } catch {
       return null;

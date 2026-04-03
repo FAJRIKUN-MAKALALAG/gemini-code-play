@@ -139,7 +139,7 @@ const Profile = () => {
                     <Card className="md:col-span-2">
                         <CardHeader>
                             <CardTitle>Profile Information</CardTitle>
-                            <CardDescription>Update your photo and personal details.</CardDescription>
+                            <CardDescription>Update your personal details.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="flex items-center gap-6">

@@ -31,7 +31,8 @@ interface NavbarProps {
 }
 
 export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProps) => {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const { user, logout } = useAuth();
   const userEmail = user?.email ?? null;
   const username = user?.username ?? null;
@@ -226,11 +227,11 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                   >
                     <div className="flex items-center gap-3">
                       <div className="bg-muted p-2 rounded-lg group-hover:bg-accent transition-colors">
-                        {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                        {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                       </div>
                       <span className="text-sm font-medium">Appearance</span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1">{theme}</span>
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1">{isDark ? 'dark' : 'light'}</span>
                   </DropdownMenuItem>
                 </div>
 
@@ -313,7 +314,35 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
+          ) : (
+            /* ── Guest: standalone theme toggle ── */
+            <button
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Switch to Light mode' : 'Switch to Dark mode'}
+              className="group flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full
+                border border-border/60 bg-background/60 backdrop-blur-sm
+                hover:border-primary/40 hover:bg-muted/60
+                transition-all duration-200 hover:scale-105 active:scale-95
+                focus:outline-none focus:ring-2 focus:ring-primary/20 shrink-0"
+            >
+              <span className="relative w-4 h-4 flex items-center justify-center">
+                <Sun
+                  className={`absolute w-3.5 h-3.5 text-amber-400 transition-all duration-300 ${
+                    isDark ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
+                  }`}
+                />
+                <Moon
+                  className={`absolute w-3.5 h-3.5 text-violet-400 transition-all duration-300 ${
+                    isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'
+                  }`}
+                />
+              </span>
+              <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors hidden sm:inline">
+                {isDark ? 'Dark' : 'Light'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
       <FAQModal open={isFAQOpen} onOpenChange={setIsFAQOpen} />

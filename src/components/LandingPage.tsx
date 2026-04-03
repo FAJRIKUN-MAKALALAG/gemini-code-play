@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Code, Play, MessageSquare, Zap, Cpu, Terminal } from "lucide-react";
+import { Code, Play, MessageSquare, Zap, Cpu, Terminal, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [isVisible, setIsVisible] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -122,6 +125,40 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+
+      {/* ── Theme Toggle — Fixed top-right, production-grade pill button ── */}
+      <div className="fixed top-4 right-4 z-[60]">
+        <button
+          onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+          className="group flex items-center gap-2 pl-3 pr-4 py-2 rounded-full
+            bg-background/70 backdrop-blur-xl
+            border border-border/60
+            shadow-lg shadow-black/10
+            hover:shadow-xl hover:shadow-primary/10
+            hover:border-primary/40
+            transition-all duration-300 ease-out
+            hover:scale-105 active:scale-95"
+        >
+          {/* Animated icon swap */}
+          <span className="relative w-4 h-4 flex items-center justify-center">
+            <Sun
+              className={`absolute w-4 h-4 text-amber-400 transition-all duration-300 ${
+                isDark ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'
+              }`}
+            />
+            <Moon
+              className={`absolute w-4 h-4 text-violet-400 transition-all duration-300 ${
+                isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'
+              }`}
+            />
+          </span>
+          <span className="text-xs font-semibold text-foreground/80 group-hover:text-foreground transition-colors tracking-wide">
+            {isDark ? 'Dark' : 'Light'}
+          </span>
+        </button>
+      </div>
       {/* Hero Section */}
       <section
         className={`relative min-h-screen flex flex-col items-center justify-center p-6 text-center transition-all duration-1000 transform ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"

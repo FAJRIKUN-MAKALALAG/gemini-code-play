@@ -46,6 +46,23 @@ export default function ReviewAnswers() {
     }
   };
 
+  const fetchAnswers = async (initial = false) => {
+    try {
+      const ansRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/answers`, { credentials: "include" });
+      if (ansRes.ok) {
+        const ObjectData = await ansRes.json();
+        setAnswers(ObjectData);
+        
+        // Auto-select first answer only on initial load
+        if (initial && ObjectData.length > 0) {
+          handleSelectAnswer(ObjectData[0]);
+        }
+      }
+    } catch (err: any) {
+      console.error("Gagal load answers secara background:", err);
+    }
+  };
+
   const fetchData = async () => {
     try {
       // 1. Ambil detail Soalnya
@@ -61,16 +78,8 @@ export default function ReviewAnswers() {
       }
       setChallenge(chData);
 
-      // 2. Ambil semua jawaban
-      const ansRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/answers`, { credentials: "include" });
-      if (ansRes.ok) {
-        const ansData = await ansRes.json();
-        setAnswers(ansData);
-        // Otomatis pilih jawaban pertama jika ada
-        if (ansData.length > 0) {
-          handleSelectAnswer(ansData[0]);
-        }
-      }
+      // 2. Ambil semua jawaban (initial load)
+      await fetchAnswers(true);
 
     } catch (err: any) {
       console.error(err);
@@ -79,6 +88,17 @@ export default function ReviewAnswers() {
       setLoading(false);
     }
   };
+
+  // 3. Efek Real-Time (Polling 4 Detik)
+  useEffect(() => {
+    if (loading) return; // tunggu initial fetch selesai
+    
+    const interval = setInterval(() => {
+      fetchAnswers(false);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [loading, challengeId]);
 
   const handleSelectAnswer = (ans: any) => {
     setSelectedAnswer(ans);
@@ -135,8 +155,15 @@ export default function ReviewAnswers() {
           {/* Panel Kiri: Daftar Peserta */}
           <Panel defaultSize={25} minSize={20} maxSize={40} className="min-w-0 bg-secondary/10 border-r border-border/50">
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b border-border/40 shrink-0">
+              <div className="p-4 border-b border-border/40 shrink-0 flex items-center justify-between bg-secondary/5">
                 <h2 className="font-semibold text-sm">Peserta Ujian ({answers.length})</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-[10px] text-green-600 font-bold tracking-widest uppercase">Live Status</span>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto p-3 space-y-2">

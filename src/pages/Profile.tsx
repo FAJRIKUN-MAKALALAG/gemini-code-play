@@ -19,6 +19,12 @@ const Profile = () => {
     const [user, setUser] = useState<{ email: string; id: string; username?: string } | null>(null);
     const [isEditingKey, setIsEditingKey] = useState(false);
     const [tempKey, setTempKey] = useState("");
+    
+    // Username edit states
+    const [isEditingUsername, setIsEditingUsername] = useState(false);
+    const [tempUsername, setTempUsername] = useState("");
+    const [isSavingUsername, setIsSavingUsername] = useState(false);
+
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
@@ -40,6 +46,7 @@ const Profile = () => {
         const currentUser = authService.getUser();
         if (currentUser) {
             setUser(currentUser);
+            setTempUsername(currentUser.username || "");
         } else {
             navigate("/");
         }
@@ -74,6 +81,28 @@ const Profile = () => {
                 console.error("Failed to save API key:", error);
                 toast({ title: "Error", description: "Failed to connect to backend", variant: "destructive" });
             }
+        }
+    };
+
+    const handleSaveUsername = async () => {
+        if (!user || !tempUsername.trim()) return;
+
+        setIsSavingUsername(true);
+        try {
+            const { user: updatedUser, error } = await authService.updateProfile(tempUsername.trim());
+            if (error) throw error;
+            
+            if (updatedUser) {
+                setUser(updatedUser);
+                setIsEditingUsername(false);
+                toast({ title: "Profile Updated", description: "Your username has been updated successfully." });
+                // Note: authService.getUser() is automatically updated by updateProfile
+            }
+        } catch (error: any) {
+            console.error("Failed to update profile:", error);
+            toast({ title: "Save Failed", description: error.message || "Failed to update profile", variant: "destructive" });
+        } finally {
+            setIsSavingUsername(false);
         }
     };
 
@@ -127,13 +156,59 @@ const Profile = () => {
 
                             <Separator />
 
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Username</label>
-                                    <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-muted/50">
-                                        <User className="w-4 h-4 text-muted-foreground" />
-                                        <span className="text-sm">{user.username || "Not set"}</span>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-medium">Username</label>
+                                        {!isEditingUsername && (
+                                            <Button variant="ghost" size="sm" onClick={() => setIsEditingUsername(true)} className="h-6 text-xs px-2">
+                                                Edit
+                                            </Button>
+                                        )}
                                     </div>
+                                    
+                                    {!isEditingUsername ? (
+                                        <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-muted/50">
+                                            <User className="w-4 h-4 text-muted-foreground" />
+                                            <span className="text-sm font-medium">{user.username || "Not set"}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative flex-1">
+                                                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                    <Input
+                                                        value={tempUsername}
+                                                        onChange={(e) => setTempUsername(e.target.value)}
+                                                        className="pl-9"
+                                                        placeholder="Enter new username"
+                                                        disabled={isSavingUsername}
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 justify-end mt-1">
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="ghost" 
+                                                    onClick={() => {
+                                                        setIsEditingUsername(false);
+                                                        setTempUsername(user.username || "");
+                                                    }}
+                                                    disabled={isSavingUsername}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    onClick={handleSaveUsername}
+                                                    disabled={isSavingUsername || !tempUsername.trim() || tempUsername === user.username}
+                                                >
+                                                    {isSavingUsername ? "Saving..." : "Save"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium">Email Address</label>

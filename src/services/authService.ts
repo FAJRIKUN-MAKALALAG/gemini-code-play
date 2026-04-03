@@ -127,6 +127,40 @@ class AuthService {
     }
   }
 
+  // ===== UPDATE PROFILE =====
+  async updateProfile(username: string): Promise<{ user: User | null; error: Error | null }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Update failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = await response.text() || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      if (!data.user) throw new Error('Invalid response from backend');
+
+      const user: User = { id: data.user.id, email: data.user.email, username: data.user.username };
+      cachedUser = user;
+
+      return { user, error: null };
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return { user: null, error: error as Error };
+    }
+  }
+
   // ===== REFRESH TOKEN =====
   // Backend reads refresh_token from cookie — frontend sends NO body
   async refreshToken(): Promise<boolean> {

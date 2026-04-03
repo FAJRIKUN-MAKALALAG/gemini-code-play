@@ -702,7 +702,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
         </div>
 
         {/* Input bar */}
-        <ChatInputForm onSend={handleSend} isLoading={isLoading} noApiKey={noApiKey} />
+        <ChatInputForm
+          onSend={handleSend}
+          onStop={() => {
+            abortControllerRef.current?.abort();
+            setAiStage('idle');
+          }}
+          isLoading={isLoading}
+          noApiKey={noApiKey}
+        />
       </>
       )}
     </div>

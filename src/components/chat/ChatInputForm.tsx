@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Square } from "lucide-react";
 
 interface ChatInputFormProps {
   onSend: (message: string) => void;
+  onStop: () => void;
   isLoading: boolean;
   noApiKey: boolean;
 }
 
-export function ChatInputForm({ onSend, isLoading, noApiKey }: ChatInputFormProps) {
+export function ChatInputForm({ onSend, onStop, isLoading, noApiKey }: ChatInputFormProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,21 +45,46 @@ export function ChatInputForm({ onSend, isLoading, noApiKey }: ChatInputFormProp
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={noApiKey ? "Add an API key to start chatting..." : "Ask UNKLAB AI..."}
+            placeholder={
+              isLoading
+                ? "AI sedang menjawab..."
+                : noApiKey
+                ? "Add an API key to start chatting..."
+                : "Ask UNKLAB AI..."
+            }
             className="flex-1 min-h-[36px] sm:min-h-[44px] max-h-[200px] border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1.5 sm:py-2.5 resize-none text-base sm:text-sm placeholder:text-muted-foreground/60 leading-relaxed"
             disabled={isLoading || noApiKey}
             rows={1}
           />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading || noApiKey}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'}`}
-          >
-            {isLoading ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-          </Button>
+
+          {/* Stop button — hanya tampil saat AI sedang merespons */}
+          {isLoading ? (
+            <Button
+              onClick={onStop}
+              title="Hentikan respons AI"
+              className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center shrink-0
+                         bg-destructive text-destructive-foreground shadow-md
+                         hover:bg-destructive/80 active:scale-95
+                         transition-all duration-150"
+            >
+              {/* Pulsing ring animation */}
+              <span className="absolute inset-0 rounded-xl animate-ping bg-destructive/40 pointer-events-none" />
+              <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current relative z-10" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || noApiKey}
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'}`}
+            >
+              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </Button>
+          )}
         </div>
         <p className="text-[10px] text-center text-muted-foreground/40 mt-1.5 px-2 italic">
-          AI can make mistakes. Always verify important information.
+          {isLoading
+            ? "Klik tombol merah untuk menghentikan respons AI."
+            : "AI can make mistakes. Always verify important information."}
         </p>
       </div>
     </div>

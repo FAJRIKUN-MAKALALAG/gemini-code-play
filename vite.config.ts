@@ -36,13 +36,9 @@ export default defineConfig(({ mode }) => ({
     cssMinify: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
-          monaco: ["@monaco-editor/react"],
-          markdown: ["react-markdown", "react-syntax-highlighter", "remark-gfm"],
-          supabase: ["@supabase/supabase-js"],
-          ui: ["lucide-react", "clsx", "tailwind-merge"],
-        },
+        // manualChunks dihapus agar Vite menyatukan semua file vendor 
+        // secara default. Ini mencegah terjadinya ERR_CONNECTION_TIMED_OUT 
+        // akibat terlalu banyak request paralel ke server ringan.
       },
     },
     // Naikan limit ke 600kb (setelah fix PrismLight, harusnya semua di bawah ini)

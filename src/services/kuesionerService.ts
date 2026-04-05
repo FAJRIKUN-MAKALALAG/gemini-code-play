@@ -52,7 +52,7 @@ class KuesionerService {
   // ── Cek status kuesioner aktif/nonaktif (public) ─────────────────────────
   async getStatus(): Promise<{ is_active: boolean; error: string | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/kuesioner/status`);
+      const response = await fetch(`${API_BASE_URL}/kuesioner/status?t=${new Date().getTime()}`);
       if (!response.ok) return { is_active: false, error: "Gagal cek status." };
       const data = await response.json();
       return { is_active: data.is_active ?? false, error: null };
@@ -82,7 +82,7 @@ class KuesionerService {
   // ── Fetch semua data untuk admin (perlu cookie auth + role admin) ───────────
   async fetchAdminStats(): Promise<{ data: AdminKuesionerStats | null; error: string | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/kuesioner/admin/stats`, {
+      const response = await fetch(`${API_BASE_URL}/kuesioner/admin/stats?t=${new Date().getTime()}`, {
         method: "GET",
         credentials: "include",
       });
@@ -108,7 +108,7 @@ class KuesionerService {
   // ── Fetch semua responses individual (untuk tabel detail) ──────────────────
   async fetchAllResponses(): Promise<{ data: KuesionerResponse[] | null; error: string | null }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/kuesioner/admin/responses`, {
+      const response = await fetch(`${API_BASE_URL}/kuesioner/admin/responses?t=${new Date().getTime()}`, {
         method: "GET",
         credentials: "include",
       });

@@ -106,6 +106,46 @@ const AdminKuesioner = () => {
     setDataLoading(false);
   }, []);
 
+  // ── Load data secara senyap (untuk polling real-time) ──────────────────────
+  const loadDataSilently = useCallback(async () => {
+    if (!isAdmin) return;
+    const [statsResult, responsesResult, statusResult] = await Promise.all([
+      kuesionerService.fetchAdminStats(),
+      kuesionerService.fetchAllResponses(),
+      kuesionerService.getStatus(),
+    ]);
+
+    if (!statsResult.error && statsResult.data) {
+      setStats(statsResult.data);
+    }
+    if (!responsesResult.error && responsesResult.data) {
+      // Periksa apakah jumlah data berubah, jika ya, perbarui state
+      setResponses((prev) => {
+        if (prev.length !== responsesResult.data!.length || JSON.stringify(prev[0]) !== JSON.stringify(responsesResult.data![0])) {
+          return responsesResult.data!;
+        }
+        return prev;
+      });
+    }
+    if (!statusResult.error) {
+      setKuesionerAktif(statusResult.is_active);
+    }
+  }, [isAdmin]);
+
+  // ── Real-time polling ───────────────────────────────────────────────────────
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (authChecked && isAdmin) {
+      // Poll setiap 5 detik
+      interval = setInterval(() => {
+        loadDataSilently();
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [authChecked, isAdmin, loadDataSilently]);
+
   // ── Cek role admin dari backend ─────────────────────────────────────────────
   useEffect(() => {
     if (isAuthLoading) return;

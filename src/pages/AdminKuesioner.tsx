@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2, ShieldCheck, LogOut, BarChart3, Users, Award,
-  TrendingUp, RefreshCw, ChevronDown, ChevronUp
+  TrendingUp, RefreshCw, ChevronDown, ChevronUp, MessageSquare, Power
 } from "lucide-react";
 import { kuesionerService, AdminKuesionerStats, KuesionerResponse } from "@/services/kuesionerService";
 import { authService } from "@/services/authService";
@@ -70,22 +70,27 @@ const AdminKuesioner = () => {
   // Data states
   const [stats, setStats] = useState<AdminKuesionerStats | null>(null);
   const [responses, setResponses] = useState<KuesionerResponse[]>([]);
+  const [kuesionerAktif, setKuesionerAktif] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
   // UI states
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
 
   // ── Load data setelah konfirmasi admin ──────────────────────────────────────
   const loadData = useCallback(async () => {
     setDataLoading(true);
     setDataError(null);
 
-    const [statsResult, responsesResult] = await Promise.all([
+    const [statsResult, responsesResult, statusResult] = await Promise.all([
       kuesionerService.fetchAdminStats(),
       kuesionerService.fetchAllResponses(),
+      kuesionerService.getStatus(),
     ]);
+
+    setKuesionerAktif(statusResult.is_active || false);
 
     if (statsResult.error === "Akses ditolak. Hanya admin yang dapat melihat halaman ini." ||
         responsesResult.error === "Akses ditolak.") {
@@ -122,9 +127,13 @@ const AdminKuesioner = () => {
       } else {
         setIsAdmin(true);
         setStats(data);
-        // juga load responses
-        const respResult = await kuesionerService.fetchAllResponses();
+        // load responses & status
+        const [respResult, statusResult] = await Promise.all([
+          kuesionerService.fetchAllResponses(),
+          kuesionerService.getStatus()
+        ]);
         if (respResult.data) setResponses(respResult.data);
+        setKuesionerAktif(statusResult.is_active || false);
       }
       setAuthChecked(true);
       setDataLoading(false);
@@ -159,9 +168,22 @@ const AdminKuesioner = () => {
 
     setIsAdmin(true);
     setStats(data);
-    const respResult = await kuesionerService.fetchAllResponses();
+    const [respResult, statusResult] = await Promise.all([
+      kuesionerService.fetchAllResponses(),
+      kuesionerService.getStatus()
+    ]);
     if (respResult.data) setResponses(respResult.data);
+    setKuesionerAktif(statusResult.is_active || false);
     setAuthChecked(true);
+  };
+
+  const handleToggleStatus = async () => {
+    setToggleLoading(true);
+    const { is_active } = await kuesionerService.toggleStatus();
+    if (is_active !== null) {
+      setKuesionerAktif(is_active);
+    }
+    setToggleLoading(false);
   };
 
   const handleRefresh = async () => {
@@ -324,11 +346,34 @@ const AdminKuesioner = () => {
               <ShieldCheck className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-none">Admin Panel</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold leading-none">Admin Panel</h1>
+                {kuesionerAktif ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20">AKTIF</span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/20">NONAKTIF</span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-0.5">Hasil Kuesioner Kepuasan Pengguna</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleStatus}
+              disabled={toggleLoading}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                kuesionerAktif 
+                  ? "border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10" 
+                  : "border-emerald-500/30 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10"
+              }`}
+            >
+              {toggleLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Power className="w-3.5 h-3.5" />
+              )}
+              {kuesionerAktif ? "Tutup Kuesioner" : "Buka Kuesioner"}
+            </button>
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -581,7 +626,8 @@ const AdminKuesioner = () => {
                           v >= 5 ? "text-emerald-500" : v >= 4 ? "text-teal-500" : v >= 3 ? "text-amber-500" : "text-red-500";
 
                         return (
-                          <tr key={resp.id} className="hover:bg-muted/20 transition-colors">
+                          <React.Fragment key={resp.id}>
+                            <tr className={`transition-colors ${isExpanded ? "bg-muted/30" : "hover:bg-muted/20"}`}>
                             <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
                             <td className="px-4 py-3 font-medium max-w-[140px] truncate">{resp.nama}</td>
                             <td className="px-4 py-3 text-muted-foreground text-xs max-w-[160px] truncate">{resp.email}</td>
@@ -597,12 +643,30 @@ const AdminKuesioner = () => {
                             <td className="px-2 py-3">
                               <button
                                 onClick={() => setExpandedRow(isExpanded ? null : resp.id)}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                className="text-muted-foreground hover:text-foreground transition-colors p-1"
                               >
                                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                               </button>
                             </td>
                           </tr>
+                          {isExpanded && (
+                            <tr className="bg-muted/10">
+                              <td colSpan={16} className="px-4 py-4 border-b border-border/20">
+                                <div className="flex bg-background/50 rounded-xl border border-border/50 p-4">
+                                  <MessageSquare className="w-5 h-5 text-primary mt-0.5 mr-3 shrink-0" />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                      Pesan & Saran Rekomendasi
+                                    </p>
+                                    <p className="text-sm font-medium leading-relaxed max-w-4xl whitespace-pre-wrap">
+                                      {resp.pesan && resp.pesan.trim() !== "" ? resp.pesan : <span className="text-muted-foreground italic">Tidak ada pesan yang ditinggalkan.</span>}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                         );
                       })}
                     </tbody>

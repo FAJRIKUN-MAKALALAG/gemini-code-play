@@ -9,6 +9,7 @@ export interface KuesionerSubmitPayload {
   nama: string;
   email: string;
   answers: KuesionerAnswers;
+  pesan?: string;
 }
 
 export interface KuesionerResponse extends KuesionerSubmitPayload {

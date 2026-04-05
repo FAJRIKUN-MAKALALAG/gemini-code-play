@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Code, Play, MessageSquare, Zap, Cpu, Terminal, Moon, Sun } from "lucide-react";
+import { Code, Play, MessageSquare, Zap, Cpu, Terminal, Moon, Sun, ClipboardList } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { kuesionerService } from "@/services/kuesionerService";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -11,7 +12,15 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [isVisible, setIsVisible] = useState(false);
+  const [isKuesionerActive, setIsKuesionerActive] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    // Check if the questionnaire is active
+    kuesionerService.getStatus().then(({ is_active }) => {
+      setIsKuesionerActive(is_active);
+    });
+  }, []);
 
   // Intersection Observer hook
   const useScrollAnimation = () => {
@@ -360,6 +369,17 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <a href="/privacy" className="text-xs underline hover:text-primary transition-colors font-medium">Privacy Policy</a>
             <a href="/terms" className="text-xs underline hover:text-primary transition-colors">Terms of Service</a>
           </div>
+          {isKuesionerActive && (
+            <div className="mt-4">
+              <a
+                href="/kuesioner"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-full hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Beri Masukan (Kuesioner)
+              </a>
+            </div>
+          )}
         </div>
       </footer>
     </div>

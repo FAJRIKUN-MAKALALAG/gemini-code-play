@@ -40,6 +40,7 @@ const Kuesioner = () => {
   const navigate = useNavigate();
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
+  const [pesan, setPesan] = useState("");
   const [answers, setAnswers] = useState<KuesionerAnswers>({ ...DEFAULT_ANSWERS });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -82,7 +83,7 @@ const Kuesioner = () => {
     if (!validate()) return;
 
     setLoading(true);
-    const { success, error } = await kuesionerService.submit({ nama, email, answers });
+    const { success, error } = await kuesionerService.submit({ nama, email, answers, pesan });
     setLoading(false);
 
     if (!success) {
@@ -341,6 +342,28 @@ const Kuesioner = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* ── Pesan / Saran (Optional) ── */}
+          <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">✎</span>
+              Pesan & Saran untuk Sistem
+            </h2>
+            <div className="space-y-1.5">
+              <label htmlFor="pesan" className="text-sm font-medium text-muted-foreground">
+                Tambahkan pesan, kesan, atau kritik Anda mengenai sistem (Opsional)
+              </label>
+              <textarea
+                id="pesan"
+                placeholder="Menurut saya sistem ini..."
+                value={pesan}
+                onChange={(e) => setPesan(e.target.value)}
+                rows={4}
+                className="w-full px-3 py-2.5 rounded-xl border border-border/60 bg-background/50 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-y"
+                disabled={loading}
+              />
             </div>
           </div>
 

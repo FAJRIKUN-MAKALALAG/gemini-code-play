@@ -30,6 +30,8 @@ export default function SolveChallenge() {
   const [challenge, setChallenge] = useState<any>(null);
   const [answerId, setAnswerId] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [activeQuestion, setActiveQuestion] = useState(0); // index
   
   const [loading, setLoading] = useState(true);
   const [skulptReady, setSkulptReady] = useState(false);
@@ -87,6 +89,13 @@ export default function SolveChallenge() {
         return;
       }
       const chData = await chRes.json();
+
+      // Ambil daftar soal dari challenge_questions
+      const qRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/questions`, { credentials: "include" });
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        setQuestions(qData);
+      }
 
       // Join (atau lanjutkan jika in_progress)
       const joinRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/join`, {
@@ -407,35 +416,104 @@ export default function SolveChallenge() {
         <PanelGroup direction="horizontal">
           {/* Panel Soal (Kiri) */}
           <Panel defaultSize={35} minSize={25} className="min-w-0 bg-secondary/20">
-            <div id="question-panel" className="h-full p-6 overflow-y-auto select-none" style={{ userSelect: 'none' }}>
-              <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-4 leading-tight">{challenge?.title}</h2>
-                <div className="flex gap-4 mb-6 text-xs font-medium border-b border-border/50 pb-4">
-                  <div className="flex flex-col gap-1 text-muted-foreground">
-                    <span className="uppercase text-[10px] font-bold">Dibuat Oleh</span>
-                    <span className="font-mono text-foreground font-medium">{challenge?.creator_name || "Author"}</span>
-                  </div>
-                  {challenge?.time_limit_minutes && (
-                    <div className="flex flex-col gap-1 text-orange-500">
-                      <span className="uppercase text-[10px] font-bold flex items-center gap-1"><Timer className="w-3 h-3"/> Waktu Pengerjaan</span>
-                      <span className="font-bold">{challenge.time_limit_minutes} Menit</span>
+            <div id="question-panel" className="h-full flex flex-col overflow-hidden" style={{ userSelect: 'none' }}>
+
+              {/* Tab navigasi soal */}
+              {questions.length > 1 && (
+                <div className="flex items-center gap-1 px-3 pt-3 pb-0 overflow-x-auto shrink-0" style={{ scrollbarWidth: 'none' }}>
+                  {questions.map((q, idx) => (
+                    <button
+                      key={q.id}
+                      onClick={() => setActiveQuestion(idx)}
+                      className={`shrink-0 px-3 py-1.5 rounded-t-lg text-xs font-bold transition-all border-b-2 ${
+                        activeQuestion === idx
+                          ? 'bg-card text-orange-500 border-orange-500'
+                          : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-card/50'
+                      }`}
+                    >
+                      Soal {q.nomor}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Konten soal aktif */}
+              <div className="flex-1 overflow-y-auto p-5 select-none" style={{ scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--border)) transparent' }}>
+                {questions.length === 0 ? (
+                  // Fallback ke deskripsi challenge lama jika belum ada questions
+                  <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm">
+                    <h2 className="text-2xl font-bold text-foreground mb-4 leading-tight">{challenge?.title}</h2>
+                    <div className="flex gap-4 mb-6 text-xs font-medium border-b border-border/50 pb-4">
+                      <div className="flex flex-col gap-1 text-muted-foreground">
+                        <span className="uppercase text-[10px] font-bold">Dibuat Oleh</span>
+                        <span className="font-mono text-foreground font-medium">{challenge?.creator_name || 'Author'}</span>
+                      </div>
+                      {challenge?.time_limit_minutes && (
+                        <div className="flex flex-col gap-1 text-orange-500">
+                          <span className="uppercase text-[10px] font-bold flex items-center gap-1"><Timer className="w-3 h-3" /> Waktu</span>
+                          <span className="font-bold">{challenge.time_limit_minutes} Menit</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{challenge?.description}</div>
+                    {challenge?.expected_output && (
+                      <pre className="bg-black/50 p-4 rounded-xl border border-border/30 text-green-400 font-mono text-xs whitespace-pre-wrap mt-4">{challenge.expected_output}</pre>
+                    )}
+                  </div>
+                ) : (
+                  // Tampilkan soal aktif
+                  questions[activeQuestion] && (
+                    <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+                      <div className="flex items-center gap-3 border-b border-border/50 pb-4">
+                        <div className="w-8 h-8 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 font-black text-sm">
+                          {questions[activeQuestion].nomor}
+                        </div>
+                        <div>
+                          <h2 className="font-bold text-base">Soal {questions[activeQuestion].nomor} dari {questions.length}</h2>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {challenge?.creator_name && <span>Oleh: {challenge.creator_name}</span>}
+                            {challenge?.time_limit_minutes && (
+                              <span className="flex items-center gap-1 text-orange-500">
+                                <Timer className="w-3 h-3" /> {challenge.time_limit_minutes} Menit
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">Instruksi:</h3>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed mb-6">{challenge?.description}</div>
+                      {/* Deskripsi teks */}
+                      {questions[activeQuestion].description && (
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{questions[activeQuestion].description}</div>
+                      )}
 
-                  {challenge?.expected_output && (
-                    <>
-                      <h3 className="text-sm uppercase tracking-wider text-muted-foreground mb-2 mt-4">Ekspektasi Output:</h3>
-                      <pre className="bg-black/50 p-4 rounded-xl border border-border/30 text-green-400 font-mono text-xs whitespace-pre-wrap">
-                        {challenge.expected_output}
-                      </pre>
-                    </>
-                  )}
-                </div>
+                      {/* Gambar deskripsi */}
+                      {questions[activeQuestion].description_image_url && (
+                        <img
+                          src={questions[activeQuestion].description_image_url}
+                          alt={`Gambar soal ${questions[activeQuestion].nomor}`}
+                          className="w-full max-h-64 rounded-xl border border-border/40 object-contain bg-black/20"
+                        />
+                      )}
+
+                      {/* Expected output */}
+                      {(questions[activeQuestion].expected_output || questions[activeQuestion].expected_output_image_url) && (
+                        <div>
+                          <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-2 font-bold">Ekspektasi Output:</h3>
+                          {questions[activeQuestion].expected_output && (
+                            <pre className="bg-black/50 p-4 rounded-xl border border-border/30 text-green-400 font-mono text-xs whitespace-pre-wrap">{questions[activeQuestion].expected_output}</pre>
+                          )}
+                          {questions[activeQuestion].expected_output_image_url && (
+                            <img
+                              src={questions[activeQuestion].expected_output_image_url}
+                              alt="Expected output"
+                              className="mt-2 max-h-48 rounded-xl border border-border/40 object-contain bg-black/20"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </Panel>

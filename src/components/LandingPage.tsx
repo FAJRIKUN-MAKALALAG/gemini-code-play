@@ -199,10 +199,10 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           {/* Stats row */}
           <div className="flex flex-wrap justify-center gap-6 text-center animate-in fade-in duration-1000 delay-300">
             {[
-              { label: "Notebook Editor", icon: "📓" },
-              { label: "Gemini AI Powered", icon: "🤖" },
-              { label: "Challenge System", icon: "🏆" },
-              { label: "Real-time Review", icon: "📊" },
+              { label: "Notebook Editor", icon: "" },
+              { label: "Gemini AI Powered", icon: "" },
+              { label: "Challenge System", icon: "" },
+              { label: "Real-time Review", icon: "" },
             ].map(s => (
               <div key={s.label} className="flex flex-col items-center gap-1">
                 <span className="text-2xl">{s.icon}</span>
@@ -281,7 +281,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 color: "blue",
                 step: "1",
                 title: "Tulis & Edit",
-                desc: "Gunakan Notebook Editor yang powerful lengkap dengan syntax highlighting, multi-cell support, dan auto-formatting. Mirip Jupyter Notebook langsung di browser.",
+                desc: "Gunakan Notebook Editor yang powerful lengkap dengan syntax highlighting, multi-cell support, dan auto-formatting.",
               },
               {
                 icon: <Play className="w-8 h-8" />,
@@ -344,7 +344,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               {
                 icon: <BookOpen className="w-6 h-6" />,
                 title: "Notebook Multi-Cell",
-                desc: "Editor berformat notebook (seperti Jupyter) dengan dukungan beberapa cell, jalankan per-cell atau semua sekaligus.",
+                desc: "Editor berformat notebook dengan dukungan beberapa cell, jalankan per-cell atau semua sekaligus.",
                 badge: "Editor",
               },
               {
@@ -388,12 +388,6 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 title: "Gemini AI Chat",
                 desc: "Asisten AI berbasis Google Gemini dengan sliding window history, stop streaming, dan konteks kode aktif.",
                 badge: "AI",
-              },
-              {
-                icon: <ClipboardList className="w-6 h-6" />,
-                title: "Kuesioner Penelitian",
-                desc: "Sistem kuesioner terintegrasi untuk pengumpulan data penelitian. Admin panel real-time dengan toggle aktif/nonaktif.",
-                badge: "Research",
               },
               {
                 icon: <Users className="w-6 h-6" />,
@@ -684,7 +678,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               className="rounded-full px-10 shadow-lg shadow-primary/25 hover:shadow-primary/50
                 hover:scale-105 transition-all duration-300 bg-gradient-to-r from-primary to-purple-600 border-0"
             >
-              Mulai Sekarang — Gratis
+              Mulai Sekarang
             </Button>
           </div>
 

@@ -231,6 +231,22 @@ class BackendService {
       return { error: error as Error };
     }
   }
+
+  // GET PUBLIC SHARED CODE
+  async getSharedSnippet(id: string): Promise<{ data: CodeSnippet | null; error: Error | null }> {
+    try {
+      // Endpoint public tanpa perlu Auth headers
+      const response = await fetch(`${API_BASE_URL}/code/share/${id}`);
+      if (!response.ok) {
+         if (response.status === 404) throw new Error('Code snippet tidak ditemukan.');
+         throw new Error('Gagal mengambil kode snippet.');
+      }
+      const data = await response.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  }
 }
 
 export const backendService = new BackendService();

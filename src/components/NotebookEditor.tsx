@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
-  Save, CheckCircle2, AlertCircle, Target, Sparkles as SparklesIcon,
+  Save, Share, CheckCircle2, AlertCircle, Target, Sparkles as SparklesIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -58,7 +58,7 @@ interface NotebookEditorProps {
   /** Sends AI result directly as assistant message — isPass=true membuka AI chat setelah tantangan lulus */
   onSendAIResult?: (message: string, usage?: { inputTokens: number; outputTokens: number }, isPass?: boolean) => void;
   /** Called when user clicks Save — should persist code to DB */
-  onSaveCode?: (code: string) => Promise<{ success: boolean }>;
+  onSaveCode?: (code: string) => Promise<{ success: boolean; id?: string }>;
   isRuntimeReady?: boolean;
   disableAI?: boolean;
 }
@@ -294,6 +294,37 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       }
     } catch {
       setSaveStatus("error");
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => setSaveStatus("unsaved"), 4000);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!onSaveCode) return;
+    const serialized = serializeNotebook(cells);
+    setSaveStatus("saving");
+    try {
+      const result = await onSaveCode(serialized);
+      if (result.success && result.id) {
+        setSaveStatus("saved");
+        const shareUrl = `${window.location.origin}/share/${result.id}`;
+        await navigator.clipboard.writeText(shareUrl);
+        toast({
+          title: "🔗 Link Tersalin!",
+          description: "Link pengerjaan kamu sudah dikopi ke clipboard. Bagikan ke temanmu!",
+          duration: 4000,
+        });
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+      } else {
+        setSaveStatus("error");
+        toast({ title: "Gagal membagikan link", variant: "destructive" });
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => setSaveStatus("unsaved"), 4000);
+      }
+    } catch {
+      setSaveStatus("error");
+      toast({ title: "Gagal membagikan link", variant: "destructive" });
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(() => setSaveStatus("unsaved"), 4000);
     }
@@ -826,40 +857,51 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
 
           {/* ── Save to DB button ── */}
           {onSaveCode && (
-            <button
-              onClick={handleSaveToDb}
-              disabled={saveStatus === "saving" || saveStatus === "idle" || saveStatus === "saved"}
-              title={
-                saveStatus === "unsaved" ? "Simpan kode ke database"
-                : saveStatus === "saving" ? "Menyimpan…"
-                : saveStatus === "saved" ? "Tersimpan!"
-                : saveStatus === "error" ? "Gagal simpan — klik untuk coba lagi"
-                : "Kode belum diubah"
-              }
-              className={`h-7 px-2.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-all duration-200 ${
-                saveStatus === "unsaved"
-                  ? "border-amber-500/60 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 cursor-pointer animate-pulse"
-                  : saveStatus === "saving"
-                  ? "border-blue-500/40 bg-blue-500/10 text-blue-400 cursor-not-allowed"
-                  : saveStatus === "saved"
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 cursor-default"
-                  : saveStatus === "error"
-                  ? "border-red-500/60 bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer animate-pulse"
-                  : "border-border/40 bg-secondary/30 text-muted-foreground/50 cursor-default"
-              }`}
-            >
-              {saveStatus === "saving" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {saveStatus === "saved" && <CheckCircle2 className="w-3.5 h-3.5" />}
-              {saveStatus === "error" && <AlertCircle className="w-3.5 h-3.5" />}
-              {(saveStatus === "idle" || saveStatus === "unsaved") && <Save className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">
-                {saveStatus === "saving" ? "Saving…"
-                  : saveStatus === "saved" ? "Saved!"
-                  : saveStatus === "error" ? "Retry"
-                  : saveStatus === "unsaved" ? "Save"
-                  : "Saved"}
-              </span>
-            </button>
+            <div className="flex bg-secondary/30 rounded-lg p-0.5 border border-border/40">
+              <button
+                onClick={handleSaveToDb}
+                disabled={saveStatus === "saving" || saveStatus === "idle" || saveStatus === "saved"}
+                title={
+                  saveStatus === "unsaved" ? "Simpan kode ke database"
+                  : saveStatus === "saving" ? "Menyimpan…"
+                  : saveStatus === "saved" ? "Tersimpan!"
+                  : saveStatus === "error" ? "Gagal simpan — klik untuk coba lagi"
+                  : "Kode belum diubah"
+                }
+                className={`h-7 px-2.5 rounded-l-md text-[11px] font-medium flex items-center gap-1.5 transition-all duration-200 border-r border-border/40 ${
+                  saveStatus === "unsaved"
+                    ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 cursor-pointer animate-pulse"
+                    : saveStatus === "saving"
+                    ? "bg-blue-500/10 text-blue-400 cursor-not-allowed"
+                    : saveStatus === "saved"
+                    ? "bg-emerald-500/10 text-emerald-400 cursor-default"
+                    : saveStatus === "error"
+                    ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer animate-pulse"
+                    : "text-muted-foreground/50 cursor-default"
+                }`}
+              >
+                {saveStatus === "saving" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {saveStatus === "saved" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                {saveStatus === "error" && <AlertCircle className="w-3.5 h-3.5" />}
+                {(saveStatus === "idle" || saveStatus === "unsaved") && <Save className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">
+                  {saveStatus === "saving" ? "Saving…"
+                    : saveStatus === "saved" ? "Saved!"
+                    : saveStatus === "error" ? "Retry"
+                    : saveStatus === "unsaved" ? "Save"
+                    : "Saved"}
+                </span>
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={saveStatus === "saving"}
+                title="Share link kode ini (Public)"
+                className="h-7 px-2.5 rounded-r-md text-[11px] font-medium flex items-center gap-1.5 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 text-muted-foreground"
+              >
+                <Share className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Share</span>
+              </button>
+            </div>
           )}
 
           <div className="w-px h-4 bg-border mx-1" />

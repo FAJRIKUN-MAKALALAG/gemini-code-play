@@ -95,7 +95,7 @@ const Index = () => {
   };
 
   // ── Save code to DB ─────────────────────────────────────────────────────
-  const handleSaveCode = async (codeToSave: string): Promise<{ success: boolean }> => {
+  const handleSaveCode = async (codeToSave: string): Promise<{ success: boolean; id?: string }> => {
     const user = authService.getUser();
     if (!user) {
       toast({
@@ -110,7 +110,7 @@ const Index = () => {
     const title = `Snippet Kode — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     let conversationId = await chatRef.current?.getOrCreateConversationId(title);
 
-    const { error } = await backendService.saveCodeSnippet(
+    const { error, data } = await backendService.saveCodeSnippet(
       user.id,
       codeToSave,
       "python",
@@ -134,7 +134,7 @@ const Index = () => {
         : "Kode berhasil disimpan ke database.",
       duration: 2500,
     });
-    return { success: true };
+    return { success: true, id: data?.id };
   };
 
   const handleRemoveChallenge = () => {

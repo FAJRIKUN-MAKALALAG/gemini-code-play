@@ -199,7 +199,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                       <div className="bg-orange-500/10 p-2 rounded-lg group-hover:bg-orange-500/20 transition-colors">
                         <FilePlus className="w-4 h-4 text-orange-500" />
                       </div>
-                      <span className="text-sm font-medium">Buat Soal / Ujian</span>
+                      <span className="text-sm font-medium">Buat Latihan / Ujian</span>
                     </Link>
                   </DropdownMenuItem>
 
@@ -208,7 +208,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                       <div className="bg-blue-500/10 p-2 rounded-lg group-hover:bg-blue-500/20 transition-colors">
                         <Keyboard className="w-4 h-4 text-blue-500" />
                       </div>
-                      <span className="text-sm font-medium">Masukkan Kode Soal</span>
+                      <span className="text-sm font-medium">Masukkan Kode room / Cek Hasil</span>
                     </Link>
                   </DropdownMenuItem>
 

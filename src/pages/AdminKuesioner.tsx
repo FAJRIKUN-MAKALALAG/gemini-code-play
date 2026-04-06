@@ -190,6 +190,10 @@ const AdminKuesioner = () => {
         setAccessDenied(true);
       } else if (error === "Sesi tidak valid. Silakan login ulang.") {
         setIsAdmin(false);
+      } else if (error) {
+        setIsAdmin(true);
+        setDataError(error);
+        setStats(null);
       } else {
         setIsAdmin(true);
         setStats(data);

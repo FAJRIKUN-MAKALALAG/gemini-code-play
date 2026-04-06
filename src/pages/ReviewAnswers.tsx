@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, User, AlertTriangle, CheckCircle2, Clock, TerminalSquare } from "lucide-react";
+import {
+  Loader2, ArrowLeft, User, AlertTriangle,
+  CheckCircle2, Clock, TerminalSquare, Star, Save
+} from "lucide-react";
 import { NotebookEditor } from "@/components/NotebookEditor";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { loadSkulpt } from "@/utils/skulptRunner";
@@ -22,95 +25,137 @@ export default function ReviewAnswers() {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [skulptReady, setSkulptReady] = useState(false);
-
-  // Untuk me-reset/merender ulang code editor saat jawaban dipilih
   const [editorKey, setEditorKey] = useState(0);
 
+  // Grade state
+  const [gradeInput, setGradeInput] = useState<string>("");
+  const [savingGrade, setSavingGrade] = useState(false);
+
+  // Ref to keep selected answer ID when polling merges fresh data
+  const selectedIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!user) {
-      navigate("/");
-      return;
-    }
+    if (!user) { navigate("/"); return; }
     fetchData();
     initSkulpt();
   }, [user, navigate, challengeId]);
 
   const initSkulpt = async () => {
     try {
-      if (!skulptReady) {
-        await loadSkulpt();
-        setSkulptReady(true);
-      }
-    } catch (e) {
-      console.error("Failed to load runtime");
-    }
+      if (!skulptReady) { await loadSkulpt(); setSkulptReady(true); }
+    } catch (e) { console.error("Failed to load runtime"); }
   };
 
   const fetchAnswers = async (initial = false) => {
     try {
       const ansRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/answers`, { credentials: "include" });
       if (ansRes.ok) {
-        const ObjectData = await ansRes.json();
-        setAnswers(ObjectData);
-        
-        // Auto-select first answer only on initial load
-        if (initial && ObjectData.length > 0) {
-          handleSelectAnswer(ObjectData[0]);
+        const fresh: any[] = await ansRes.json();
+        setAnswers(fresh);
+
+        // Sync selectedAnswer with fresh data (preserve selection)
+        if (selectedIdRef.current) {
+          const refreshed = fresh.find(a => a.id === selectedIdRef.current);
+          if (refreshed) {
+            setSelectedAnswer(refreshed);
+            // Update grade input only if user hasn't started typing
+            setGradeInput(prev => {
+              const dbGrade = refreshed.grade !== null && refreshed.grade !== undefined ? String(refreshed.grade) : "";
+              // Only auto-update if input is empty (user hasn't touched it yet)
+              return prev === "" ? dbGrade : prev;
+            });
+          }
+        }
+
+        if (initial && fresh.length > 0) {
+          handleSelectAnswer(fresh[0]);
         }
       }
-    } catch (err: any) {
-      console.error("Gagal load answers secara background:", err);
+    } catch (err) {
+      console.error("Gagal load answers:", err);
     }
   };
 
   const fetchData = async () => {
     try {
-      // 1. Ambil detail Soalnya
       const chRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}`, { credentials: "include" });
       if (!chRes.ok) throw new Error("Gagal load soal");
       const chData = await chRes.json();
-      
-      // Keamanan: Cek apakah user yang login ini adalah creatornya
       if (chData.creator_id !== user?.id) {
         toast({ title: "Akses Ditolak", description: "Anda bukan pemilik soal ujian ini.", variant: "destructive" });
         navigate("/challenges/create");
         return;
       }
       setChallenge(chData);
-
-      // 2. Ambil semua jawaban (initial load)
       await fetchAnswers(true);
-
     } catch (err: any) {
       console.error(err);
-      toast({ title: "Error", description: err.message || "Gagal memuat data jawaban.", variant: "destructive" });
+      toast({ title: "Error", description: err.message || "Gagal memuat data.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  // 3. Efek Real-Time (Polling 4 Detik)
+  // Polling setiap 4 detik
   useEffect(() => {
-    if (loading) return; // tunggu initial fetch selesai
-    
-    const interval = setInterval(() => {
-      fetchAnswers(false);
-    }, 4000);
-
+    if (loading) return;
+    const interval = setInterval(() => fetchAnswers(false), 4000);
     return () => clearInterval(interval);
   }, [loading, challengeId]);
 
   const handleSelectAnswer = (ans: any) => {
+    selectedIdRef.current = ans.id;
     setSelectedAnswer(ans);
-    // Ubah key agar komponen NotebookEditor ter-remount dengan prop `code` yang baru, mencegah caching code lama
     setEditorKey(prev => prev + 1);
+    // Set grade input dari data DB
+    setGradeInput(ans.grade !== null && ans.grade !== undefined ? String(ans.grade) : "");
   };
 
-  // Fungsi helper nama user
+  const handleSaveGrade = async () => {
+    if (!selectedAnswer) return;
+    const gradeNum = Number(gradeInput);
+    if (gradeInput === "" || isNaN(gradeNum) || gradeNum < 0 || gradeNum > 100) {
+      toast({ title: "Validasi", description: "Masukkan nilai antara 0–100.", variant: "destructive" });
+      return;
+    }
+
+    setSavingGrade(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/challenges/answers/${selectedAnswer.id}/grade`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ grade: gradeNum }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan nilai.");
+
+      // Update local state langsung tanpa nunggu polling
+      const updated = { ...selectedAnswer, grade: gradeNum };
+      setSelectedAnswer(updated);
+      selectedIdRef.current = updated.id;
+      setAnswers(prev => prev.map(a => a.id === updated.id ? { ...a, grade: gradeNum } : a));
+
+      toast({ title: "✅ Nilai Tersimpan!", description: `Nilai ${gradeNum} berhasil disimpan untuk ${getUserName(selectedAnswer)}.` });
+    } catch (err: any) {
+      toast({ title: "Gagal", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingGrade(false);
+    }
+  };
+
   const getUserName = (ans: any) => {
     if (ans.student_name) return ans.student_name;
-    if (ans.user_id) return ans.user_id.split('-')[0]; // fallback pakai uuid dpnnya
+    if (ans.user_id) return ans.user_id.split('-')[0];
     return "User Anonim";
+  };
+
+  const getGradeBadgeStyle = (grade: number | null) => {
+    if (grade === null || grade === undefined) return "bg-muted text-muted-foreground";
+    if (grade >= 80) return "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30";
+    if (grade >= 60) return "bg-blue-500/15 text-blue-500 border border-blue-500/30";
+    if (grade >= 40) return "bg-amber-500/15 text-amber-500 border border-amber-500/30";
+    return "bg-red-500/15 text-red-500 border border-red-500/30";
   };
 
   if (loading) {
@@ -128,7 +173,7 @@ export default function ReviewAnswers() {
         <title>Evaluasi Jawaban - AI Coding Assistant</title>
       </Helmet>
 
-      {/* Header Panel */}
+      {/* Header */}
       <div className="h-16 border-b border-border/60 bg-card flex items-center justify-between px-6 shrink-0 relative z-10">
         <div className="flex items-center gap-4">
           <Link to="/challenges/create">
@@ -138,12 +183,11 @@ export default function ReviewAnswers() {
           </Link>
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
-              <TerminalSquare className="w-5 h-5 text-orange-500"/> Data Ujian Peserta
+              <TerminalSquare className="w-5 h-5 text-orange-500" /> Data Ujian Peserta
             </h1>
             <p className="text-xs text-muted-foreground font-medium">Soal: {challenge?.title}</p>
           </div>
         </div>
-
         <div className="text-xs font-mono bg-orange-500/10 text-orange-500 px-3 py-1.5 rounded-lg border border-orange-500/20 font-bold tracking-widest">
           ROOM: {challenge?.room_code}
         </div>
@@ -151,7 +195,7 @@ export default function ReviewAnswers() {
 
       <div className="flex-1 min-h-0">
         <PanelGroup direction="horizontal">
-          
+
           {/* Panel Kiri: Daftar Peserta */}
           <Panel defaultSize={25} minSize={20} maxSize={40} className="min-w-0 bg-secondary/10 border-r border-border/50">
             <div className="h-full flex flex-col">
@@ -162,28 +206,29 @@ export default function ReviewAnswers() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                  <span className="text-[10px] text-green-600 font-bold tracking-widest uppercase">Live Status</span>
+                  <span className="text-[10px] text-green-600 font-bold tracking-widest uppercase">Live</span>
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {answers.length === 0 ? (
                   <div className="text-center p-8 text-muted-foreground text-sm">
-                    Belum ada peserta yang bergabung atau menjawab soal ini.
+                    Belum ada peserta yang bergabung.
                   </div>
                 ) : (
                   answers.map((ans) => {
                     const isSelected = selectedAnswer?.id === ans.id;
                     const isSubmitted = ans.status === 'submitted';
                     const cheatCount = ans.cheats_detected || 0;
+                    const hasGrade = ans.grade !== null && ans.grade !== undefined;
 
                     return (
-                      <div 
+                      <div
                         key={ans.id}
                         onClick={() => handleSelectAnswer(ans)}
                         className={`p-3 rounded-xl cursor-pointer border transition-all ${
-                          isSelected 
-                            ? 'bg-primary/10 border-primary/30 shadow-sm' 
+                          isSelected
+                            ? 'bg-primary/10 border-primary/30 shadow-sm'
                             : 'bg-card border-border/40 hover:border-primary/20 hover:bg-muted/50'
                         }`}
                       >
@@ -192,26 +237,32 @@ export default function ReviewAnswers() {
                             <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                               <User className="w-3 h-3 text-primary" />
                             </div>
-                            <span className="font-semibold text-sm">{getUserName(ans)}</span>
+                            <span className="font-semibold text-sm truncate max-w-[110px]">{getUserName(ans)}</span>
                           </div>
-                          {cheatCount > 0 && (
-                            <span className="flex items-center gap-1 bg-red-500/10 text-red-500 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Curang terdeteksi">
-                              <AlertTriangle className="w-3 h-3" /> {cheatCount}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {cheatCount > 0 && (
+                              <span className="flex items-center gap-1 bg-red-500/10 text-red-500 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Curang terdeteksi">
+                                <AlertTriangle className="w-3 h-3" /> {cheatCount}
+                              </span>
+                            )}
+                            {hasGrade && (
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${getGradeBadgeStyle(ans.grade)}`}>
+                                {ans.grade}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        
                         <div className="flex items-center justify-between text-[10px]">
                           <span className={`flex items-center gap-1 font-medium ${isSubmitted ? 'text-green-500' : 'text-amber-500'}`}>
                             {isSubmitted ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {isSubmitted ? 'Selesai' : 'Mengerjakan'}
                           </span>
                           <span className="text-muted-foreground whitespace-nowrap">
-                            {ans.updated_at ? new Date(ans.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                            {ans.updated_at ? new Date(ans.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                           </span>
                         </div>
                       </div>
-                    )
+                    );
                   })
                 )}
               </div>
@@ -220,27 +271,72 @@ export default function ReviewAnswers() {
 
           <PanelResizeHandle className="w-1.5 bg-border hover:bg-orange-500/50 transition-colors cursor-col-resize z-20" />
 
-          {/* Panel Kanan: Detil Jawaban & Editor Code */}
+          {/* Panel Kanan */}
           <Panel defaultSize={75} minSize={50} className="min-w-0 bg-background relative flex flex-col">
             {selectedAnswer ? (
               <>
-                <div className="h-12 bg-card border-b border-border/50 flex items-center px-6 justify-between shrink-0">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-sm">Lembar Jawaban: {getUserName(selectedAnswer)}</span>
-                    {selectedAnswer.status === 'submitted' ? (
-                      <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-bold uppercase">Submitted</span>
-                    ) : (
-                      <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-bold uppercase">Writing... (Live Draft)</span>
-                    )}
+                {/* Sub-header: Info + Input Nilai */}
+                <div className="shrink-0 bg-card border-b border-border/50">
+                  <div className="h-12 flex items-center px-6 justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-sm">Lembar Jawaban: {getUserName(selectedAnswer)}</span>
+                      {selectedAnswer.status === 'submitted' ? (
+                        <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-bold uppercase">Submitted</span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-bold uppercase">Writing... (Live)</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Disave: {new Date(selectedAnswer.updated_at).toLocaleString()}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Terakhir disave: {new Date(selectedAnswer.updated_at).toLocaleString()}
+
+                  {/* ── Row Pemberian Nilai ── */}
+                  <div className="px-6 py-3 border-t border-border/30 bg-secondary/5 flex items-center gap-4">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Star className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-semibold">Nilai:</span>
+                    </div>
+
+                    {/* Badge nilai saat ini */}
+                    {selectedAnswer.grade !== null && selectedAnswer.grade !== undefined ? (
+                      <span className={`px-3 py-1 rounded-xl text-sm font-black ${getGradeBadgeStyle(selectedAnswer.grade)}`}>
+                        {selectedAnswer.grade} / 100
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Belum dinilai</span>
+                    )}
+
+                    <div className="flex items-center gap-2 ml-auto">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        placeholder="0 – 100"
+                        value={gradeInput}
+                        onChange={e => setGradeInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveGrade()}
+                        className="w-24 h-8 bg-background border border-border/60 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveGrade}
+                        disabled={savingGrade || gradeInput === ""}
+                        className="h-8 bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5 text-xs font-bold"
+                      >
+                        {savingGrade
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Save className="w-3.5 h-3.5" />
+                        }
+                        Simpan Nilai
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Info Box untuk Expected Output (Jika Bikin Soal ada Outputnya) */}
+                {/* Ekspektasi Output */}
                 {challenge?.expected_output && (
-                  <div className="bg-secondary/30 p-4 border-b border-border/40 shrink-0 select-text overflow-y-auto max-h-[150px]">
+                  <div className="bg-secondary/30 p-4 border-b border-border/40 shrink-0 select-text overflow-y-auto max-h-[130px]">
                     <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Ekspektasi Output Soal:</div>
                     <pre className="text-green-400 font-mono text-xs whitespace-pre-wrap leading-relaxed">
                       {challenge.expected_output}
@@ -249,16 +345,13 @@ export default function ReviewAnswers() {
                 )}
 
                 <div className="flex-1 min-h-0 relative">
-                  <NotebookEditor 
-                    key={editorKey} // Memaksa remount kalau beda jawaban supaya kodenya gak kecampur
+                  <NotebookEditor
+                    key={editorKey}
                     code={selectedAnswer.code_content || '# Tidak ada kode (kosong)'}
-                    // onChange tetap berfungsi agar dosen bisa otak atik jawaban siswa & mencoba nge-run (tapi tidak merubah DB otomatis jika guru ga save)
-                    onChange={() => {}} 
+                    onChange={() => {}}
                     isRuntimeReady={skulptReady}
                     disableAI={true}
                   />
-                  
-                  {/* Watermark / Bantuan */}
                   <div className="absolute bottom-6 right-6 pointer-events-none text-[10px] font-mono font-medium text-orange-500/70 border border-orange-500/20 bg-orange-500/5 px-2 py-1 rounded shadow-sm z-50">
                     Tekan (Run) Pada Cell untuk menguji jawaban murid ini.
                   </div>

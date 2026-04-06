@@ -3,10 +3,32 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowLeft, KeySquare } from "lucide-react";
+import {
+  Loader2, ArrowLeft, KeySquare, History,
+  CheckCircle2, Clock, Star, BookOpen, Trophy, AlertTriangle
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+
+interface ExamHistory {
+  id: string;
+  status: 'in_progress' | 'submitted';
+  grade: number | null;
+  graded_at: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  student_name: string;
+  cheats_detected: number;
+  challenge_id: string;
+  challenges: {
+    id: string;
+    title: string;
+    room_code: string;
+    time_limit_minutes: number | null;
+  };
+}
 
 export default function JoinChallenge() {
   const { user } = useAuth();
@@ -17,11 +39,29 @@ export default function JoinChallenge() {
   const [studentName, setStudentName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // History state
+  const [history, setHistory] = useState<ExamHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
   useEffect(() => {
-    if (!user) {
-      navigate("/");
-    }
+    if (!user) { navigate("/"); return; }
+    fetchHistory();
   }, [user, navigate]);
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/challenges/my-history`, { credentials: "include" });
+      if (res.ok) {
+        const data: ExamHistory[] = await res.json();
+        setHistory(data);
+      }
+    } catch (err) {
+      console.error("Gagal load history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +72,6 @@ export default function JoinChallenge() {
 
     setLoading(true);
     try {
-      // 1. Cek Ujian Berdasarkan Kode
       const getRes = await fetch(`${API_BASE_URL}/challenges/room/${roomCode.toUpperCase()}`, {
         credentials: "include"
       });
@@ -44,8 +83,7 @@ export default function JoinChallenge() {
       }
 
       const challenge = await getRes.json();
-      
-      // 2. Join (ini juga akan membuat record jawaban baru atau melanjutkan jika in_progress)
+
       const joinRes = await fetch(`${API_BASE_URL}/challenges/${challenge.id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,65 +106,189 @@ export default function JoinChallenge() {
     }
   };
 
+  const getGradeStyle = (grade: number | null) => {
+    if (grade === null || grade === undefined) return { bg: "bg-muted/50 text-muted-foreground", label: "Menunggu Penilaian" };
+    if (grade >= 80) return { bg: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30", label: `${grade} / 100` };
+    if (grade >= 60) return { bg: "bg-blue-500/10 text-blue-500 border-blue-500/30", label: `${grade} / 100` };
+    if (grade >= 40) return { bg: "bg-amber-500/10 text-amber-500 border-amber-500/30", label: `${grade} / 100` };
+    return { bg: "bg-red-500/10 text-red-500 border-red-500/30", label: `${grade} / 100` };
+  };
+
+  const stats = {
+    total: history.length,
+    submitted: history.filter(h => h.status === 'submitted').length,
+    graded: history.filter(h => h.grade !== null).length,
+    avgGrade: history.filter(h => h.grade !== null).length > 0
+      ? Math.round(history.filter(h => h.grade !== null).reduce((sum, h) => sum + (h.grade || 0), 0) / history.filter(h => h.grade !== null).length)
+      : null,
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-foreground">
-      
-      {/* Tombol Kembali (Absolute for clean UI) */}
-      <div className="absolute top-6 left-6">
-        <Link to="/">
-          <Button variant="ghost" className="rounded-full gap-2 pl-2">
-            <ArrowLeft className="w-5 h-5 mb-0.5" /> Beranda
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-background flex text-foreground">
+      <Helmet>
+        <title>Bergabung Ujian – AI Coding Assistant</title>
+      </Helmet>
 
-      <div className="w-full max-w-md bg-card border border-border/50 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
-        
-        <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
-          <KeySquare className="w-8 h-8 text-blue-500" />
-        </div>
-        
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent mb-2">
-          Ruang Ujian Praktikum
-        </h1>
-        <p className="text-muted-foreground text-sm text-center mb-8 px-4">
-          Masukkan kode 6 digit yang diberikan oleh dosen / asisten lab untuk memulai kerjakan koding.
-        </p>
-
-        <form onSubmit={handleJoin} className="w-full space-y-6">
-          <div className="space-y-4">
-            <Input 
-              type="text"
-              placeholder="Masukkan Nama Lengkap Anda" 
-              value={studentName} 
-              onChange={e => setStudentName(e.target.value)} 
-              className="h-14 bg-background/50 text-center text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-500/50"
-              required
-              autoFocus
-            />
-            <Input 
-              type="text"
-              placeholder="KODE RUANG LATIHAN" 
-              value={roomCode} 
-              onChange={e => setRoomCode(e.target.value.toUpperCase())} 
-              className="h-14 bg-background/50 text-center text-xl tracking-widest font-bold uppercase rounded-xl border-2 focus-visible:ring-indigo-500/50"
-              maxLength={8}
-              required
-            />
+      {/* ── Panel Kiri: Riwayat Ujian ── */}
+      <div className="w-80 min-h-screen border-r border-border/50 bg-card/40 backdrop-blur-sm flex flex-col shrink-0">
+        {/* Header Panel */}
+        <div className="p-5 border-b border-border/40 bg-card">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+              <History className="w-4 h-4 text-indigo-500" />
+            </div>
+            <h2 className="font-bold text-sm">Riwayat Ujian Saya</h2>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl text-md" 
-            disabled={loading}
-          >
-            {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> MENGHUBUNGKAN...</> : "MASUK KE RUANG UJIAN"}
-          </Button>
-        </form>
+          {/* Stats mini */}
+          {!historyLoading && history.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-background/60 rounded-xl p-2 border border-border/40">
+                <p className="text-lg font-black text-foreground">{stats.total}</p>
+                <p className="text-[10px] text-muted-foreground">Total</p>
+              </div>
+              <div className="bg-background/60 rounded-xl p-2 border border-border/40">
+                <p className="text-lg font-black text-emerald-500">{stats.submitted}</p>
+                <p className="text-[10px] text-muted-foreground">Selesai</p>
+              </div>
+              <div className="bg-background/60 rounded-xl p-2 border border-border/40">
+                <p className={`text-lg font-black ${stats.avgGrade !== null ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                  {stats.avgGrade !== null ? stats.avgGrade : '–'}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Rata-rata</p>
+              </div>
+            </div>
+          )}
+        </div>
 
-        <div className="mt-8 text-xs text-center text-muted-foreground bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
-          <strong className="text-amber-500 block mb-1">Peringatan Anti-Curang:</strong>
-          Sistem ini diawasi! Anda <b>tidak bisa keluar atau berpindah aplikasi/tab</b> saat mengerjakan tugas ini. Pelanggaran mengakibatkan diskualifikasi otomatis.
+        {/* List Riwayat */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Belum ada ujian yang diikuti.</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Masukkan kode soal di sebelah kanan untuk mulai.</p>
+            </div>
+          ) : (
+            history.map((item) => {
+              const gradeStyle = getGradeStyle(item.grade);
+              const isSubmitted = item.status === 'submitted';
+              const hasCheat = (item.cheats_detected || 0) > 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-background/60 border border-border/40 rounded-xl p-3 hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all"
+                >
+                  {/* Judul Soal */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-sm font-semibold leading-tight line-clamp-2 flex-1">{item.challenges?.title || "Soal Ujian"}</p>
+                    {hasCheat && (
+                      <span className="shrink-0 flex items-center gap-1 bg-red-500/10 text-red-500 text-[9px] px-1 py-0.5 rounded font-bold">
+                        <AlertTriangle className="w-2.5 h-2.5" /> {item.cheats_detected}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Room Code */}
+                  <p className="text-[10px] font-mono text-muted-foreground mb-2">
+                    ROOM: <span className="text-indigo-500 font-bold">{item.challenges?.room_code}</span>
+                  </p>
+
+                  {/* Status & Tanggal */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`flex items-center gap-1 text-[10px] font-semibold ${isSubmitted ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {isSubmitted ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                      {isSubmitted ? 'Selesai' : 'Belum Selesai'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+
+                  {/* Badge Nilai */}
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold justify-center ${gradeStyle.bg}`}>
+                    <Star className="w-3 h-3" />
+                    {item.grade !== null ? `Nilai: ${gradeStyle.label}` : 'Menunggu Penilaian'}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer: Tombol Kembali */}
+        <div className="p-4 border-t border-border/40">
+          <Link to="/">
+            <Button variant="ghost" className="w-full rounded-xl gap-2" size="sm">
+              <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Panel Kanan: Form Join ── */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md flex flex-col items-center">
+
+          <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
+            <KeySquare className="w-8 h-8 text-blue-500" />
+          </div>
+
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent mb-2">
+            Ruang Ujian Praktikum
+          </h1>
+          <p className="text-muted-foreground text-sm text-center mb-8 px-4">
+            Masukkan kode 6 digit yang diberikan oleh dosen / asisten lab untuk mulai mengerjakan.
+          </p>
+
+          <div className="w-full bg-card border border-border/50 rounded-3xl p-8 shadow-2xl">
+            <form onSubmit={handleJoin} className="space-y-5">
+              <Input
+                type="text"
+                placeholder="Masukkan Nama Lengkap Anda"
+                value={studentName}
+                onChange={e => setStudentName(e.target.value)}
+                className="h-14 bg-background/50 text-center text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-500/50"
+                required
+                autoFocus
+              />
+              <Input
+                type="text"
+                placeholder="KODE RUANG LATIHAN"
+                value={roomCode}
+                onChange={e => setRoomCode(e.target.value.toUpperCase())}
+                className="h-14 bg-background/50 text-center text-xl tracking-widest font-bold uppercase rounded-xl border-2 focus-visible:ring-indigo-500/50"
+                maxLength={8}
+                required
+              />
+
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl text-md"
+                disabled={loading}
+              >
+                {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> MENGHUBUNGKAN...</> : "MASUK KE RUANG UJIAN"}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-xs text-center text-muted-foreground bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
+              <strong className="text-amber-500 block mb-1">Peringatan Anti-Curang:</strong>
+              Sistem ini diawasi! Anda <b>tidak bisa keluar atau berpindah aplikasi/tab</b> saat mengerjakan. Pelanggaran mengakibatkan diskualifikasi otomatis.
+            </div>
+          </div>
+
+          {/* Trophy jika ada nilai bagus */}
+          {stats.avgGrade !== null && stats.avgGrade >= 80 && (
+            <div className="mt-6 flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-4 py-2 rounded-xl border border-amber-500/20">
+              <Trophy className="w-4 h-4" />
+              <span>Rata-rata nilaimu <b>{stats.avgGrade}</b> – Pertahankan!</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

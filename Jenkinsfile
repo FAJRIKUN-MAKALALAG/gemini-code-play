@@ -53,47 +53,42 @@ pipeline {
         stage('Deploy to Nginx') {
             steps {
                 echo "🚀 Deploying Frontend Files to ${FRONTEND_DIR}..."
-                sh """
-                    # Pastikan folder ada
-                    mkdir -p ${FRONTEND_DIR}
-                    
-                    # RSync hasil build (folder dist) ke folder Nginx
-                    # Pastikan folder /dist ada (Vite defaultnya dist)
-                    rsync -av --delete ./dist/ ${FRONTEND_DIR}/
 
-                    # Tulis konfigurasi Nginx dengan SPA fallback
-                    # try_files memastikan refresh manual di halaman manapun tetap berfungsi
-                    cat > /etc/nginx/sites-available/${FRONTEND_DOMAIN} << 'NGINX_EOF'
+                // Step 1: Rsync build ke folder Nginx (pakai GString agar env var bisa dipakai)
+                sh """
+                    mkdir -p ${FRONTEND_DIR}
+                    rsync -av --delete ./dist/ ${FRONTEND_DIR}/
+                """
+
+                // Step 2: Tulis Nginx config — PAKAI single-quote SH agar $uri tidak di-parse Groovy!
+                // try_files $uri $uri/ /index.html adalah kunci agar SPA tidak 404 saat refresh manual
+                sh '''
+                    cat > /etc/nginx/sites-available/unklab-aicode.online << 'NGINX_EOF'
 server {
     listen 80;
     server_name unklab-aicode.online www.unklab-aicode.online;
     root /var/www/frontend;
     index index.html;
 
-    # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 1000;
 
-    # Cache aset statis (js, css, img)
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }
 
-    # SPA fallback — WAJIB agar refresh manual tidak 404
     location / {
-        try_files \$uri \$uri/ /index.html;
+        try_files $uri $uri/ /index.html;
     }
 }
 NGINX_EOF
 
-                    # Aktifkan site jika belum
-                    ln -sf /etc/nginx/sites-available/${FRONTEND_DOMAIN} /etc/nginx/sites-enabled/${FRONTEND_DOMAIN} 2>/dev/null || true
-
-                    # Tes konfigurasi Nginx sebelum reload
+                    ln -sf /etc/nginx/sites-available/unklab-aicode.online \
+                           /etc/nginx/sites-enabled/unklab-aicode.online 2>/dev/null || true
                     nginx -t && systemctl reload nginx
-                """
+                '''
             }
         }
     }
@@ -104,7 +99,7 @@ NGINX_EOF
             echo "Frontend aktif di: https://${FRONTEND_DOMAIN}"
         }
         failure { 
-            echo "❌ DEPLOYMENT FAILED - Cek log build npm di atas." 
+            echo "❌ DEPLOYMENT FAILED - Cek log build npm di atas."
         }
     }
 }

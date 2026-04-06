@@ -62,12 +62,12 @@ export default function JoinChallenge() {
     fetchHistory();
   }, [user, navigate]);
 
-  // Polling real-time setiap 4 detik untuk update nilai / status terbaru
+  // Polling real-time setiap 5 detik — silent (tanpa loader, tanpa flicker)
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
-      fetchHistory();
-    }, 4000);
+      fetchHistory(true); // silent=true → update background tanpa loader
+    }, 5000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -77,18 +77,24 @@ export default function JoinChallenge() {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchHistory = async () => {
-    setHistoryLoading(true);
+  const fetchHistory = async (silent = false) => {
+    // silent=true → tidak tampil loader (untuk polling background)
+    if (!silent) setHistoryLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/challenges/my-history`, { credentials: "include" });
       if (res.ok) {
         const data: ExamHistory[] = await res.json();
-        setHistory(data);
+        // Hanya update state jika data benar-benar berubah (cegah re-render tidak perlu)
+        setHistory(prev => {
+          const prevStr = JSON.stringify(prev.map(h => ({ id: h.id, status: h.status, grade: h.grade })));
+          const nextStr = JSON.stringify(data.map(h => ({ id: h.id, status: h.status, grade: h.grade })));
+          return prevStr === nextStr ? prev : data;
+        });
       }
     } catch (err) {
       console.error("Gagal load history:", err);
     } finally {
-      setHistoryLoading(false);
+      if (!silent) setHistoryLoading(false);
     }
   };
 
@@ -170,13 +176,13 @@ export default function JoinChallenge() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex text-foreground">
+    <div className="h-screen bg-background flex text-foreground overflow-hidden">
       <Helmet>
         <title>Bergabung Ujian – AI Coding Assistant</title>
       </Helmet>
 
       {/* ── Panel Kiri: Riwayat Ujian ── */}
-      <div className="w-80 min-h-screen border-r border-border/50 bg-card/40 backdrop-blur-sm flex flex-col shrink-0">
+      <div className="w-80 h-screen border-r border-border/50 bg-card/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
         {/* Header Panel */}
         <div className="p-5 border-b border-border/40 bg-card">
           <div className="flex items-center gap-2 mb-4">

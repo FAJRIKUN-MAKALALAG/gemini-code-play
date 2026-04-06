@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Loader2, ArrowLeft, KeySquare, History,
-  CheckCircle2, Clock, Star, BookOpen, Trophy, AlertTriangle
+  CheckCircle2, Clock, Star, BookOpen, Trophy,
+  AlertTriangle, PlayCircle, Timer
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -16,7 +17,6 @@ interface ExamHistory {
   id: string;
   status: 'in_progress' | 'submitted';
   grade: number | null;
-  graded_at: string | null;
   submitted_at: string | null;
   created_at: string;
   student_name: string;
@@ -30,6 +30,18 @@ interface ExamHistory {
   };
 }
 
+// Hitung sisa waktu ujian berdasarkan created_at dan time_limit_minutes
+function calcTimeRemaining(createdAt: string, timeLimitMinutes: number | null): string | null {
+  if (!timeLimitMinutes) return null;
+  const endTime = new Date(createdAt).getTime() + timeLimitMinutes * 60 * 1000;
+  const diff = endTime - Date.now();
+  if (diff <= 0) return "Waktu Habis";
+  const totalSecs = Math.floor(diff / 1000);
+  const m = Math.floor(totalSecs / 60);
+  const s = totalSecs % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} tersisa`;
+}
+
 export default function JoinChallenge() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,14 +51,22 @@ export default function JoinChallenge() {
   const [studentName, setStudentName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // History state
   const [history, setHistory] = useState<ExamHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Ticker untuk update sisa waktu setiap detik
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!user) { navigate("/"); return; }
     fetchHistory();
   }, [user, navigate]);
+
+  // Tick setiap detik untuk update sisa waktu
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchHistory = async () => {
     setHistoryLoading(true);
@@ -92,7 +112,7 @@ export default function JoinChallenge() {
       });
 
       if (joinRes.ok) {
-        toast({ title: "Berhasil!", description: "Membuka halaman evaluasi...", duration: 2000 });
+        toast({ title: "Berhasil!", description: "Membuka halaman ujian...", duration: 2000 });
         navigate(`/challenges/solve/${challenge.id}`);
       } else {
         const joinErr = await joinRes.json();
@@ -106,18 +126,35 @@ export default function JoinChallenge() {
     }
   };
 
+  // Langsung masuk ke halaman solve untuk lanjutkan ujian in_progress
+  const handleResume = (item: ExamHistory) => {
+    // Cek apakah waktu sudah habis
+    if (item.challenges.time_limit_minutes) {
+      const endTime = new Date(item.created_at).getTime() + item.challenges.time_limit_minutes * 60 * 1000;
+      if (Date.now() > endTime + 60000) { // +60s toleransi
+        toast({
+          title: "Waktu Telah Habis",
+          description: "Waktu pengerjaan ujian ini sudah berakhir. Jawaban kamu akan otomatis tersimpan.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    navigate(`/challenges/solve/${item.challenge_id}`);
+  };
+
   const getGradeStyle = (grade: number | null) => {
-    if (grade === null || grade === undefined) return { bg: "bg-muted/50 text-muted-foreground", label: "Menunggu Penilaian" };
-    if (grade >= 80) return { bg: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30", label: `${grade} / 100` };
-    if (grade >= 60) return { bg: "bg-blue-500/10 text-blue-500 border-blue-500/30", label: `${grade} / 100` };
-    if (grade >= 40) return { bg: "bg-amber-500/10 text-amber-500 border-amber-500/30", label: `${grade} / 100` };
-    return { bg: "bg-red-500/10 text-red-500 border-red-500/30", label: `${grade} / 100` };
+    if (grade === null || grade === undefined) return { bg: "bg-muted/50 text-muted-foreground border-transparent" };
+    if (grade >= 80) return { bg: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" };
+    if (grade >= 60) return { bg: "bg-blue-500/10 text-blue-500 border-blue-500/30" };
+    if (grade >= 40) return { bg: "bg-amber-500/10 text-amber-500 border-amber-500/30" };
+    return { bg: "bg-red-500/10 text-red-500 border-red-500/30" };
   };
 
   const stats = {
     total: history.length,
     submitted: history.filter(h => h.status === 'submitted').length,
-    graded: history.filter(h => h.grade !== null).length,
+    inProgress: history.filter(h => h.status === 'in_progress').length,
     avgGrade: history.filter(h => h.grade !== null).length > 0
       ? Math.round(history.filter(h => h.grade !== null).reduce((sum, h) => sum + (h.grade || 0), 0) / history.filter(h => h.grade !== null).length)
       : null,
@@ -138,6 +175,11 @@ export default function JoinChallenge() {
               <History className="w-4 h-4 text-indigo-500" />
             </div>
             <h2 className="font-bold text-sm">Riwayat Ujian Saya</h2>
+            {stats.inProgress > 0 && (
+              <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold border border-amber-500/20 animate-pulse">
+                {stats.inProgress} aktif
+              </span>
+            )}
           </div>
 
           {/* Stats mini */}
@@ -177,16 +219,26 @@ export default function JoinChallenge() {
             history.map((item) => {
               const gradeStyle = getGradeStyle(item.grade);
               const isSubmitted = item.status === 'submitted';
+              const isInProgress = item.status === 'in_progress';
               const hasCheat = (item.cheats_detected || 0) > 0;
+              const timeLimit = item.challenges?.time_limit_minutes;
+              const sisaWaktu = isInProgress ? calcTimeRemaining(item.created_at, timeLimit) : null;
+              const waktuHabis = sisaWaktu === "Waktu Habis";
 
               return (
                 <div
                   key={item.id}
-                  className="bg-background/60 border border-border/40 rounded-xl p-3 hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all"
+                  className={`border rounded-xl p-3 transition-all ${
+                    isInProgress && !waktuHabis
+                      ? 'bg-amber-500/5 border-amber-500/30 shadow-sm shadow-amber-500/10'
+                      : 'bg-background/60 border-border/40 hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                  }`}
                 >
                   {/* Judul Soal */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="text-sm font-semibold leading-tight line-clamp-2 flex-1">{item.challenges?.title || "Soal Ujian"}</p>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <p className="text-sm font-semibold leading-tight line-clamp-2 flex-1">
+                      {item.challenges?.title || "Soal Ujian"}
+                    </p>
                     {hasCheat && (
                       <span className="shrink-0 flex items-center gap-1 bg-red-500/10 text-red-500 text-[9px] px-1 py-0.5 rounded font-bold">
                         <AlertTriangle className="w-2.5 h-2.5" /> {item.cheats_detected}
@@ -199,29 +251,58 @@ export default function JoinChallenge() {
                     ROOM: <span className="text-indigo-500 font-bold">{item.challenges?.room_code}</span>
                   </p>
 
-                  {/* Status & Tanggal */}
+                  {/* Status bar */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`flex items-center gap-1 text-[10px] font-semibold ${isSubmitted ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {isSubmitted ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                      {isSubmitted ? 'Selesai' : 'Belum Selesai'}
+                    <span className={`flex items-center gap-1 text-[10px] font-semibold ${
+                      isSubmitted ? 'text-emerald-500' : waktuHabis ? 'text-red-500' : 'text-amber-500'
+                    }`}>
+                      {isSubmitted
+                        ? <><CheckCircle2 className="w-3 h-3" /> Selesai</>
+                        : waktuHabis
+                          ? <><AlertTriangle className="w-3 h-3" /> Waktu Habis</>
+                          : <><Clock className="w-3 h-3" /> Sedang Berlangsung</>
+                      }
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
                     </span>
                   </div>
 
-                  {/* Badge Nilai */}
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold justify-center ${gradeStyle.bg}`}>
-                    <Star className="w-3 h-3" />
-                    {item.grade !== null ? `Nilai: ${gradeStyle.label}` : 'Menunggu Penilaian'}
-                  </div>
+                  {/* Sisa Waktu (jika in_progress dan belum habis) */}
+                  {isInProgress && sisaWaktu && !waktuHabis && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600 bg-amber-500/10 px-2 py-1 rounded-lg mb-2 font-bold">
+                      <Timer className="w-3 h-3" />
+                      {sisaWaktu}
+                    </div>
+                  )}
+
+                  {/* Tombol Lanjutkan (in_progress) atau Badge Nilai (submitted) */}
+                  {isInProgress && !waktuHabis ? (
+                    <button
+                      onClick={() => handleResume(item)}
+                      className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm shadow-amber-500/20 active:scale-95"
+                    >
+                      <PlayCircle className="w-3.5 h-3.5" />
+                      Lanjutkan Ujian
+                    </button>
+                  ) : isSubmitted ? (
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold justify-center ${gradeStyle.bg}`}>
+                      <Star className="w-3 h-3" />
+                      {item.grade !== null ? `Nilai: ${item.grade} / 100` : 'Menunggu Penilaian'}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-bold justify-center">
+                      <AlertTriangle className="w-3 h-3" />
+                      Waktu Ujian Berakhir
+                    </div>
+                  )}
                 </div>
               );
             })
           )}
         </div>
 
-        {/* Footer: Tombol Kembali */}
+        {/* Footer */}
         <div className="p-4 border-t border-border/40">
           <Link to="/">
             <Button variant="ghost" className="w-full rounded-xl gap-2" size="sm">
@@ -282,7 +363,7 @@ export default function JoinChallenge() {
             </div>
           </div>
 
-          {/* Trophy jika ada nilai bagus */}
+          {/* Trophy jika rata-rata bagus */}
           {stats.avgGrade !== null && stats.avgGrade >= 80 && (
             <div className="mt-6 flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-4 py-2 rounded-xl border border-amber-500/20">
               <Trophy className="w-4 h-4" />

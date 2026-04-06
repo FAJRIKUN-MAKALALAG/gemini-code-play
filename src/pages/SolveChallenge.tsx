@@ -35,6 +35,7 @@ export default function SolveChallenge() {
   const [skulptReady, setSkulptReady] = useState(false);
   const [cheatsDetected, setCheatsDetected] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null); // Pesan error jika diblokir
   
   const [endTime, setEndTime] = useState<number | null>(null);
   const [timeRemainingStr, setTimeRemainingStr] = useState<string>("");
@@ -79,18 +80,35 @@ export default function SolveChallenge() {
   const loadData = async () => {
     try {
       // Ambil detail soal
-      const [chRes, joinRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/challenges/${challengeId}`, { credentials: "include" }),
-        fetch(`${API_BASE_URL}/challenges/${challengeId}/join`, { method: "POST", credentials: "include" })
-      ]);
-
-      if (!chRes.ok || !joinRes.ok) {
-        toast({ title: "Gagal Membuka Ujian", description: "Terjadi kesalahan atau Anda sudah pernah submit.", variant: "destructive" });
-        navigate("/");
+      const chRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}`, { credentials: "include" });
+      if (!chRes.ok) {
+        toast({ title: "Gagal", description: "Soal tidak ditemukan.", variant: "destructive" });
+        navigate("/challenges/join");
         return;
       }
-
       const chData = await chRes.json();
+
+      // Join (atau lanjutkan jika in_progress)
+      const joinRes = await fetch(`${API_BASE_URL}/challenges/${challengeId}/join`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      if (!joinRes.ok) {
+        const errData = await joinRes.json().catch(() => ({}));
+
+        if (joinRes.status === 403) {
+          // Sudah submit → blokir dengan pesan
+          setBlocked(errData.error || "Anda sudah mensubmit jawaban untuk ujian ini.");
+          setLoading(false);
+          return;
+        }
+
+        // Error lain (500, dsb)
+        toast({ title: "Gagal Membuka Ujian", description: errData.error || "Terjadi kesalahan.", variant: "destructive" });
+        navigate("/challenges/join");
+        return;
+      }
       const joinData = await joinRes.json();
 
       setChallenge(chData);
@@ -262,6 +280,28 @@ export default function SolveChallenge() {
       <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
         <h2 className="ml-4 text-xl font-bold">Menyiapkan Environment Ujian...</h2>
+      </div>
+    );
+  }
+
+  // Tampilan jika sudah submit / diblokir
+  if (blocked) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-background p-6 gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8 text-red-500" />
+        </div>
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-bold text-red-500 mb-2">Akses Ditolak</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">{blocked}</p>
+        </div>
+        <Button
+          onClick={() => navigate("/challenges/join")}
+          variant="outline"
+          className="gap-2"
+        >
+          Kembali ke Halaman Ujian
+        </Button>
       </div>
     );
   }

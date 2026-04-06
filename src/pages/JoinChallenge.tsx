@@ -62,6 +62,15 @@ export default function JoinChallenge() {
     fetchHistory();
   }, [user, navigate]);
 
+  // Polling real-time setiap 4 detik untuk update nilai / status terbaru
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchHistory();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   // Tick setiap detik untuk update sisa waktu
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 1000);
@@ -203,8 +212,15 @@ export default function JoinChallenge() {
           )}
         </div>
 
-        {/* List Riwayat */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {/* List Riwayat — scrollable dengan custom scrollbar */}
+        <div className="relative flex-1 min-h-0">
+          <div
+            className="h-full overflow-y-auto p-3 space-y-2 scroll-smooth"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'hsl(var(--border)) transparent',
+            }}
+          >
           {historyLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
@@ -300,7 +316,13 @@ export default function JoinChallenge() {
               );
             })
           )}
-        </div>
+          </div>{/* end inner scroll div */}
+
+          {/* Fade gradient di bawah untuk indikasi ada konten lebih */}
+          {history.length > 3 && (
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card/80 to-transparent rounded-b-sm" />
+          )}
+        </div>{/* end outer relative div */}
 
         {/* Footer */}
         <div className="p-4 border-t border-border/40">

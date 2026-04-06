@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, User, AlertTriangle,
-  CheckCircle2, Clock, TerminalSquare, Star, Save
+  CheckCircle2, Clock, TerminalSquare, Star, Save, Pencil, X
 } from "lucide-react";
 import { NotebookEditor } from "@/components/NotebookEditor";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -30,6 +30,7 @@ export default function ReviewAnswers() {
   // Grade state
   const [gradeInput, setGradeInput] = useState<string>("");
   const [savingGrade, setSavingGrade] = useState(false);
+  const [isEditingGrade, setIsEditingGrade] = useState(false);
 
   // Ref to keep selected answer ID when polling merges fresh data
   const selectedIdRef = useRef<string | null>(null);
@@ -109,6 +110,8 @@ export default function ReviewAnswers() {
     setEditorKey(prev => prev + 1);
     // Set grade input dari data DB
     setGradeInput(ans.grade !== null && ans.grade !== undefined ? String(ans.grade) : "");
+    // Reset mode edit saat ganti peserta
+    setIsEditingGrade(false);
   };
 
   const handleSaveGrade = async () => {
@@ -135,6 +138,7 @@ export default function ReviewAnswers() {
       setSelectedAnswer(updated);
       selectedIdRef.current = updated.id;
       setAnswers(prev => prev.map(a => a.id === updated.id ? { ...a, grade: gradeNum } : a));
+      setIsEditingGrade(false); // Kembali ke mode tampil
 
       toast({ title: "✅ Nilai Tersimpan!", description: `Nilai ${gradeNum} berhasil disimpan untuk ${getUserName(selectedAnswer)}.` });
     } catch (err: any) {
@@ -291,46 +295,73 @@ export default function ReviewAnswers() {
                     </span>
                   </div>
 
-                  {/* ── Row Pemberian Nilai ── */}
-                  <div className="px-6 py-3 border-t border-border/30 bg-secondary/5 flex items-center gap-4">
+                  {/* ── Row Pemberian / Edit Nilai ── */}
+                  <div className="px-6 py-3 border-t border-border/30 bg-secondary/5 flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2 shrink-0">
                       <Star className="w-4 h-4 text-amber-500" />
                       <span className="text-sm font-semibold">Nilai:</span>
                     </div>
 
-                    {/* Badge nilai saat ini */}
-                    {selectedAnswer.grade !== null && selectedAnswer.grade !== undefined ? (
-                      <span className={`px-3 py-1 rounded-xl text-sm font-black ${getGradeBadgeStyle(selectedAnswer.grade)}`}>
-                        {selectedAnswer.grade} / 100
-                      </span>
-                    ) : (
+                    {/* Mode tampil: sudah ada nilai */}
+                    {!isEditingGrade && selectedAnswer.grade !== null && selectedAnswer.grade !== undefined ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-xl text-sm font-black ${getGradeBadgeStyle(selectedAnswer.grade)}`}>
+                          {selectedAnswer.grade} / 100
+                        </span>
+                        {/* Tombol Edit */}
+                        <button
+                          onClick={() => {
+                            setGradeInput(String(selectedAnswer.grade));
+                            setIsEditingGrade(true);
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground text-[11px] font-semibold transition-all border border-border/50"
+                          title="Edit nilai"
+                        >
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                      </div>
+                    ) : !isEditingGrade ? (
+                      /* Mode tampil: belum ada nilai */
                       <span className="text-xs text-muted-foreground italic">Belum dinilai</span>
-                    )}
+                    ) : null}
 
-                    <div className="flex items-center gap-2 ml-auto">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        placeholder="0 – 100"
-                        value={gradeInput}
-                        onChange={e => setGradeInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSaveGrade()}
-                        className="w-24 h-8 bg-background border border-border/60 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={handleSaveGrade}
-                        disabled={savingGrade || gradeInput === ""}
-                        className="h-8 bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5 text-xs font-bold"
-                      >
-                        {savingGrade
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Save className="w-3.5 h-3.5" />
-                        }
-                        Simpan Nilai
-                      </Button>
-                    </div>
+                    {/* Mode Edit / Input */}
+                    {(isEditingGrade || (selectedAnswer.grade === null || selectedAnswer.grade === undefined)) && (
+                      <div className="flex items-center gap-2 ml-auto">
+                        {isEditingGrade && (
+                          <button
+                            onClick={() => setIsEditingGrade(false)}
+                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                            title="Batal"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          placeholder="0 – 100"
+                          value={gradeInput}
+                          onChange={e => setGradeInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveGrade()}
+                          autoFocus={isEditingGrade}
+                          className="w-24 h-8 bg-background border border-border/60 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleSaveGrade}
+                          disabled={savingGrade || gradeInput === ""}
+                          className="h-8 bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5 text-xs font-bold"
+                        >
+                          {savingGrade
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Save className="w-3.5 h-3.5" />
+                          }
+                          {isEditingGrade ? 'Perbarui Nilai' : 'Simpan Nilai'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

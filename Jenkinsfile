@@ -60,6 +60,39 @@ pipeline {
                     # RSync hasil build (folder dist) ke folder Nginx
                     # Pastikan folder /dist ada (Vite defaultnya dist)
                     rsync -av --delete ./dist/ ${FRONTEND_DIR}/
+
+                    # Tulis konfigurasi Nginx dengan SPA fallback
+                    # try_files memastikan refresh manual di halaman manapun tetap berfungsi
+                    cat > /etc/nginx/sites-available/${FRONTEND_DOMAIN} << 'NGINX_EOF'
+server {
+    listen 80;
+    server_name unklab-aicode.online www.unklab-aicode.online;
+    root /var/www/frontend;
+    index index.html;
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+    gzip_min_length 1000;
+
+    # Cache aset statis (js, css, img)
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # SPA fallback — WAJIB agar refresh manual tidak 404
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+NGINX_EOF
+
+                    # Aktifkan site jika belum
+                    ln -sf /etc/nginx/sites-available/${FRONTEND_DOMAIN} /etc/nginx/sites-enabled/${FRONTEND_DOMAIN} 2>/dev/null || true
+
+                    # Tes konfigurasi Nginx sebelum reload
+                    nginx -t && systemctl reload nginx
                 """
             }
         }

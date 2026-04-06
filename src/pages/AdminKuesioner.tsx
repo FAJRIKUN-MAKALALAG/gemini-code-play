@@ -8,6 +8,7 @@ import {
 import { kuesionerService, AdminKuesionerStats, KuesionerResponse } from "@/services/kuesionerService";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 // ─── Label pertanyaan ─────────────────────────────────────────────────────────
 const PERTANYAAN_LABEL = [
@@ -132,17 +133,42 @@ const AdminKuesioner = () => {
     }
   }, [isAdmin]);
 
-  // ── Real-time polling ───────────────────────────────────────────────────────
+  // ── Real-time Supabase Subscription ─────────────────────────────────────────
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (authChecked && isAdmin) {
-      // Poll setiap 5 detik
-      interval = setInterval(() => {
-        loadDataSilently();
-      }, 5000);
-    }
+    let isSubscribed = true;
+    let channel: any;
+
+    const setupRealtime = async () => {
+      if (authChecked && isAdmin) {
+        try {
+          const supabase = await getSupabaseClient();
+          channel = supabase
+            .channel('admin-kuesioner-realtime')
+            .on(
+              'postgres_changes',
+              { event: 'INSERT', schema: 'public', table: 'kuesioner_responses' },
+              (payload) => {
+                console.log('Realtime change received!', payload);
+                // Langsung fetch ulang data di backgroud jika ada submit baru!
+                loadDataSilently();
+              }
+            )
+            .subscribe((status) => {
+              console.log('Supabase realtime status:', status);
+            });
+        } catch (err) {
+          console.error("Gagal setup Supabase realtime:", err);
+        }
+      }
+    };
+
+    setupRealtime();
+
     return () => {
-      if (interval) clearInterval(interval);
+      isSubscribed = false;
+      if (channel) {
+        channel.unsubscribe();
+      }
     };
   }, [authChecked, isAdmin, loadDataSilently]);
 

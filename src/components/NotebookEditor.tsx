@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Loader2, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight,
   Sparkles, Bug, BookOpen, Download, Upload, X, Zap, Square,
-  Save, Share, CheckCircle2, AlertCircle, Target, Sparkles as SparklesIcon,
+  Save, Share, CheckCircle2, AlertCircle, Target, Sparkles as SparklesIcon, Copy,
 } from "lucide-react";
 import {
   Dialog,
@@ -58,7 +58,7 @@ interface NotebookEditorProps {
   /** Sends AI result directly as assistant message — isPass=true membuka AI chat setelah tantangan lulus */
   onSendAIResult?: (message: string, usage?: { inputTokens: number; outputTokens: number }, isPass?: boolean) => void;
   /** Called when user clicks Save — should persist code to DB */
-  onSaveCode?: (code: string) => Promise<{ success: boolean; id?: string }>;
+  onSaveCode?: (code: string, mode?: "save" | "share") => Promise<{ success: boolean; id?: string }>;
   isRuntimeReady?: boolean;
   disableAI?: boolean;
 }
@@ -122,6 +122,8 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
   const [isGeneratingChallenge, setIsGeneratingChallenge] = useState(false);
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [customTopic, setCustomTopic] = useState("");
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   const [cells, setCells] = useState<Cell[]>(() => parseNotebookCode(code));
   const [activeCell, setActiveCell] = useState<string>(cells[0]?.id || "");
@@ -304,16 +306,12 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     const serialized = serializeNotebook(cells);
     setSaveStatus("saving");
     try {
-      const result = await onSaveCode(serialized);
+      const result = await onSaveCode(serialized, "share");
       if (result.success && result.id) {
         setSaveStatus("saved");
-        const shareUrl = `${window.location.origin}/share/${result.id}`;
-        await navigator.clipboard.writeText(shareUrl);
-        toast({
-          title: "🔗 Link Tersalin!",
-          description: "Link pengerjaan kamu sudah dikopi ke clipboard. Bagikan ke temanmu!",
-          duration: 4000,
-        });
+        const generatedUrl = `${window.location.origin}/share/${result.id}`;
+        setShareUrl(generatedUrl);
+        setShowShareDialog(true);
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
       } else {
@@ -960,6 +958,40 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
           Add cell
         </button>
       </div>
+
+      {/* ── Share Link Dialog ── */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share className="w-5 h-5 text-emerald-500" />
+              Bagikan Kode
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Link pengerjaan (Berlaku selamanya)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 bg-secondary/50 font-mono text-xs"
+                />
+                <Button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl);
+                    toast({ title: "🔗 Tersalin!", description: "Link telah dikopi ke clipboard." });
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Challenge Customization Dialog ── */}
       <Dialog open={showChallengeDialog} onOpenChange={setShowChallengeDialog}>

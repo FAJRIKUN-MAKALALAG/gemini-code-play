@@ -95,7 +95,7 @@ const Index = () => {
   };
 
   // ── Save code to DB ─────────────────────────────────────────────────────
-  const handleSaveCode = async (codeToSave: string): Promise<{ success: boolean; id?: string }> => {
+  const handleSaveCode = async (codeToSave: string, mode?: "save" | "share"): Promise<{ success: boolean; id?: string }> => {
     const user = authService.getUser();
     if (!user) {
       toast({
@@ -106,16 +106,19 @@ const Index = () => {
       return { success: false };
     }
 
-    // Grab the active conversation ID, or auto-create one if none exists
-    const title = `Snippet Kode — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    let conversationId = await chatRef.current?.getOrCreateConversationId(title);
+    // Grab the active conversation ID, or auto-create one if none exists (only if not sharing)
+    let conversationId: string | undefined = undefined;
+    if (mode !== "share") {
+      const title = `Snippet Kode — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      conversationId = (await chatRef.current?.getOrCreateConversationId(title)) || undefined;
+    }
 
     const { error, data } = await backendService.saveCodeSnippet(
       user.id,
       codeToSave,
       "python",
-      conversationId || undefined,
-      `Manual save — ${new Date().toLocaleTimeString()}`
+      conversationId,
+      mode === "share" ? `Shared Code — ${new Date().toLocaleString()}` : `Manual save — ${new Date().toLocaleTimeString()}`
     );
 
     if (error) {

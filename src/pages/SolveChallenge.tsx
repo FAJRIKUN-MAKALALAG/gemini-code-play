@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, ShieldAlert, Timer } from "lucide-react";
+import { Loader2, AlertTriangle, ShieldAlert, Timer, ZoomIn, X } from "lucide-react";
 import { NotebookEditor } from "@/components/NotebookEditor";
 import { loadSkulpt } from "@/utils/skulptRunner";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -32,6 +32,7 @@ export default function SolveChallenge() {
   const [code, setCode] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
   const [activeQuestion, setActiveQuestion] = useState(0); // index
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [skulptReady, setSkulptReady] = useState(false);
@@ -321,6 +322,21 @@ export default function SolveChallenge() {
         <title>Ujian Aktif - AI Coding Assistant</title>
       </Helmet>
 
+      {/* Image Fullscreen Overlay */}
+      {fullscreenImage && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setFullscreenImage(null)}>
+          <div className="relative max-w-full max-h-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setFullscreenImage(null)}
+              className="absolute -top-12 right-0 sm:-right-12 bg-white/10 hover:bg-red-500 transition-colors text-white rounded-full p-2 z-50 backdrop-blur-md"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img src={fullscreenImage} alt="Fullscreen view" className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+          </div>
+        </div>
+      )}
+
       {/* Dialog Peringatan Anti-Cheat */}
       <AlertDialog open={!!cheatWarning} onOpenChange={() => !submitting && setCheatWarning(null)}>
         <AlertDialogContent>
@@ -488,11 +504,21 @@ export default function SolveChallenge() {
 
                       {/* Gambar deskripsi */}
                       {questions[activeQuestion].description_image_url && (
-                        <img
-                          src={questions[activeQuestion].description_image_url}
-                          alt={`Gambar soal ${questions[activeQuestion].nomor}`}
-                          className="w-full max-h-64 rounded-xl border border-border/40 object-contain bg-black/20"
-                        />
+                        <div 
+                          className="relative group rounded-xl border border-border/40 overflow-hidden bg-black/20 mt-4 cursor-pointer" 
+                          onClick={() => setFullscreenImage(questions[activeQuestion].description_image_url)}
+                        >
+                          <img
+                            src={questions[activeQuestion].description_image_url}
+                            alt={`Gambar soal ${questions[activeQuestion].nomor}`}
+                            className="w-full h-auto max-h-96 object-contain"
+                          />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                            <div className="bg-orange-500 hover:bg-orange-600 transition-colors text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg transform scale-95 group-hover:scale-100 duration-200">
+                              <ZoomIn className="w-5 h-5" /> Perbesar Gambar
+                            </div>
+                          </div>
+                        </div>
                       )}
 
                       {/* Expected output */}
@@ -503,11 +529,21 @@ export default function SolveChallenge() {
                             <pre className="bg-black/50 p-4 rounded-xl border border-border/30 text-green-400 font-mono text-xs whitespace-pre-wrap">{questions[activeQuestion].expected_output}</pre>
                           )}
                           {questions[activeQuestion].expected_output_image_url && (
-                            <img
-                              src={questions[activeQuestion].expected_output_image_url}
-                              alt="Expected output"
-                              className="mt-2 max-h-48 rounded-xl border border-border/40 object-contain bg-black/20"
-                            />
+                            <div 
+                              className="relative group rounded-xl border border-border/40 overflow-hidden bg-black/20 mt-3 cursor-pointer inline-block" 
+                              onClick={() => setFullscreenImage(questions[activeQuestion].expected_output_image_url)}
+                            >
+                              <img
+                                src={questions[activeQuestion].expected_output_image_url}
+                                alt="Expected output"
+                                className="w-full max-h-72 object-contain"
+                              />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                <div className="bg-orange-500 hover:bg-orange-600 transition-colors text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transform scale-95 group-hover:scale-100 duration-200">
+                                  <ZoomIn className="w-4 h-4" /> Perbesar
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}

@@ -27,8 +27,9 @@ export default function ReviewAnswers() {
   const [skulptReady, setSkulptReady] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
 
-  // Grade state
+  // Grade & Comment state
   const [gradeInput, setGradeInput] = useState<string>("");
+  const [commentInput, setCommentInput] = useState<string>("");
   const [savingGrade, setSavingGrade] = useState(false);
   const [isEditingGrade, setIsEditingGrade] = useState(false);
 
@@ -59,11 +60,14 @@ export default function ReviewAnswers() {
           const refreshed = fresh.find(a => a.id === selectedIdRef.current);
           if (refreshed) {
             setSelectedAnswer(refreshed);
-            // Update grade input only if user hasn't started typing
+            // Update grade & comment input only if user hasn't started typing
             setGradeInput(prev => {
               const dbGrade = refreshed.grade !== null && refreshed.grade !== undefined ? String(refreshed.grade) : "";
-              // Only auto-update if input is empty (user hasn't touched it yet)
               return prev === "" ? dbGrade : prev;
+            });
+            setCommentInput(prev => {
+              const dbComment = refreshed.teacher_comment || "";
+              return prev === "" ? dbComment : prev;
             });
           }
         }
@@ -108,8 +112,9 @@ export default function ReviewAnswers() {
     selectedIdRef.current = ans.id;
     setSelectedAnswer(ans);
     setEditorKey(prev => prev + 1);
-    // Set grade input dari data DB
+    // Set grade & comment input dari data DB
     setGradeInput(ans.grade !== null && ans.grade !== undefined ? String(ans.grade) : "");
+    setCommentInput(ans.teacher_comment || "");
     // Reset mode edit saat ganti peserta
     setIsEditingGrade(false);
   };
@@ -128,16 +133,16 @@ export default function ReviewAnswers() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ grade: gradeNum }),
+        body: JSON.stringify({ grade: gradeNum, teacher_comment: commentInput }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan nilai.");
 
       // Update local state langsung tanpa nunggu polling
-      const updated = { ...selectedAnswer, grade: gradeNum };
+      const updated = { ...selectedAnswer, grade: gradeNum, teacher_comment: commentInput };
       setSelectedAnswer(updated);
       selectedIdRef.current = updated.id;
-      setAnswers(prev => prev.map(a => a.id === updated.id ? { ...a, grade: gradeNum } : a));
+      setAnswers(prev => prev.map(a => a.id === updated.id ? { ...a, grade: gradeNum, teacher_comment: commentInput } : a));
       setIsEditingGrade(false); // Kembali ke mode tampil
 
       toast({ title: "✅ Nilai Tersimpan!", description: `Nilai ${gradeNum} berhasil disimpan untuk ${getUserName(selectedAnswer)}.` });
@@ -308,14 +313,21 @@ export default function ReviewAnswers() {
                         <span className={`px-3 py-1 rounded-xl text-sm font-black ${getGradeBadgeStyle(selectedAnswer.grade)}`}>
                           {selectedAnswer.grade} / 100
                         </span>
+                        {/* Tampil Komentar */}
+                        {selectedAnswer.teacher_comment && (
+                           <div className="ml-4 px-3 py-1 bg-background border border-border/50 text-[11px] rounded-lg italic text-muted-foreground flex items-center gap-1.5 max-w-[250px] truncate" title={selectedAnswer.teacher_comment}>
+                             💬 {selectedAnswer.teacher_comment}
+                           </div>
+                        )}
                         {/* Tombol Edit */}
                         <button
                           onClick={() => {
                             setGradeInput(String(selectedAnswer.grade));
+                            setCommentInput(selectedAnswer.teacher_comment || "");
                             setIsEditingGrade(true);
                           }}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground text-[11px] font-semibold transition-all border border-border/50"
-                          title="Edit nilai"
+                          className="ml-2 flex items-center gap-1 px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground text-[11px] font-semibold transition-all border border-border/50"
+                          title="Edit nilai dan komentar"
                         >
                           <Pencil className="w-3 h-3" /> Edit
                         </button>
@@ -327,7 +339,7 @@ export default function ReviewAnswers() {
 
                     {/* Mode Edit / Input */}
                     {(isEditingGrade || (selectedAnswer.grade === null || selectedAnswer.grade === undefined)) && (
-                      <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex items-center gap-2 ml-auto w-full md:w-auto mt-2 md:mt-0">
                         {isEditingGrade && (
                           <button
                             onClick={() => setIsEditingGrade(false)}
@@ -346,19 +358,27 @@ export default function ReviewAnswers() {
                           onChange={e => setGradeInput(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleSaveGrade()}
                           autoFocus={isEditingGrade}
-                          className="w-24 h-8 bg-background border border-border/60 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all"
+                          className="w-24 h-8 bg-background border border-border/60 rounded-lg text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all shrink-0"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Masukkan komentar/masukan (opsional)..."
+                          value={commentInput}
+                          onChange={e => setCommentInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveGrade()}
+                          className="w-full md:w-64 h-8 px-3 bg-background border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/30 transition-all"
                         />
                         <Button
                           size="sm"
                           onClick={handleSaveGrade}
                           disabled={savingGrade || gradeInput === ""}
-                          className="h-8 bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5 text-xs font-bold"
+                          className="h-8 bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1.5 text-xs font-bold shrink-0"
                         >
                           {savingGrade
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             : <Save className="w-3.5 h-3.5" />
                           }
-                          {isEditingGrade ? 'Perbarui Nilai' : 'Simpan Nilai'}
+                          {isEditingGrade ? 'Perbarui' : 'Simpan'}
                         </Button>
                       </div>
                     )}

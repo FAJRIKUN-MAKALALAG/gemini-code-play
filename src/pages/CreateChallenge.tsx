@@ -51,6 +51,7 @@ export default function CreateChallenge() {
   // ── Formulir buat ujian baru ──
   const [title, setTitle] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
+  const [maxTabSwitches, setMaxTabSwitches] = useState("2");
   const [creating, setCreating] = useState(false);
 
   // ── Daftar challenge ──
@@ -111,12 +112,18 @@ export default function CreateChallenge() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title, description: null, expected_output: null, time_limit_minutes: timeLimit ? parseInt(timeLimit) : null }),
+        body: JSON.stringify({ 
+          title, 
+          description: null, 
+          expected_output: null, 
+          time_limit_minutes: timeLimit ? parseInt(timeLimit) : null,
+          max_tab_switches: maxTabSwitches ? parseInt(maxTabSwitches) : 2
+        }),
       });
       if (res.ok) {
         const newChallenge = await res.json();
         toast({ title: "✅ Ujian Dibuat!", description: "Sekarang tambahkan soal-soal ujiannya." });
-        setTitle(""); setTimeLimit("");
+        setTitle(""); setTimeLimit(""); setMaxTabSwitches("2");
         await fetchChallenges();
         // Langsung buka panel soal untuk ujian baru
         setSelectedChallenge(newChallenge);
@@ -316,6 +323,10 @@ export default function CreateChallenge() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Batas Waktu (Menit) - Opsional</label>
                   <Input type="number" min="1" placeholder="Kosongkan = tak terbatas" value={timeLimit} onChange={e => setTimeLimit(e.target.value)} className="bg-background/50" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Maksimal Pindah Tab (Anti-Cheat)</label>
+                  <Input type="number" min="1" placeholder="Default: 2" value={maxTabSwitches} onChange={e => setMaxTabSwitches(e.target.value)} className="bg-background/50" />
                 </div>
                 <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold h-11" disabled={creating}>
                   {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Membuat...</> : "BUAT UJIAN"}

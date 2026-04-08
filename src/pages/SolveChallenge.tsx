@@ -176,11 +176,13 @@ export default function SolveChallenge() {
         cheatsRef.current = newCheats;
         setCheatsDetected(newCheats);
 
-        if (newCheats === 1) {
-          setCheatWarning(`⚠️ PERINGATAN SISTEM: Sistem mendeteksi pemindahan tab atau aplikasi. Ini adalah peringatan pertama. Jika Anda melakukannya lagi, ujian Anda akan OTOMATIS DIHENTIKAN!`);
+        const maxLimit = challenge?.max_tab_switches || 2;
+
+        if (newCheats < maxLimit) {
+          setCheatWarning(`⚠️ PERINGATAN SISTEM: Sistem mendeteksi pemindahan tab atau aplikasi. Ini adalah peringatan ${newCheats} dari ${maxLimit}. Jika Anda melewati batas, ujian Anda akan OTOMATIS DIHENTIKAN!`);
           saveProgress(codeRef.current, "in_progress", newCheats);
-        } else if (newCheats >= 2) {
-          setCheatWarning(`🚫 PELANGGARAN TERDETEKSI: Anda telah melanggar aturan ujian (pindah tab/app 2 kali). Jawaban Anda sedang disubmit secara otomatis...`);
+        } else if (newCheats >= maxLimit) {
+          setCheatWarning(`🚫 PELANGGARAN TERDETEKSI: Anda telah melanggar aturan ujian (pindah tab/app ${maxLimit} kali). Jawaban Anda sedang disubmit secara otomatis...`);
           await handleFinalSubmit(true);
         }
       }
@@ -190,7 +192,7 @@ export default function SolveChallenge() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [answerId]);
+  }, [answerId, challenge]);
 
   // 3. Anti-Copy Paste untuk elemen deskripsi soal
   useEffect(() => {
@@ -415,7 +417,7 @@ export default function SolveChallenge() {
 
           <div className="flex items-center gap-2 bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-xs font-bold font-mono border border-red-500/20">
             <AlertTriangle className="w-4 h-4" />
-            <span className="hidden sm:inline">PELANGGARAN:</span> {cheatsDetected}/2
+            <span className="hidden sm:inline">PELANGGARAN:</span> {cheatsDetected}/{challenge?.max_tab_switches || 2}
           </div>
           
           <Button 

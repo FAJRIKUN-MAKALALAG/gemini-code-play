@@ -20,6 +20,7 @@ interface ExamHistory {
   submitted_at: string | null;
   created_at: string;
   student_name: string;
+  teacher_comment: string | null;
   cheats_detected: number;
   challenge_id: string;
   challenges: {
@@ -308,12 +309,19 @@ export default function JoinChallenge() {
                       Lanjutkan Ujian
                     </button>
                   ) : isSubmitted ? (
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold justify-center ${gradeStyle.bg}`}>
-                      <Star className="w-3 h-3" />
-                      {item.grade !== null ? `Nilai: ${item.grade} / 100` : 'Menunggu Penilaian'}
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                       <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold justify-center ${gradeStyle.bg}`}>
+                         <Star className="w-3 h-3" />
+                         {item.grade !== null ? `Nilai: ${item.grade} / 100` : 'Menunggu Penilaian'}
+                       </div>
+                       {item.teacher_comment && (
+                         <div className="text-[10px] bg-background/50 border border-border/50 p-2 rounded-lg text-muted-foreground italic leading-tight shadow-inner">
+                           💬 <span className="font-semibold text-foreground/70">Komentar:</span> {item.teacher_comment}
+                         </div>
+                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-bold justify-center">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-bold justify-center mt-2">
                       <AlertTriangle className="w-3 h-3" />
                       Waktu Ujian Berakhir
                     </div>

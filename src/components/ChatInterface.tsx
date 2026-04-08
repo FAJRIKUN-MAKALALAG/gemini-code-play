@@ -706,7 +706,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           onSend={handleSend}
           onStop={() => {
             abortControllerRef.current?.abort();
+            // Langsung reset state tanpa nunggu finally di chatOnce
+            isLoadingRef.current = false;
+            setIsLoading(false);
             setAiStage('idle');
+            // Hapus placeholder kosong jika AI belum sempat mengetik
+            setMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
+              return prev;
+            });
           }}
           isLoading={isLoading}
           noApiKey={noApiKey}

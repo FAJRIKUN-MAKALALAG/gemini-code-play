@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Square } from "lucide-react";
+import { Send, X } from "lucide-react";
 
 interface ChatInputFormProps {
   onSend: (message: string) => void;
@@ -57,25 +57,23 @@ export function ChatInputForm({ onSend, onStop, isLoading, noApiKey }: ChatInput
             rows={1}
           />
 
-          {/* Stop button — hanya tampil saat AI sedang merespons */}
           {isLoading ? (
             <Button
               onClick={onStop}
               title="Hentikan respons AI"
-              className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center shrink-0
-                         bg-destructive text-destructive-foreground shadow-md
-                         hover:bg-destructive/80 active:scale-95
-                         transition-all duration-150"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center shrink-0 bg-muted text-muted-foreground hover:text-foreground transition-all duration-200"
             >
-              {/* Pulsing ring animation */}
-              <span className="absolute inset-0 rounded-xl animate-ping bg-destructive/40 pointer-events-none" />
-              <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current relative z-10" />
+              <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           ) : (
             <Button
               onClick={handleSend}
               disabled={!input.trim() || noApiKey}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${input.trim() && !noApiKey ? 'bg-primary text-primary-foreground shadow-md' : 'bg-muted text-muted-foreground'}`}
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl p-0 flex items-center justify-center transition-all duration-200 shrink-0 ${
+                input.trim() && !noApiKey
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'bg-muted text-muted-foreground'
+              }`}
             >
               <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
@@ -83,7 +81,7 @@ export function ChatInputForm({ onSend, onStop, isLoading, noApiKey }: ChatInput
         </div>
         <p className="text-[10px] text-center text-muted-foreground/40 mt-1.5 px-2 italic">
           {isLoading
-            ? "Klik tombol merah untuk menghentikan respons AI."
+            ? "Klik tombol untuk menghentikan respons AI."
             : "AI can make mistakes. Always verify important information."}
         </p>
       </div>

@@ -5,35 +5,33 @@ import { API_BASE_URL } from '@/config';
 const supabaseUrl = 'https://hiarbjpgiwxcyinhmzyo.supabase.co';
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
-let anonKeyCache: string | null = null;
+let serviceRoleKeyCache: string | null = null;
 
 /**
- * Fetch the Supabase anon key from the backend.
- * The anon key is safe to expose to the public client.
+ * Fetch the Supabase service role key from the backend.
  */
-async function getAnonKey(): Promise<string> {
-  if (anonKeyCache) return anonKeyCache;
+async function getServiceKey(): Promise<string> {
+  if (serviceRoleKeyCache) return serviceRoleKeyCache;
 
   const response = await fetch(`${API_BASE_URL}/config/supabase`);
   if (!response.ok) {
     throw new Error('Failed to fetch Supabase config from backend');
   }
   const data = await response.json();
-  if (!data.anonKey) {
-    throw new Error('Supabase anon key not returned from backend');
+  if (!data.serviceRoleKey) {
+    throw new Error('Supabase service role key not returned from backend');
   }
-  anonKeyCache = data.anonKey;
-  return data.anonKey;
+  serviceRoleKeyCache = data.serviceRoleKey;
+  return data.serviceRoleKey;
 }
 
 /**
  * Get or initialize the Supabase client.
- * Resolves lazily after fetching the anon key from the backend.
  */
 export async function getSupabaseClient(): Promise<ReturnType<typeof createClient>> {
   if (supabaseClient) return supabaseClient;
 
-  const anonKey = await getAnonKey();
-  supabaseClient = createClient(supabaseUrl, anonKey);
+  const serviceKey = await getServiceKey();
+  supabaseClient = createClient(supabaseUrl, serviceKey);
   return supabaseClient;
 }

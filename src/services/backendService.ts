@@ -235,12 +235,31 @@ class BackendService {
   // GET PUBLIC SHARED CODE
   async getSharedSnippet(id: string): Promise<{ data: CodeSnippet | null; error: Error | null }> {
     try {
-      // Endpoint public tanpa perlu Auth headers
+      // Endpoint public tanpa perlu Auth headers (sekarang baca dari shared_codes table)
       const response = await fetch(`${API_BASE_URL}/code/share/${id}`);
       if (!response.ok) {
-         if (response.status === 404) throw new Error('Code snippet tidak ditemukan.');
-         throw new Error('Gagal mengambil kode snippet.');
+         if (response.status === 404) throw new Error('Shared code tidak ditemukan.');
+         throw new Error('Gagal mengambil shared code.');
       }
+      const data = await response.json();
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  }
+
+  // CREATE PUBLIC SHARE LINK
+  async shareCode(code: string, language: string, title?: string): Promise<{ data: CodeSnippet | null; error: Error | null }> {
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL}/code/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeaders()
+        },
+        body: JSON.stringify({ code_content: code, language, title })
+      });
+      if (!response.ok) throw new Error(`Failed to create share link: ${response.statusText}`);
       const data = await response.json();
       return { data, error: null };
     } catch (error) {

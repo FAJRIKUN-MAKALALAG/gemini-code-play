@@ -111,33 +111,51 @@ const Index = () => {
     if (mode !== "share") {
       const title = `Snippet Kode — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       conversationId = (await chatRef.current?.getOrCreateConversationId(title)) || undefined;
-    }
 
-    const { error, data } = await backendService.saveCodeSnippet(
-      user.id,
-      codeToSave,
-      "python",
-      conversationId,
-      mode === "share" ? `Shared Code — ${new Date().toLocaleString()}` : `Manual save — ${new Date().toLocaleTimeString()}`
-    );
+      const { error, data } = await backendService.saveCodeSnippet(
+        user.id,
+        codeToSave,
+        "python",
+        conversationId,
+        `Manual save — ${new Date().toLocaleTimeString()}`
+      );
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Gagal menyimpan",
+          description: "Coba lagi atau periksa koneksi internet.",
+          variant: "destructive",
+        });
+        return { success: false };
+      }
+
       toast({
-        title: "Gagal menyimpan",
-        description: "Coba lagi atau periksa koneksi internet.",
-        variant: "destructive",
+        title: "✅ Kode tersimpan!",
+        description: conversationId
+          ? "Kode berhasil disimpan ke database, terhubung ke chat aktif."
+          : "Kode berhasil disimpan ke database.",
+        duration: 2500,
       });
-      return { success: false };
-    }
+      return { success: true, id: data?.id };
+    } else {
+      // MODE SHARE: Simpan ke table shared_codes agar permanen
+      const { error, data } = await backendService.shareCode(
+        codeToSave,
+        "python",
+        `Shared Code — ${new Date().toLocaleString()}`
+      );
 
-    toast({
-      title: "✅ Kode tersimpan!",
-      description: conversationId
-        ? "Kode berhasil disimpan ke database, terhubung ke chat aktif."
-        : "Kode berhasil disimpan ke database.",
-      duration: 2500,
-    });
-    return { success: true, id: data?.id };
+      if (error) {
+        toast({
+          title: "Gagal membagikan",
+          description: "Gagal membuat link share. Coba lagi.",
+          variant: "destructive",
+        });
+        return { success: false };
+      }
+
+      return { success: true, id: data?.id };
+    }
   };
 
   const handleRemoveChallenge = () => {

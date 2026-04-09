@@ -244,6 +244,8 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             kami.
           </p>
         </div>
+
+
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}

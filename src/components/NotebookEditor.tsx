@@ -19,7 +19,6 @@ import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { fetchUserApiKey, streamGeminiResponse } from "@/services/geminiService";
-import { streamGroqFallback } from "@/services/groqFallbackService";
 import { runPythonCode } from "@/utils/skulptRunner";
 import { v4 as uuidv4 } from "uuid";
 import { type CellSnapshot } from "@/utils/notebookContext";
@@ -467,13 +466,9 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
       inputTokens = result.usage.inputTokens;
       outputTokens = result.usage.outputTokens;
     } catch {
-      try {
-        fullText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
-      } catch {
-        toast({ title: "AI gagal generate kode", variant: "destructive" });
-        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
-        return;
-      }
+      toast({ title: "AI gagal generate kode", variant: "destructive" });
+      setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+      return;
     }
 
     const match = fullText.match(/```python\s*([\s\S]*?)```/);
@@ -524,14 +519,10 @@ Aturan:
       inputTokens = result.usage.inputTokens;
       outputTokens = result.usage.outputTokens;
     } catch {
-      try {
-        fullText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
-      } catch {
-        toast({ title: "Gagal membuat soal", variant: "destructive" });
-        setCells(prev => prev.filter(c => c.id !== newCell.id));
-        setIsGeneratingChallenge(false);
-        return;
-      }
+      toast({ title: "Gagal membuat soal", variant: "destructive" });
+      setCells(prev => prev.filter(c => c.id !== newCell.id));
+      setIsGeneratingChallenge(false);
+      return;
     }
 
     // Clean up markdown block if the AI returned it
@@ -569,13 +560,9 @@ Aturan:
       inputTokens = result.usage.inputTokens;
       outputTokens = result.usage.outputTokens;
     } catch {
-      try {
-        resultText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
-      } catch {
-        toast({ title: "AI gagal menjelaskan kode", variant: "destructive" });
-        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
-        return;
-      }
+      toast({ title: "AI gagal menjelaskan kode", variant: "destructive" });
+      setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+      return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
@@ -612,13 +599,9 @@ Aturan:
       inputTokens = result.usage.inputTokens;
       outputTokens = result.usage.outputTokens;
     } catch {
-      try {
-        resultText = await streamGroqFallback(messages, onChunk, new AbortController().signal);
-      } catch {
-        toast({ title: "AI gagal debug kode", variant: "destructive" });
-        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
-        return;
-      }
+      toast({ title: "AI gagal debug kode", variant: "destructive" });
+      setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+      return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
@@ -681,13 +664,9 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       inputTokens = result.usage.inputTokens;
       outputTokens = result.usage.outputTokens;
     } catch {
-      try {
-        resultText = await streamGroqFallback(messages, (chunk) => { resultText += chunk; }, new AbortController().signal);
-      } catch {
-        toast({ title: "Gagal verifikasi", variant: "destructive" });
-        setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
-        return;
-      }
+      toast({ title: "Gagal verifikasi", variant: "destructive" });
+      setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+      return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));

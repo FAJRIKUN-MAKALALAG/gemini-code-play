@@ -159,7 +159,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
 
   // ── Sliding Window — batasi history yang dikirim ke AI ─────────────────────
   // History lengkap tetap tampil di UI & tersimpan di DB.
-  // Hanya N pesan terakhir yang dikirim ke Gemini/Groq agar hemat token.
+  // Hanya N pesan terakhir yang dikirim ke Gemini agar hemat token.
   const CHAT_WINDOW_SIZE = 10; // 5 pasang tanya-jawab
 
   // ── Core chat function — calls Gemini (with 30s timeout) ────────────────────
@@ -271,8 +271,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       }
 
       // ── 8. Gemini stream + 30-detik timeout ──────────────────────────────────
-      // AbortController khusus untuk Gemini (agar bisa di-abort tanpa
-      // membatalkan seluruh chatOnce — Groq masih bisa berjalan setelahnya)
+      // (agar bisa di-abort tanpa membatalkan seluruh chatOnce)
       const geminiAbort = new AbortController();
       // Kalau user cancel (mainSignal), abort Gemini juga
       mainSignal.addEventListener('abort', () => geminiAbort.abort(), { once: true });

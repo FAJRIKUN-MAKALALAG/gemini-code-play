@@ -244,14 +244,6 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             kami.
           </p>
         </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 animate-bounce z-10">
-          <p className="text-xs text-muted-foreground mb-2">Scroll untuk selengkapnya</p>
-          <div className="w-6 h-10 border-2 border-muted-foreground/40 rounded-full mx-auto flex justify-center p-1">
-            <div className="w-1 h-2 bg-muted-foreground rounded-full animate-pulse" />
-          </div>
-        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}

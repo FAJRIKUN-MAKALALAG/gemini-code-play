@@ -175,9 +175,6 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             />
           </div>
 
-          {/* Pill badge */}
-          <Badge text="Platform AI Coding untuk Kampus" />
-
           {/* Title */}
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold
             bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-400 to-blue-500
@@ -185,7 +182,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             AI Code Assistant
             <br />
             <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground/80">
-              Platform Coding Cerdas
+              Platform Coding Python
             </span>
           </h1>
 
@@ -225,16 +222,6 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               Mulai Coding Sekarang
               <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
-            <a href="#how-it-works">
-              <Button
-                variant="outline"
-                size="lg"
-                className="text-base px-8 py-5 sm:text-lg sm:px-10 sm:py-6 rounded-full
-                  border-border/60 hover:border-primary/40 hover:scale-105 transition-all duration-300"
-              >
-                Lihat Fitur
-              </Button>
-            </a>
           </div>
 
           {/* Privacy note */}

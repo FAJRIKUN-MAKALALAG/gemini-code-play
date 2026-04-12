@@ -199,14 +199,16 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           {/* Stats row */}
           <div className="flex flex-wrap justify-center gap-6 text-center animate-in fade-in duration-1000 delay-300">
             {[
-              { label: "Notebook Editor", icon: "" },
-              { label: "Gemini AI Powered", icon: "" },
-              { label: "Challenge System", icon: "" },
-              { label: "Real-time Review", icon: "" },
+              { label: "Notebook Editor", icon: <BookOpen className="w-5 h-5 text-blue-500" /> },
+              { label: "Gemini AI Powered", icon: <Cpu className="w-5 h-5 text-violet-500" /> },
+              { label: "Challenge System", icon: <Trophy className="w-5 h-5 text-orange-500" /> },
+              { label: "Real-time Review", icon: <Zap className="w-5 h-5 text-yellow-500" /> },
             ].map(s => (
-              <div key={s.label} className="flex flex-col items-center gap-1">
-                <span className="text-2xl">{s.icon}</span>
-                <span className="text-xs font-semibold text-muted-foreground">{s.label}</span>
+              <div key={s.label} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-muted/30 border border-border/50 min-w-[120px]">
+                <div className="p-2 rounded-full bg-background shadow-sm">
+                  {s.icon}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</span>
               </div>
             ))}
           </div>

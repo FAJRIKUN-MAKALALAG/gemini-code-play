@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LogOut, ChevronDown, Key, Check, X, Code, MessageSquare,
-  Columns, Moon, Sun, ExternalLink, Plus, Settings, FilePlus, Keyboard, HelpCircle
+  Columns, Moon, Sun, ExternalLink, Plus, UserCircle, BookOpenText, LayoutDashboard, LifeBuoy, ShieldCheck
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -188,7 +188,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                   <DropdownMenuItem asChild>
                     <Link to="/profile" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
                       <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors">
-                        <Settings className="w-4 h-4 text-primary" />
+                        <UserCircle className="w-4 h-4 text-primary" />
                       </div>
                       <span className="text-sm font-medium">Profile Settings</span>
                     </Link>
@@ -197,7 +197,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                   <DropdownMenuItem asChild>
                     <Link to="/challenges/create" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
                       <div className="bg-orange-500/10 p-2 rounded-lg group-hover:bg-orange-500/20 transition-colors">
-                        <FilePlus className="w-4 h-4 text-orange-500" />
+                        <BookOpenText className="w-4 h-4 text-orange-500" />
                       </div>
                       <span className="text-sm font-medium">Buat Latihan / Ujian</span>
                     </Link>
@@ -206,7 +206,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                   <DropdownMenuItem asChild>
                     <Link to="/challenges/join" className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group">
                       <div className="bg-blue-500/10 p-2 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                        <Keyboard className="w-4 h-4 text-blue-500" />
+                        <LayoutDashboard className="w-4 h-4 text-blue-500" />
                       </div>
                       <span className="text-sm font-medium">Masukkan Kode room / Cek Hasil</span>
                     </Link>
@@ -217,7 +217,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                     className="flex items-center gap-3 cursor-pointer py-2.5 px-3 rounded-lg focus:bg-accent group"
                   >
                     <div className="bg-purple-500/10 p-2 rounded-lg group-hover:bg-purple-500/20 transition-colors">
-                      <HelpCircle className="w-4 h-4 text-purple-500" />
+                      <LifeBuoy className="w-4 h-4 text-purple-500" />
                     </div>
                     <span className="text-sm font-medium">Bantuan & FAQ</span>
                   </DropdownMenuItem>
@@ -242,7 +242,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
                 <div className="px-4 py-3.5 space-y-3 bg-primary/5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Key className="w-3.5 h-3.5 text-primary" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-bold text-foreground">Gemini API Key</span>
                     </div>
                     <a

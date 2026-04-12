@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare, AlertCircle, AlertTriangle } from "lucide-react";
+import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare, AlertCircle, AlertTriangle, Trophy, Flag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
@@ -593,8 +593,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
           <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto gap-4 animate-in fade-in zoom-in-95 duration-500">
             <Card className="w-full max-w-sm border-dashed border-2 border-orange-500/50 bg-orange-500/5 shadow-xl">
               <CardHeader className="text-center pb-4">
-                <div className="mx-auto w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                  <span className="text-3xl">🎯</span>
+                <div className="mx-auto w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mb-4 shadow-inner ring-1 ring-orange-500/30">
+                  <Trophy className="w-8 h-8 text-orange-600" />
                 </div>
                 <CardTitle className="text-xl text-orange-600 dark:text-orange-400 font-bold tracking-tight">Mode Latihan Aktif</CardTitle>
                 <CardDescription className="text-sm mt-2 text-muted-foreground leading-relaxed">
@@ -602,14 +602,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
-                <p className="text-[10px] sm:text-xs text-orange-600/70 font-medium mb-4">Hapus atau ubah teks "# 🎯 TANTANGAN" di dalam cell untuk mengaktifkan AI kembali.</p>
+                <p className="text-[10px] sm:text-xs text-orange-600/70 font-medium mb-4">Ubah atau hapus teks "# TANTANGAN" di editor untuk mengaktifkan AI kembali.</p>
                 {props.onRemoveChallenge && (
                   <Button 
                     variant="outline" 
-                    className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-600"
+                    className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-600 gap-2"
                     onClick={props.onRemoveChallenge}
                   >
-                    🏳️ Menyerah
+                    <Flag className="w-4 h-4" /> Menyerah
                   </Button>
                 )}
               </CardContent>

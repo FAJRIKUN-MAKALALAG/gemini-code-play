@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare, AlertCircle } from "lucide-react";
+import { Send, Loader2, Plus, X, PanelLeft, LogIn, MessageSquare, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
@@ -640,12 +640,26 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             <div className="flex justify-center py-6 text-muted-foreground text-sm">Loading history...</div>
           )}
           {messages.length === 0 && !loadingHistory ? (
-            <div className="h-full flex items-center justify-center text-center text-muted-foreground max-w-md mx-auto">
-              <div>
-                <img src="/AicodeLogo.png" alt="AI" className="w-10 h-10 mx-auto mb-3 opacity-40 dark-invert" />
-                <p className="text-sm">Ask me anything about Python!</p>
-                {noApiKey && <p className="text-xs mt-2 text-destructive/80">Missing API key — chat is disabled.</p>}
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 animate-in fade-in zoom-in-95 duration-1000">
+              <div className="relative mb-6 group">
+                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-110 group-hover:scale-125 transition-transform duration-1000 opacity-50" />
+                <img src="/AicodeLogo.png" alt="AI" className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto dark-invert opacity-90 drop-shadow-2xl transition-all duration-500 group-hover:rotate-12" />
               </div>
+              
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-br from-foreground via-foreground/90 to-foreground/50 bg-clip-text text-transparent mb-3">
+                Ai Coding Assistant
+              </h1>
+              
+              <p className="text-sm text-muted-foreground/80 max-w-[320px] mb-8 leading-relaxed">
+                Tanyakan apa saja seputar Python, debug kode, atau optimalkan logika programmu dengan bantuan AI.
+              </p>
+              
+              {noApiKey && (
+                <div className="mt-6 flex items-center gap-2 text-[11px] text-destructive bg-destructive/10 px-3 py-1.5 rounded-full border border-destructive/20 font-medium font-sans">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>API Key Belum Terpasang — Chat Dinonaktifkan</span>
+                </div>
+              )}
             </div>
           ) : (
             messages.map((msg, idx) => {

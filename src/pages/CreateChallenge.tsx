@@ -313,8 +313,8 @@ export default function CreateChallenge() {
           {/* ── Kolom Kiri: Form + List Ujian ── */}
           <div className="space-y-6">
             {/* Form Buat Ujian */}
-            <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-xl shadow-orange-500/5">
-              <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Plus className="w-4 h-4 text-orange-500" /> Buat Ujian Baru</h2>
+            <div className="bg-card border border-border/50 rounded-2xl p-5 sm:p-6 shadow-xl shadow-orange-500/5">
+              <h2 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><Plus className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" /> Buat Ujian Baru</h2>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Judul Ujian *</label>
@@ -395,14 +395,14 @@ export default function CreateChallenge() {
                 {/* Header panel soal */}
                 <div className="p-4 sm:p-5 border-b border-border/40 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-bold text-lg truncate w-full">{selectedChallenge.title}</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <h2 className="font-bold text-base sm:text-lg truncate w-full">{selectedChallenge.title}</h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                       {questions.length} soal · Room: <span className="font-mono text-orange-500 font-bold">{selectedChallenge.room_code}</span>
                     </p>
                   </div>
                   <Button
                     onClick={() => { setShowQuestionForm(true); setEditingQuestionId(null); setQForm(emptyForm()); }}
-                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-bold h-10 sm:h-9 px-4 text-sm"
+                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-bold h-10 sm:h-9 px-4 text-xs sm:text-sm"
                   >
                     <Plus className="w-4 h-4 mr-1" /> Tambah Soal
                   </Button>
@@ -427,7 +427,7 @@ export default function CreateChallenge() {
                           placeholder="Jelaskan instruksi soal... (opsional jika pakai gambar)"
                           value={qForm.description}
                           onChange={e => setQForm(f => ({ ...f, description: e.target.value }))}
-                          className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                         {/* Upload gambar deskripsi */}
                         <div>
@@ -459,7 +459,7 @@ export default function CreateChallenge() {
                           placeholder="Output yang diharapkan... (opsional)"
                           value={qForm.expectedOutput}
                           onChange={e => setQForm(f => ({ ...f, expectedOutput: e.target.value }))}
-                          className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs sm:text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                         <div>
                           {qForm.expectedOutputImagePreview ? (

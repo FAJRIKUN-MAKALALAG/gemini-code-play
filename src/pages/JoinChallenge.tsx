@@ -259,7 +259,7 @@ export default function JoinChallenge() {
                 >
                   {/* Judul Soal */}
                   <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <p className="text-sm font-semibold leading-tight line-clamp-2 flex-1">
+                    <p className="text-xs sm:text-sm font-semibold leading-tight line-clamp-2 flex-1">
                       {item.challenges?.title || "Soal Ujian"}
                     </p>
                     {hasCheat && (
@@ -293,8 +293,8 @@ export default function JoinChallenge() {
 
                   {/* Sisa Waktu (jika in_progress dan belum habis) */}
                   {isInProgress && sisaWaktu && !waktuHabis && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600 bg-amber-500/10 px-2 py-1 rounded-lg mb-2 font-bold">
-                      <Timer className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-amber-600 bg-amber-500/10 px-2 py-1 rounded-lg mb-2 font-bold transition-all">
+                      <Timer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       {sisaWaktu}
                     </div>
                   )}
@@ -303,9 +303,9 @@ export default function JoinChallenge() {
                   {isInProgress && !waktuHabis ? (
                     <button
                       onClick={() => handleResume(item)}
-                      className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm shadow-amber-500/20 active:scale-95"
+                      className="w-full flex items-center justify-center gap-2 py-2 sm:py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] sm:text-xs font-bold transition-all shadow-sm shadow-amber-500/20 active:scale-95"
                     >
-                      <PlayCircle className="w-3.5 h-3.5" />
+                      <PlayCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                       Lanjutkan Ujian
                     </button>
                   ) : isSubmitted ? (
@@ -356,10 +356,10 @@ export default function JoinChallenge() {
             <KeySquare className="w-8 h-8 text-blue-500" />
           </div>
 
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent mb-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-center bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent mb-2">
             Ruang Ujian Praktikum
           </h1>
-          <p className="text-muted-foreground text-sm text-center mb-8 px-4">
+          <p className="text-muted-foreground text-xs sm:text-sm text-center mb-6 sm:mb-8 px-4">
             Masukkan kode 6 digit yang diberikan oleh dosen / asisten lab untuk mulai mengerjakan.
           </p>
 
@@ -370,16 +370,16 @@ export default function JoinChallenge() {
                 placeholder="Masukkan Nama Lengkap Anda"
                 value={studentName}
                 onChange={e => setStudentName(e.target.value)}
-                className="h-14 bg-background/50 text-center text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-500/50"
+                className="h-12 sm:h-14 bg-background/50 text-center text-base sm:text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-500/50"
                 required
                 autoFocus
               />
               <Input
                 type="text"
-                placeholder="KODE RUANG LATIHAN"
+                placeholder="KODE RUANG"
                 value={roomCode}
                 onChange={e => setRoomCode(e.target.value.toUpperCase())}
-                className="h-14 bg-background/50 text-center text-xl tracking-widest font-bold uppercase rounded-xl border-2 focus-visible:ring-indigo-500/50"
+                className="h-12 sm:h-14 bg-background/50 text-center text-lg sm:text-xl tracking-widest font-bold uppercase rounded-xl border-2 focus-visible:ring-indigo-500/50"
                 maxLength={8}
                 required
               />

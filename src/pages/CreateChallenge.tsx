@@ -298,17 +298,17 @@ export default function CreateChallenge() {
     <div className="min-h-screen bg-background text-foreground">
       <Helmet><title>Buat Soal Ujian – AI Coding Assistant</title></Helmet>
 
-      <div className="max-w-7xl mx-auto p-6 sm:p-8 space-y-8">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 pb-20">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link to="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button></Link>
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <Link to="/"><Button variant="ghost" size="icon" className="rounded-full shrink-0"><ArrowLeft className="w-5 h-5" /></Button></Link>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Buat Soal Ujian</h1>
-            <p className="text-muted-foreground text-sm">Buat ujian dengan multiple soal, teks, dan gambar untuk peserta.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent mt-0.5 sm:mt-0">Buat Soal Ujian</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-1 sm:mt-0">Buat ujian dengan multiple soal, teks, dan gambar untuk peserta.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
 
           {/* ── Kolom Kiri: Form + List Ujian ── */}
           <div className="space-y-6">
@@ -393,16 +393,16 @@ export default function CreateChallenge() {
             ) : (
               <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
                 {/* Header panel soal */}
-                <div className="p-5 border-b border-border/40 flex items-center justify-between">
+                <div className="p-4 sm:p-5 border-b border-border/40 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-bold text-lg">{selectedChallenge.title}</h2>
-                    <p className="text-xs text-muted-foreground">
+                    <h2 className="font-bold text-lg truncate w-full">{selectedChallenge.title}</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {questions.length} soal · Room: <span className="font-mono text-orange-500 font-bold">{selectedChallenge.room_code}</span>
                     </p>
                   </div>
                   <Button
                     onClick={() => { setShowQuestionForm(true); setEditingQuestionId(null); setQForm(emptyForm()); }}
-                    className="bg-orange-600 hover:bg-orange-700 text-white font-bold h-9 px-4 text-sm"
+                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-bold h-10 sm:h-9 px-4 text-sm"
                   >
                     <Plus className="w-4 h-4 mr-1" /> Tambah Soal
                   </Button>
@@ -482,11 +482,11 @@ export default function CreateChallenge() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 pt-1">
-                        <Button onClick={handleSaveQuestion} disabled={savingQuestion} className="bg-orange-600 hover:bg-orange-700 text-white font-bold h-9 text-sm flex-1">
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                        <Button onClick={handleSaveQuestion} disabled={savingQuestion} className="bg-orange-600 hover:bg-orange-700 text-white font-bold h-10 sm:h-9 text-sm flex-1">
                           {savingQuestion ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : <><CheckCircle2 className="w-4 h-4 mr-1" />{editingQuestionId ? 'Perbarui Soal' : 'Simpan Soal'}</>}
                         </Button>
-                        <Button variant="outline" onClick={() => { setShowQuestionForm(false); setEditingQuestionId(null); setQForm(emptyForm()); }} className="h-9 text-sm">Batal</Button>
+                        <Button variant="outline" onClick={() => { setShowQuestionForm(false); setEditingQuestionId(null); setQForm(emptyForm()); }} className="h-10 sm:h-9 text-sm w-full sm:w-auto px-6">Batal</Button>
                       </div>
                     </div>
                   </div>
@@ -504,9 +504,9 @@ export default function CreateChallenge() {
                   ) : (
                     questions.map(q => (
                       <div key={q.id} className="bg-background border border-border/40 rounded-xl p-4 hover:border-orange-500/20 transition-all">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0 w-full">
+                            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-2">
                               <span className="w-6 h-6 rounded-full bg-orange-500/10 text-orange-500 text-xs font-black flex items-center justify-center border border-orange-500/20">{q.nomor}</span>
                               <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Soal {q.nomor}</span>
                             </div>
@@ -526,9 +526,9 @@ export default function CreateChallenge() {
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-1 shrink-0">
-                            <button onClick={() => openEditQuestion(q)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"><Pencil className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setDeleteQId(q.id)} className="p-1.5 rounded-lg text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <div className="flex gap-2 shrink-0 self-end sm:self-auto w-full sm:w-auto justify-end mt-2 sm:mt-0 border-t sm:border-t-0 border-border/40 pt-3 sm:pt-0">
+                            <button onClick={() => openEditQuestion(q)} className="py-2 px-3 sm:p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all text-sm flex items-center gap-2"><Pencil className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span className="sm:hidden font-medium">Edit</span></button>
+                            <button onClick={() => setDeleteQId(q.id)} className="py-2 px-3 sm:p-1.5 rounded-lg text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all text-sm flex items-center gap-2"><Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span className="sm:hidden font-medium">Hapus</span></button>
                           </div>
                         </div>
                       </div>

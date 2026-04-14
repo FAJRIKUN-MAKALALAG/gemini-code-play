@@ -177,13 +177,13 @@ export default function JoinChallenge() {
   };
 
   return (
-    <div className="h-screen bg-background flex text-foreground overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row text-foreground">
       <Helmet>
         <title>Bergabung Ujian – AI Coding Assistant</title>
       </Helmet>
 
       {/* ── Panel Kiri: Riwayat Ujian ── */}
-      <div className="w-80 h-screen border-r border-border/50 bg-card/40 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden">
+      <div className="w-full lg:w-80 lg:h-screen border-t lg:border-t-0 lg:border-r border-border/50 bg-card/40 backdrop-blur-sm flex flex-col shrink-0 lg:sticky lg:top-0 order-2 lg:order-1 lg:overflow-hidden">
         {/* Header Panel */}
         <div className="p-5 border-b border-border/40 bg-card">
           <div className="flex items-center gap-2 mb-4">
@@ -220,9 +220,9 @@ export default function JoinChallenge() {
         </div>
 
         {/* List Riwayat — scrollable dengan custom scrollbar */}
-        <div className="relative flex-1 min-h-0">
+        <div className="relative flex-1 lg:min-h-0">
           <div
-            className="h-full overflow-y-auto p-3 space-y-2 scroll-smooth"
+            className="max-h-[60vh] overflow-y-auto lg:max-h-none lg:h-full lg:overflow-y-auto p-4 lg:p-3 space-y-3 lg:space-y-2 scroll-smooth"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: 'hsl(var(--border)) transparent',
@@ -339,7 +339,7 @@ export default function JoinChallenge() {
         </div>{/* end outer relative div */}
 
         {/* Footer */}
-        <div className="p-4 border-t border-border/40">
+        <div className="p-4 border-t border-border/40 pb-8 lg:pb-4">
           <Link to="/">
             <Button variant="ghost" className="w-full rounded-xl gap-2" size="sm">
               <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
@@ -349,8 +349,8 @@ export default function JoinChallenge() {
       </div>
 
       {/* ── Panel Kanan: Form Join ── */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md flex flex-col items-center">
+      <div className="flex-1 flex items-center justify-center p-4 py-12 lg:p-8 order-1 lg:order-2 lg:h-screen lg:overflow-y-auto min-h-[70vh]">
+        <div className="w-full max-w-md flex flex-col items-center mt-8 lg:mt-0">
 
           <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
             <KeySquare className="w-8 h-8 text-blue-500" />

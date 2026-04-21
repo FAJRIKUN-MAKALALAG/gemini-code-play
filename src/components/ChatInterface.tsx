@@ -20,27 +20,52 @@ function mapChatError(err: any): { title: string; message: string; status: numbe
   const raw: string = err?.message || String(err) || "";
   const lower = raw.toLowerCase();
 
+  // Timeout / Abort
+  if (lower.includes("gemini_timeout") || lower.includes("timeout")) {
+    return { 
+      title: "Waktu Proses Habis (Timeout)", 
+      message: "Server AI memakan waktu terlalu lama untuk merespons (lebih dari 30 detik). Ini biasanya terjadi jika pertanyaan terlalu rumit atau server sedang kelebihan beban.\n\n💡 Solusi: Coba perkecil ukuran kodemu, atau bagi pertanyaan menjadi bagian-bagian yang lebih sederhana.", 
+      status: "timeout" 
+    };
+  }
+
   // 429 — quota / rate limit
   if (raw.includes("429") || lower.includes("quota") || lower.includes("rate limit") || lower.includes("too many")) {
-    return { title: "Kuota AI Habis", message: "Kuota harian AI habis. Silakan coba lagi nanti atau ganti API key.", status: 429 };
+    return { 
+      title: "Limit Penggunaan AI (Too Many Requests)", 
+      message: "Sistem mendeteksi kamu mengirim pertanyaan terlalu cepat, atau batas kuota wajarmu sudah habis.\n\n💡 Solusi: Harap istirahat dan tunggu 1-2 menit sebelum mengirim pertanyaan lagi.", 
+      status: 429 
+    };
   }
 
   // Network / offline
   if (lower.includes("fetch") || lower.includes("network") || lower.includes("failed to fetch") || lower.includes("networkerror") || !navigator.onLine) {
-    return { title: "Koneksi Terputus", message: "Koneksi internet terganggu, gagal mengirim pesan. Periksa koneksimu dan coba lagi.", status: 0 };
+    return { 
+      title: "Koneksi Internet Bermasalah", 
+      message: "Gagal menyambung ke server AI. Browser kamu tidak dapat merespon jaringan internet dengan baik.\n\n💡 Solusi: Periksa koneksi internet atau Wi-Fi kamu, pastikan stabil, lalu coba kirim ulang pesannya.", 
+      status: 0 
+    };
   }
 
   // API key missing/invalid
-  if (lower.includes("api key") || lower.includes("api_key") || lower.includes("invalid key") || lower.includes("unauthorized")) {
-    return { title: "API Key Tidak Valid", message: "API key tidak valid atau sudah kedaluwarsa. Perbarui di menu Settings.", status: 401 };
+  if (lower.includes("api key") || lower.includes("api_key") || lower.includes("invalid key") || lower.includes("unauthorized") || raw.includes("401") || raw.includes("403")) {
+    return { 
+      title: "API Key Tidak Valid", 
+      message: "Google menolak aksesmu karena Gemini API Key yang dipakai salah, tidak aktif, atau sudah dihapus.\n\n💡 Solusi: Perbarui API Key kamu di menu profil/pengaturan.", 
+      status: 401 
+    };
   }
 
   // Server error
-  if (raw.includes("500") || raw.includes("503") || lower.includes("server")) {
-    return { title: "Server Bermasalah", message: "Server AI sedang bermasalah, silakan coba beberapa saat lagi.", status: 500 };
+  if (raw.includes("500") || raw.includes("503") || lower.includes("server") || lower.includes("bad gateway")) {
+    return { 
+      title: "Server Pusat AI Gangguan", 
+      message: "Server Google Gemini saat ini sedang sibuk (Overload) atau mengalami error internal (500/503).\n\n💡 Solusi: Gangguan ini murni dari pihak Google, silakan coba beberapa menit lagi.", 
+      status: 500 
+    };
   }
 
-  return { title: "Gagal Mengirim", message: raw || "Terjadi kesalahan. Silakan coba lagi.", status: "unknown" };
+  return { title: "Terjadi Kesalahan", message: raw || "Aplikasi mengalami kendala yang tidak diketahui saat memproses pesan. Refresh halaman (F5) dan coba lagi.", status: "unknown" };
 }
 
 interface Message {

@@ -11,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { LifeBuoy, Key, Timer, RotateCcw, Cpu, AlertTriangle } from "lucide-react";
+import { LifeBuoy, Key, Timer, RotateCcw, Cpu, AlertTriangle, Hourglass, WifiOff } from "lucide-react";
 
 interface FAQModalProps {
   open: boolean;
@@ -129,6 +129,43 @@ export const FAQModal = ({ open, onOpenChange }: FAQModalProps) => {
               </div>
             </AccordionContent>
           </AccordionItem>
+          
+          <AccordionItem value="item-6" className="border border-border/50 rounded-xl px-4 bg-muted/20 hover:bg-muted/30 transition-all duration-200">
+            <AccordionTrigger className="text-left font-semibold hover:no-underline hover:text-primary transition-colors py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-500/10 p-2 rounded-lg">
+                  <Hourglass className="w-4 h-4 text-orange-500" />
+                </div>
+                <span>Error: Waktu Proses Habis (Timeout)?</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed text-sm pt-2 pb-5 pl-11">
+              Error ini muncul jika AI berpikir lebih dari 30 detik tanpa henti. AI memiliki batas waktu maksimal dalam menyusun jawaban agar browser tidak macet atau kehabisan memori.<br/><br/>
+              <ul className="list-disc mt-2 space-y-2">
+                <li><strong>Kenapa terjadi?</strong> Biasanya karena file kode yang kamu tanyakan terlalu rumit, panjang, atau kamu meminta AI untuk membuat terlalu banyak logic sekaligus.</li>
+                <li><strong>Solusi Utama:</strong> Coba spesifikkan masalah. Hindari meminta "Tolong buatkan website penuh," alih-alih, tanyakan "Bantu saya buat tombol login," dan seterusnya untuk mengurangi beban AI.</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-7" className="border border-border/50 rounded-xl px-4 bg-muted/20 hover:bg-muted/30 transition-all duration-200">
+            <AccordionTrigger className="text-left font-semibold hover:no-underline hover:text-primary transition-colors py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/10 p-2 rounded-lg">
+                  <WifiOff className="w-4 h-4 text-red-500" />
+                </div>
+                <span>Error: Koneksi Internet Terputus?</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="text-muted-foreground leading-relaxed text-sm pt-2 pb-5 pl-11">
+              Aplikasi pendamping *coding* ini berjalan langsung di browser, dan berinteraksi dengan API Google secara langsung menggunakan koneksi jaringn komputer/HP kamu.<br/><br/>
+              <ul className="list-disc mt-2 space-y-2">
+                <li><strong>Kenapa terjadi?</strong> Jaringan Wi-Fi/data kamu sempat putus tiba-tiba atau tidak stabil. Terkadang ini juga diblokir oleh VPN/Firewall.</li>
+                <li><strong>Solusi Utama:</strong> Matikan dan nyalakan ulang koneksimu, matikan VPN (jika menggunakannya), lalu klik kirim ulang pada jawabanmu.</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+
         </Accordion>
       </DialogContent>
     </Dialog>

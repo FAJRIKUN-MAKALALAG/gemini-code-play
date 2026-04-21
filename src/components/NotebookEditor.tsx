@@ -60,6 +60,10 @@ interface NotebookEditorProps {
   onSaveCode?: (code: string, mode?: "save" | "share") => Promise<{ success: boolean; id?: string }>;
   isRuntimeReady?: boolean;
   disableAI?: boolean;
+  /** Notifies parent when AI processing starts (for loading indicators) */
+  onAiProcessStart?: (phase: "thinking" | "verifying") => void;
+  /** Notifies parent when AI processing ends */
+  onAiProcessEnd?: () => void;
 }
 
 // ── Global execution counter ──────────────────────────────────────────────────
@@ -111,6 +115,8 @@ export const NotebookEditor = forwardRef<NotebookEditorHandle, NotebookEditorPro
     onSaveCode,
     isRuntimeReady = true,
     disableAI = false,
+    onAiProcessStart,
+    onAiProcessEnd,
   },
   ref
 ) => {
@@ -545,6 +551,7 @@ Aturan:
     const apiKey = await getAiKey();
     if (!apiKey) return;
 
+    onAiProcessStart?.("thinking");
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: true } : c));
     toast({ title: "📖 Menjelaskan kode...", description: "AI sedang menganalisis kodemu.", duration: 2000 });
 
@@ -562,10 +569,12 @@ Aturan:
     } catch {
       toast({ title: "AI gagal menjelaskan kode", variant: "destructive" });
       setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+      onAiProcessEnd?.();
       return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+    onAiProcessEnd?.();
 
     // Tampilkan prompt asli sebagai context + jawaban AI langsung di chat
     const chatMessage = `📖 **Penjelasan Kode** *(dari cell anda)*\n\n${resultText}`;
@@ -581,6 +590,7 @@ Aturan:
     const apiKey = await getAiKey();
     if (!apiKey) return;
 
+    onAiProcessStart?.("thinking");
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: true } : c));
     toast({ title: "🐛 Menganalisis bug...", description: "AI sedang memeriksa kodemu.", duration: 2000 });
 
@@ -601,10 +611,12 @@ Aturan:
     } catch {
       toast({ title: "AI gagal debug kode", variant: "destructive" });
       setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+      onAiProcessEnd?.();
       return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isAiLoading: false } : c));
+    onAiProcessEnd?.();
 
     const chatMessage = `🐛 **Analisis Debug Kode** *(dari cell anda)*\n\n${resultText}`;
     onSendAIResult(chatMessage, inputTokens > 0 ? { inputTokens, outputTokens } : undefined);
@@ -625,6 +637,7 @@ Aturan:
       return;
     }
 
+    onAiProcessStart?.("verifying");
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: true } : c));
     toast({ title: "🔍 Sedang memeriksa...", description: "AI sedang mengevaluasi kodemu.", duration: 2000 });
 
@@ -666,10 +679,12 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
     } catch {
       toast({ title: "Gagal verifikasi", variant: "destructive" });
       setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+      onAiProcessEnd?.();
       return;
     }
 
     setCells(prev => prev.map(c => c.id === cellId ? { ...c, isVerifying: false } : c));
+    onAiProcessEnd?.();
     showTokenToast(inputTokens, outputTokens, "Cek Jawaban");
 
     const isPass = resultText.toUpperCase().includes("✅ LULUS:") || resultText.toUpperCase().includes("LULUS:");

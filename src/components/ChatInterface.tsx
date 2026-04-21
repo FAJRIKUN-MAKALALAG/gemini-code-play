@@ -86,6 +86,8 @@ export type ChatInterfaceHandle = {
   /** Membuat chat baru (jika belum ada) dan update state chatnya, mereturn conversationId */
   getOrCreateConversationId: (title: string) => Promise<string | null>;
   getCurrentUserId: () => string | null;
+  /** Set secara manual status AI, cth: digunakan oleh NotebookEditor saat Debug/Explain */
+  setAiProcessPhase: (phase: 'idle' | 'thinking' | 'verifying' | 'done') => void;
 };
 
 type ChatProps = {
@@ -431,6 +433,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
       return null;
     },
     getCurrentUserId: () => currentUserId,
+    setAiProcessPhase: (phase: 'idle' | 'thinking' | 'verifying' | 'done') => {
+      setAiStage(phase);
+      if (phase === "done") {
+        setTimeout(() => setAiStage("idle"), 800);
+      }
+    },
   }));
 
   // ── Conversation switching ─────────────────────────────────────────────────

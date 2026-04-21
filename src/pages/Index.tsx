@@ -196,7 +196,6 @@ const Index = () => {
     }
   }, [isChallengeActive, isMobile]);
 
-  // ── Shared nodes for reuse across layouts ─────────────────────────────────
   const editorNode = (
     <NotebookEditor
       ref={notebookRef}
@@ -206,6 +205,8 @@ const Index = () => {
       onSendAIResult={handleSendAIResult}
       onSaveCode={handleSaveCode}
       isRuntimeReady={skulptReady}
+      onAiProcessStart={(phase) => chatRef.current?.setAiProcessPhase(phase)}
+      onAiProcessEnd={() => chatRef.current?.setAiProcessPhase("done")}
     />
   );
 

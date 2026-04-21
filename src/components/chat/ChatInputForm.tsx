@@ -92,26 +92,26 @@ export function ChatInputForm({ onSend, onStop, isLoading, noApiKey }: ChatInput
                 <span>Disclaimer AI</span>
               </button>
             ) : (
-              <div className="w-full mt-2 p-3 sm:p-4 rounded-xl border border-red-200 bg-red-50/50 flex gap-3 items-start animate-in zoom-in-95 duration-300 relative">
-                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="text-[10px] sm:text-[11px] leading-relaxed text-red-900 pr-6">
-                  <p className="font-bold text-red-600 mb-1 uppercase tracking-tight">Peringatan Penting & Disclaimer</p>
+              <div className="w-full mt-2 p-3 sm:p-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 flex gap-3 items-start animate-in zoom-in-95 duration-300 relative">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
+                <div className="text-[10px] sm:text-[11px] leading-relaxed text-red-900 dark:text-red-300 pr-6">
+                  <p className="font-bold text-red-600 dark:text-red-400 mb-1 uppercase tracking-tight">Peringatan Penting & Disclaimer</p>
                   <p className="mb-1.5 italic">
                     AICode didukung oleh model bahasa besar (LLM) yang dapat memberikan informasi atau kode yang 
-                    <span className="font-bold underline decoration-red-300"> tidak akurat, tidak lengkap, atau tidak aman.</span>
+                    <span className="font-bold underline decoration-red-300 dark:decoration-red-800/80 ml-1">tidak akurat, tidak lengkap, atau tidak aman.</span>
                   </p>
-                  <ul className="list-disc pl-4 space-y-1 mb-2">
+                  <ul className="list-disc pl-4 space-y-1 mb-2 text-red-800/90 dark:text-red-300/80">
                     <li>AI dapat berhalusinasi dan memberikan logika pemrograman yang salah.</li>
                     <li>Kami tidak bertanggung jawab atas kegagalan sistem atau kerugian akibat penggunaan saran AI ini.</li>
                     <li>Selalu lakukan peninjauan kode (*Code Review*) dan pengujian mendalam secara mandiri.</li>
                   </ul>
-                  <p className="font-bold text-red-700">
+                  <p className="font-bold text-red-700 dark:text-red-400/90">
                     Anda memegang tanggung jawab penuh atas setiap keputusan dan implementasi kode Anda.
                   </p>
                 </div>
                 <button 
                   onClick={() => setShowDisclaimer(false)}
-                  className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-red-200/50 text-red-400 hover:text-red-700 transition-all duration-200"
+                  className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-red-200/50 dark:hover:bg-red-900/30 text-red-400 dark:text-red-500/50 hover:text-red-700 dark:hover:text-red-400 transition-all duration-200"
                   title="Tutup"
                 >
                   <X className="w-3.5 h-3.5" />

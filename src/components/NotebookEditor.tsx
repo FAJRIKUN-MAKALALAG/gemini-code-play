@@ -710,14 +710,23 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
 
   // ── File import/export ─────────────────────────────────────────────────────
   const handleSavePy = () => {
-    const allCode = cells.map((c, i) => `# === Cell ${i + 1} ===\n${c.code}`).join("\n\n");
-    const blob = new Blob([allCode], { type: "text/x-python" });
+    if (!activeCell) {
+      toast({ title: "Belum Ada Cell Terpilih", description: "Klik pada salah satu kotak kode (cell) yang ingin diunduh.", variant: "destructive" });
+      return;
+    }
+    const index = cells.findIndex(c => c.id === activeCell);
+    const cell = cells[index];
+    if (!cell || !cell.code.trim()) {
+      toast({ title: "Cell Kosong", description: "Tidak ada kode untuk diunduh.", variant: "destructive" });
+      return;
+    }
+    const blob = new Blob([cell.code], { type: "text/x-python" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "notebook.py"; a.click();
+    a.href = url; a.download = `cell_${index + 1}.py`; a.click();
     URL.revokeObjectURL(url);
+    toast({ title: "⏬ File .py Siap", description: `cell_${index + 1}.py berhasil diunduh.` });
   };
-
   const handleSaveIpynb = () => {
     const ipynb = {
       cells: cells.map((c) => ({
@@ -775,9 +784,15 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
       }
 
       if (newCells.length > 0) {
-        syncSetCells(() => newCells);
-        setActiveCell(newCells[0].id);
-        toast({ title: "📂 File diimport!", description: `${file.name} → ${newCells.length} cell(s).`, duration: 2500 });
+        if (file.name.endsWith(".ipynb")) {
+          syncSetCells(() => newCells);
+          setActiveCell(newCells[0].id);
+          toast({ title: "📂 Notebook di-load", description: `${file.name} menggantikan workspace saat ini.`, duration: 2500 });
+        } else {
+          syncSetCells(prev => [...prev, ...newCells]);
+          setActiveCell(newCells[0].id); // focus on the first newly imported cell
+          toast({ title: "📂 Skrip .py ditambahkan", description: `${newCells.length} block kode baru telah ditambahkan ke bawah.`, duration: 2500 });
+        }
       }
     };
     reader.readAsText(file);
@@ -821,6 +836,7 @@ Evaluasi apakah kode tersebut sudah menyelesaikan instruksi soal dengan baik. Be
 
           <div className="flex bg-secondary/50 rounded-lg p-0.5 border border-border/50">
             <Button size="sm" variant="ghost" onClick={handleSavePy}
+              title="Download kode dari cell yang sedang aktif"
               className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1 hover:bg-background">
               <Download className="w-3 h-3" />.py
             </Button>
@@ -1171,7 +1187,6 @@ function CellCard({
               <span className="hidden sm:inline">Explain</span>
             </button>
           )}
-
           {/* 🐛 Debug → AI Chat */}
           {hasChatHandler && (
             <button

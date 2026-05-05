@@ -159,7 +159,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
           {/* Header */}
           <div className="p-6 sm:p-8 text-center bg-gradient-to-b from-primary/5 to-transparent">
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-background rounded-2xl shadow-lg mx-auto mb-4 sm:mb-6 flex items-center justify-center transform transition-transform hover:rotate-12 duration-500">
-              <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-12 h-12 sm:w-16 sm:h-16 dark-invert" draggable={false} />
+              <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain dark-invert" draggable={false} />
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-1 sm:mb-2 text-balance leading-tight">
               {mode === "signin" ? "Welcome Back" : "Create Account"}

@@ -169,7 +169,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <img
               src="/AicodeLogo.png"
               alt="AIcode Logo"
-              className="w-28 h-28 sm:w-44 sm:h-44 relative z-10 drop-shadow-2xl
+              className="w-28 h-28 sm:w-44 sm:h-44 relative z-10 drop-shadow-2xl object-contain
                 transition-transform duration-700 hover:scale-110 cursor-pointer"
               draggable={false}
             />
@@ -669,7 +669,7 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <img
               src="/AicodeLogo.png"
               alt="Logo"
-              className="w-12 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500"
+              className="w-12 h-12 object-contain grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500"
             />
             <p className="text-sm">© {new Date().getFullYear()} aicode-unklab. Dibangun untuk para developer.</p>
             <div className="flex gap-6 mt-1">

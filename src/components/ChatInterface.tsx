@@ -586,7 +586,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               <PanelLeft className="w-4 h-4" />
             </Button>
             <div className="flex items-center gap-2">
-              <img src="/AicodeLogo.png" alt="AI Logo" className="w-4 h-4 sm:w-5 sm:h-5 dark-invert" />
+              <img src="/AicodeLogo.png" alt="AI Logo" className="w-4 h-4 sm:w-5 sm:h-5 object-contain dark-invert" />
               <h2 className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-[140px] sm:max-w-xs">
                 {currentTitle || "AI Assistant"}
               </h2>
@@ -676,7 +676,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
             <div className="h-full flex flex-col items-center justify-center text-center p-6 animate-in fade-in zoom-in-95 duration-1000">
               <div className="relative mb-6 group">
                 <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-110 group-hover:scale-125 transition-transform duration-1000 opacity-50" />
-                <img src="/AicodeLogo.png" alt="AI" className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto dark-invert opacity-90 drop-shadow-2xl transition-all duration-500 group-hover:rotate-12" />
+                <img src="/AicodeLogo.png" alt="AI" className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto object-contain dark-invert opacity-90 drop-shadow-2xl transition-all duration-500 group-hover:rotate-12" />
               </div>
               
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-br from-foreground via-foreground/90 to-foreground/50 bg-clip-text text-transparent mb-3">

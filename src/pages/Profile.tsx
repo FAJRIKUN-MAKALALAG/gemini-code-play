@@ -12,8 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 const Profile = () => {
     const { theme, setTheme } = useTheme();

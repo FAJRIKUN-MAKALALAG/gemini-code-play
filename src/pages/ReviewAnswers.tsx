@@ -11,8 +11,7 @@ import { NotebookEditor } from "@/components/NotebookEditor";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { loadSkulpt } from "@/utils/skulptRunner";
 import { Helmet } from "react-helmet-async";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 export default function ReviewAnswers() {
   const { id: challengeId } = useParams();

@@ -238,7 +238,7 @@ const Index = () => {
         <meta name="description" content="UNKLAB AI Code (unklab-aicode) - Interactive Python coding environment with AI chatbot assistance. Write, execute, and improve Python code with instant AI feedback." />
         <meta name="keywords" content="unklab-aicode, unklab ai code, UNKLAB, AI coding assistant, Python IDE, online Python editor, AI programming help, code debugging" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-        <link rel="canonical" href="https://unklab-aicode.online/" />
+        <link rel="canonical" href="https://aicode-rho.vercel.app/" />
       </Helmet>
       <Particles />
 

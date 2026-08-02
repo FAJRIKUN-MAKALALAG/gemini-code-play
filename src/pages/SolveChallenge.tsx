@@ -18,8 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 export default function SolveChallenge() {
   const { id: challengeId } = useParams();

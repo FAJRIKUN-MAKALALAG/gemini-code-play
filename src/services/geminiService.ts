@@ -13,9 +13,7 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://api.unklab-aicode.online/api";
+import { API_BASE_URL } from "@/config";
 
 // Fungsi pembuat prompt dinamis dengan injeksi RAG Memory
 const getSystemPrompt = (context_dari_supabase: string, user_message: string) => `Kamu adalah asisten AI yang cerdas. Untuk membantu user, kamu diberikan akses ke Memori Jangka Panjang yang berisi riwayat percakapan masa lalu yang paling relevan dengan pertanyaan saat ini.

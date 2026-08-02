@@ -16,7 +16,7 @@ pipeline {
     }
 
     environment {
-        FRONTEND_DOMAIN = 'unklab-aicode.online'
+        FRONTEND_DOMAIN = 'aicode-rho.vercel.app'
         FRONTEND_DIR    = "/var/www/frontend"
         PATH = "/usr/local/bin:/usr/bin:/bin:$PATH"
     }

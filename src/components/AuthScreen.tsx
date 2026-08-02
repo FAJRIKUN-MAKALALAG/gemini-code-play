@@ -293,7 +293,7 @@ export const AuthScreen = ({ onAuthenticated }: AuthScreenProps) => {
 
             <div className="mt-8 pt-4 border-t border-border/30 text-center space-y-2">
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Dengan melanjutkan, Anda menyetujui <a href="https://unklab-aicode.online/terms" className="text-primary hover:underline">Syarat & Ketentuan</a> dan <a href="https://unklab-aicode.online/privacy" className="text-primary hover:underline">Kebijakan Privasi</a> kami.
+                Dengan melanjutkan, Anda menyetujui <a href="/terms" className="text-primary hover:underline">Syarat & Ketentuan</a> dan <a href="/privacy" className="text-primary hover:underline">Kebijakan Privasi</a> kami.
               </p>
             </div>
           </div>

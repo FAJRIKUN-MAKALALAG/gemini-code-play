@@ -14,8 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Helmet } from "react-helmet-async";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 interface Question {
   id: string;

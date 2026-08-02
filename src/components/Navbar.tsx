@@ -19,8 +19,7 @@ import { Link } from "react-router-dom";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/hooks/use-toast";
 import { FAQModal } from "./FAQModal";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.unklab-aicode.online/api';
+import { API_BASE_URL } from "@/config";
 
 export type ViewMode = "code" | "chat" | "both";
 

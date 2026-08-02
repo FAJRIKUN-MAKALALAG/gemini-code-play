@@ -178,7 +178,7 @@ export default function ReviewAnswers() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       <Helmet>
-        <title>Evaluasi Jawaban - AI Coding Assistant</title>
+        <title>Evaluasi Jawaban - AI Code Assistant</title>
       </Helmet>
 
       {/* Header */}

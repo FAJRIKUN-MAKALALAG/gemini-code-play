@@ -178,7 +178,7 @@ export default function JoinChallenge() {
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row text-foreground">
       <Helmet>
-        <title>Bergabung Ujian – AI Coding Assistant</title>
+        <title>Bergabung Ujian – AI Code Assistant</title>
       </Helmet>
 
       {/* ── Panel Kiri: Riwayat Ujian ── */}

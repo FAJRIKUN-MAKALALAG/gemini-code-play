@@ -22,7 +22,7 @@ type MobileTab = "code" | "chat";
 const Index = () => {
   const location = useLocation();
   const { user, isLoading } = useAuth();
-  const [code, setCode] = useState(`# Selamat datang di AI Coding Assistant!\n# Tulis kode Python kamu di sini dan klik Run per cell\n\nprint("Halo, Dunia! Selamat belajar Python!")\n`);
+  const [code, setCode] = useState(`# Selamat datang di AI Code Assistant!\n# Tulis kode Python kamu di sini dan klik Run per cell\n\nprint("Halo, Dunia! Selamat belajar Python!")\n`);
   
   const [showStart, setShowStart] = useState(false);
   const [skulptReady, setSkulptReady] = useState(false);
@@ -234,7 +234,7 @@ const Index = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden relative bg-background">
       <Helmet>
-        <title>AI Coding Assistant</title>
+        <title>AI Code Assistant</title>
         <meta name="description" content="UNKLAB AI Code (unklab-aicode) - Interactive Python coding environment with AI chatbot assistance. Write, execute, and improve Python code with instant AI feedback." />
         <meta name="keywords" content="unklab-aicode, unklab ai code, UNKLAB, AI coding assistant, Python IDE, online Python editor, AI programming help, code debugging" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />

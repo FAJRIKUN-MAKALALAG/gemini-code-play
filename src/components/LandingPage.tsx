@@ -618,25 +618,31 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <div className="inline-flex p-3 rounded-2xl bg-primary/10 mb-6">
             <Shield className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Privasi Data & Transparansi</h2>
+          <h2 className="text-2xl font-bold mb-2">Privasi Data & Transparansi | Data Privacy & Transparency</h2>
           <p className="text-muted-foreground leading-relaxed mb-8 max-w-2xl mx-auto">
-            Kami berkomitmen menjaga privasi Anda. Data yang dikumpulkan hanya digunakan untuk
-            mendukung pengalaman belajar Anda di platform ini.
+            Kami berkomitmen menjaga privasi Anda. Data yang dikumpulkan hanya digunakan untuk mendukung pengalaman belajar Anda di platform ini.
+            <br />
+            <span className="text-xs italic block mt-2 text-muted-foreground/80">
+              We are committed to protecting your privacy. The data collected is only used to support your learning experience on this platform.
+            </span>
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
             {[
               {
-                title: "Mengapa kami kumpulkan data?",
+                title: "Mengapa kami kumpulkan data? / Why do we collect data?",
                 desc: "Kami meminta akses ke profil Google dasar (email & nama) untuk membuat akun dan memungkinkan Anda menyimpan kode serta histori chat antar sesi.",
+                descEn: "We request access to your basic Google profile (email & name) to create your account and allow you to save your code workspace and chat history across sessions."
               },
               {
-                title: "Bagaimana kami menggunakannya?",
+                title: "Bagaimana kami menggunakannya? / How do we use it?",
                 desc: "Data hanya digunakan untuk autentikasi dan menyimpan proyek Anda. Kami tidak membagikan data ke pihak ketiga atau menggunakannya untuk iklan.",
+                descEn: "Your data is solely used for authentication and storing your personal projects. We do not share your data with third parties or use it for advertising purposes."
               },
             ].map((item, i) => (
               <div key={i} className="p-6 rounded-xl bg-card border border-border">
                 <h4 className="font-bold mb-2 text-primary">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <p className="text-sm text-muted-foreground mb-2">{item.desc}</p>
+                <p className="text-xs text-muted-foreground/80 italic border-t border-border/40 pt-2">{item.descEn}</p>
               </div>
             ))}
           </div>

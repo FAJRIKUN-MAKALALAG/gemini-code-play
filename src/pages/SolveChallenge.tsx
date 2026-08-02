@@ -320,7 +320,7 @@ export default function SolveChallenge() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground">
       <Helmet>
-        <title>Ujian Aktif - AI Coding Assistant</title>
+        <title>Ujian Aktif - AI Code Assistant</title>
       </Helmet>
 
       {/* Image Fullscreen Overlay */}

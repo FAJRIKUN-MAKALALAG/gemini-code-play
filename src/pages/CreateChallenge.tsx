@@ -295,7 +295,7 @@ export default function CreateChallenge() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Helmet><title>Buat Soal Ujian – AI Coding Assistant</title></Helmet>
+      <Helmet><title>Buat Soal Ujian – AI Code Assistant</title></Helmet>
 
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 pb-20">
         {/* Header */}

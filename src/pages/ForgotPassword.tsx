@@ -46,7 +46,7 @@ const ForgotPassword = () => {
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-background">
             <Helmet>
-                <title>Lupa Password — AI Coding Assistant</title>
+                <title>Lupa Password — AI Code Assistant</title>
                 <meta name="robots" content="noindex" />
             </Helmet>
 

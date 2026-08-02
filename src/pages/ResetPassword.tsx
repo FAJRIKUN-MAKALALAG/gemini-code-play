@@ -84,7 +84,7 @@ const ResetPassword = () => {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background overflow-hidden relative">
             <Helmet>
-                <title>Reset Password — AI Coding Assistant</title>
+                <title>Reset Password — AI Code Assistant</title>
                 <meta name="robots" content="noindex" />
             </Helmet>
 

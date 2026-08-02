@@ -680,7 +680,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatProps>((props, 
               </div>
               
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-br from-foreground via-foreground/90 to-foreground/50 bg-clip-text text-transparent mb-3">
-                Ai Coding Assistant
+                AI Code Assistant
               </h1>
               
               <p className="text-sm text-muted-foreground/80 max-w-[320px] mb-8 leading-relaxed">

@@ -114,7 +114,7 @@ export const Navbar = ({ viewMode, onViewModeChange, onSignInClick }: NavbarProp
           <Link to="/" state={{ showLanding: true }} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
             <img src="/AicodeLogo.png" alt="AIcode Logo" className="w-7 h-7 sm:w-9 sm:h-9 object-contain dark-invert" />
             <div className="hidden sm:block">
-              <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight">AI Coding Assistant</h1>
+              <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight">AI Code Assistant</h1>
               <p className="text-[10px] text-muted-foreground hidden lg:block">Write, run &amp; improve Python with AI</p>
             </div>
           </Link>
